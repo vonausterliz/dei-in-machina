@@ -7,17 +7,8 @@ extends SceneTree
 ## Uso: tools/godot/godot4 --headless --script res://tools/validator/validate_data.gd
 ## Rieseguire a ogni modifica dei dati (norme di lavoro, CLAUDE.md).
 
-## Vocabolario chiuso dei tag, da docs/contratto_interprete.md sez. 1.
-## Se il contratto cambia, sincronizzare qui.
-const TAG_VOCABOLARIO := [
-	"tracotanza", "vanto", "astuzia", "inganno", "misura", "coraggio", "violenza", "empieta", "rispetto",
-	"preghiera", "supplica", "sacrificio", "xenia", "giuramento", "evocazione",
-	"desiderio", "curiosita", "nostalgia", "stanchezza", "fame", "disperazione", "fiducia", "sospetto",
-	"intrusione", "rotta", "sfida", "fuga",
-]
-
-const PLAUSIBILITA_ENUM := ["in_mondo", "assurdo_diegetico", "anacronistico", "meta_nonsenso"]
-const TIPO_ENUM := ["parola", "azione", "preghiera", "rituale", "movimento"]
+## Vocabolario chiuso, enum e validazione dell'envelope vivono in Contratto
+## (scripts/data/contratto.gd): fonte di verita' unica condivisa con l'Interprete.
 
 var _errori: Array[String] = []
 var _avvisi: Array[String] = []
@@ -62,7 +53,7 @@ func _valida_pantheon(path: String) -> Pantheon:
 			_warn("%s: fascia 'persistente' ma episodio impostato a '%s'" % [etichetta, dio.episodio])
 
 		for tag in dio.trigger_azione:
-			if not TAG_VOCABOLARIO.has(tag):
+			if not Contratto.TAG_VOCABOLARIO.has(tag):
 				_err("%s: trigger_azione '%s' fuori dal vocabolario chiuso" % [etichetta, tag])
 		for evento in dio.trigger_evento:
 			if not eventi_validi.is_empty() and not eventi_validi.has(evento):
@@ -122,18 +113,9 @@ func _valida_envelope(envelope: Dictionary, etichetta: String) -> void:
 	if envelope.is_empty():
 		_err("%s: envelope mancante o vuoto" % etichetta)
 		return
-	var plausibilita = envelope.get("plausibilita", null)
-	if not PLAUSIBILITA_ENUM.has(plausibilita):
-		_err("%s: plausibilita '%s' non valida" % [etichetta, plausibilita])
-	var tipo = envelope.get("tipo", null)
-	if not TIPO_ENUM.has(tipo):
-		_err("%s: tipo '%s' non valido" % [etichetta, tipo])
-	var tag: Array = envelope.get("tag", [])
-	for t in tag:
-		if not TAG_VOCABOLARIO.has(t):
-			_err("%s: tag '%s' fuori dal vocabolario chiuso" % [etichetta, t])
-	if plausibilita != "in_mondo" and tag.size() > 0:
-		_warn("%s: plausibilita '%s' ma tag non vuoti (regola 5 del contratto)" % [etichetta, plausibilita])
+	var esito := Contratto.valida_envelope(envelope)
+	for e in esito["errori"]:
+		_err("%s: %s" % [etichetta, e])
 
 func _stampa_report() -> void:
 	print("\n=== Validatore contratti-dati — Dei in machina ===\n")

@@ -1,0 +1,56 @@
+{
+  "_meta": {
+    "descrizione": "Scenari-fixture per l'Interprete. Ogni voce e' un input di Ulisse in testo libero + una rubrica di attese (non un assert rigido: la qualita' LLM la si osserva, non la si auto-promuove). 'tag_attesi' = tag che dovrebbero comparire; 'plausibilita_attesa' = classe di plausibilita' attesa.",
+    "uso": "tools/godot/godot4 --headless --path . --script res://tools/scenario_runner/run_scenarios.gd"
+  },
+  "scenari": [
+    {
+      "nome": "vanto_al_ciclope",
+      "input": "Grido verso il ciclope accecato: sono io, Odisseo di Itaca, che ti ho tolto l'occhio!",
+      "tag_attesi": ["vanto", "tracotanza"],
+      "plausibilita_attesa": "in_mondo"
+    },
+    {
+      "nome": "astuzia_nessuno",
+      "input": "Dico al gigante che il mio nome e' Nessuno.",
+      "tag_attesi": ["inganno", "astuzia"],
+      "plausibilita_attesa": "in_mondo"
+    },
+    {
+      "nome": "preghiera_atena",
+      "input": "Mi inginocchio e prego Atena di guidare la mia mano.",
+      "tag_attesi": ["preghiera"],
+      "plausibilita_attesa": "in_mondo"
+    },
+    {
+      "nome": "xenia_offerta",
+      "input": "Offro pane e vino allo straniero che bussa alla mia tenda, e gli lavo i piedi.",
+      "tag_attesi": ["xenia", "rispetto"],
+      "plausibilita_attesa": "in_mondo"
+    },
+    {
+      "nome": "misura_prudenza",
+      "input": "Trattengo i miei uomini, aspetto e osservo prima di agire.",
+      "tag_attesi": ["misura"],
+      "plausibilita_attesa": "in_mondo"
+    },
+    {
+      "nome": "anacronismo_aereo",
+      "input": "Salgo su un aereo e volo dritto a Itaca.",
+      "tag_attesi": [],
+      "plausibilita_attesa": "anacronistico"
+    },
+    {
+      "nome": "nonsenso_meta",
+      "input": "Chiedo all'intelligenza artificiale di scrivermi il codice del gioco.",
+      "tag_attesi": [],
+      "plausibilita_attesa": "meta_nonsenso"
+    },
+    {
+      "nome": "azione_neutra",
+      "input": "Riempio gli otri d'acqua alla sorgente e li carico sulla nave.",
+      "tag_attesi": [],
+      "plausibilita_attesa": "in_mondo"
+    }
+  ]
+}
