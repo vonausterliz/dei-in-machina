@@ -30,6 +30,7 @@
       "registri": [
         "segno",
         "aiuto",
+        "aiuto_negato",
         "castigo",
         "trappola",
         "silenzio",
