@@ -22,10 +22,21 @@ var _busy := false
 var _finita := false
 
 func _ready() -> void:
+	_prepara_finestra()
 	_costruisci_ui()
 	LLMManager.mock_mode = true
 	GameManager.nuova_partita(0)
 	_apri_scena()
+
+## Forza una finestra di dimensione decente e centrata (evita finestre minuscole su
+## alcuni sistemi/Retina, indipendentemente dalle impostazioni del progetto).
+func _prepara_finestra() -> void:
+	var w := get_window()
+	w.title = "Dei in machina"
+	w.min_size = Vector2i(900, 600)
+	w.size = Vector2i(1120, 740)
+	w.content_scale_mode = Window.CONTENT_SCALE_MODE_DISABLED
+	w.move_to_center()
 
 # --- costruzione UI ---
 
