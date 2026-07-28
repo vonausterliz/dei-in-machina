@@ -23,6 +23,13 @@
       "plausibilita_attesa": "in_mondo"
     },
     {
+      "nome": "preghiera_allusiva_zeus",
+      "input": "Levo le mani al capo dell'Olimpo e lo supplico di proteggere la mia rotta.",
+      "tag_attesi": ["supplica"],
+      "plausibilita_attesa": "in_mondo",
+      "dio_invocato_atteso": "zeus"
+    },
+    {
       "nome": "xenia_offerta",
       "input": "Offro pane e vino allo straniero che bussa alla mia tenda, e gli lavo i piedi.",
       "tag_attesi": ["xenia", "rispetto"],

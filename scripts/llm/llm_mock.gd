@@ -21,6 +21,13 @@ const _FIXTURES_INTERPRETE := {
 		"dio_invocato": null, "bersaglio": null, "tono": "neutro", "intensita": 1,
 		"sintesi": "Richiesta priva di senso nel mondo del gioco.",
 	},
+	# Preghiera con riferimento ALLUSIVO: tag vuoto e dio_invocato null di proposito,
+	# cosi' l'eventuale risveglio deriva solo dalla risoluzione dell'epiteto (GameManager).
+	"capo dell'olimpo": {
+		"plausibilita": "in_mondo", "tipo": "preghiera", "tag": [],
+		"dio_invocato": null, "bersaglio": null, "tono": "umile", "intensita": 2,
+		"sintesi": "Ulisse invoca il signore dell'Olimpo.",
+	},
 }
 
 const _ENVELOPE_DEFAULT := {

@@ -5,6 +5,7 @@ extends RefCounted
 
 var id: String = ""
 var nome: String = ""
+var epiteti: Array[String] = []
 var natura: String = ""
 var fascia: String = ""
 var attivo: bool = false
@@ -29,6 +30,7 @@ static func from_dict(d: Dictionary) -> Dio:
 	var dio := Dio.new()
 	dio.id = d.get("id", "")
 	dio.nome = d.get("nome", "")
+	dio.epiteti = _stringhe(d.get("epiteti", []))
 	dio.natura = d.get("natura", "")
 	dio.fascia = d.get("fascia", "")
 	dio.attivo = d.get("attivo", false)

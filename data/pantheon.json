@@ -42,6 +42,7 @@
     {
       "id": "atena",
       "nome": "Atena",
+      "epiteti": ["atena", "pallade", "pallade atena", "dea dagli occhi glauchi", "dea guerriera", "figlia di zeus"],
       "natura": "olimpico",
       "fascia": "persistente",
       "attivo": true,
@@ -78,6 +79,7 @@
     {
       "id": "poseidone",
       "nome": "Poseidone",
+      "epiteti": ["poseidone", "signore dei mari", "signore del mare", "scuotitore della terra", "enosigeo", "dio del mare"],
       "natura": "olimpico",
       "fascia": "persistente",
       "attivo": true,
@@ -118,6 +120,7 @@
     {
       "id": "zeus",
       "nome": "Zeus",
+      "epiteti": ["zeus", "capo dell'olimpo", "signore dell'olimpo", "padre degli dei", "re degli dei", "il tonante", "cronide", "signore del cielo"],
       "natura": "olimpico",
       "fascia": "persistente",
       "attivo": true,
@@ -156,6 +159,7 @@
     {
       "id": "polifemo",
       "nome": "Polifemo",
+      "epiteti": ["polifemo", "il ciclope", "ciclope", "figlio di poseidone"],
       "natura": "soprannaturale",
       "fascia": "locale",
       "attivo": false,
@@ -193,6 +197,7 @@
     {
       "id": "eolo",
       "nome": "Eolo",
+      "epiteti": ["eolo", "signore dei venti", "re dei venti", "custode dei venti"],
       "natura": "minore",
       "fascia": "locale",
       "attivo": false,
@@ -229,6 +234,7 @@
     {
       "id": "circe",
       "nome": "Circe",
+      "epiteti": ["circe", "maga circe", "la maga di eea"],
       "natura": "minore",
       "fascia": "locale",
       "attivo": false,
@@ -266,6 +272,7 @@
     {
       "id": "ermes",
       "nome": "Ermes",
+      "epiteti": ["ermes", "messaggero degli dei", "il messaggero alato", "argifonte"],
       "natura": "olimpico",
       "fascia": "locale",
       "attivo": false,
@@ -300,6 +307,7 @@
     {
       "id": "tiresia",
       "nome": "Tiresia",
+      "epiteti": ["tiresia", "indovino cieco", "veggente di tebe", "l'indovino"],
       "natura": "soprannaturale",
       "fascia": "locale",
       "attivo": false,
@@ -335,6 +343,7 @@
     {
       "id": "sirene",
       "nome": "Sirene",
+      "epiteti": ["sirene", "le sirene", "le cantatrici del mare"],
       "natura": "soprannaturale",
       "fascia": "locale",
       "attivo": false,
@@ -369,6 +378,7 @@
     {
       "id": "scilla",
       "nome": "Scilla",
+      "epiteti": ["scilla", "il mostro dello stretto"],
       "natura": "soprannaturale",
       "fascia": "locale",
       "attivo": false,
@@ -403,6 +413,7 @@
     {
       "id": "elio",
       "nome": "Elio",
+      "epiteti": ["elio", "dio del sole", "il sole che tutto vede", "iperione"],
       "natura": "olimpico",
       "fascia": "locale",
       "attivo": false,
@@ -437,6 +448,7 @@
     {
       "id": "calipso",
       "nome": "Calipso",
+      "epiteti": ["calipso", "ninfa di ogigia", "la ninfa dai bei capelli"],
       "natura": "minore",
       "fascia": "locale",
       "attivo": false,
@@ -476,6 +488,7 @@
     {
       "id": "ino_leucotea",
       "nome": "Ino Leucotea",
+      "epiteti": ["ino leucotea", "leucotea", "la dea bianca"],
       "natura": "minore",
       "fascia": "locale",
       "attivo": false,

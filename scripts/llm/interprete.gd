@@ -17,19 +17,33 @@ const PROMPT_GUARDRAIL := "res://prompts/guardrail_anti_assistente.txt"
 var _system_prompt: String = ""
 var id_dei_validi: Array = []
 
-func _init(id_dei: Array = []) -> void:
+## id_dei: id ammessi per dio_invocato (validazione). pantheon (opzionale): se dato,
+## inietta nel prompt un roster id+epiteti perche' l'LLM sappia mappare i riferimenti
+## allusivi ("il capo dell'olimpo" -> zeus) sull'id giusto.
+func _init(id_dei: Array = [], pantheon: Pantheon = null) -> void:
 	id_dei_validi = id_dei
-	_system_prompt = _costruisci_system_prompt()
+	_system_prompt = _costruisci_system_prompt(pantheon)
 
 func system_prompt() -> String:
 	return _system_prompt
 
-func _costruisci_system_prompt() -> String:
+func _costruisci_system_prompt(pantheon: Pantheon = null) -> String:
 	var template := _leggi(PROMPT_SYSTEM)
 	var guardrail := _leggi(PROMPT_GUARDRAIL)
 	template = template.replace("{{GUARDRAIL}}", guardrail)
 	template = template.replace("{{VOCABOLARIO_TAG}}", Contratto.vocabolario_per_prompt())
+	template = template.replace("{{ROSTER_DEI}}", _roster(pantheon))
 	return template
+
+## Roster id -> epiteti per la risoluzione allusiva di dio_invocato (solo prompt).
+func _roster(pantheon: Pantheon) -> String:
+	if pantheon == null:
+		return "(nessun roster fornito)"
+	var righe: Array[String] = []
+	for dio in pantheon.tutti():
+		var app := ", ".join(dio.epiteti) if dio.epiteti.size() > 0 else dio.nome
+		righe.append("- %s: %s" % [dio.id, app])
+	return "\n".join(righe)
 
 func _leggi(path: String) -> String:
 	if not FileAccess.file_exists(path):

@@ -29,7 +29,7 @@ func _inizializza_reale() -> void:
 	add_child(_client)
 	_client.configura(config, _leggi_chiave(config))
 	var id_dei: Array = PantheonManager.pantheon.tutti_gli_id() if PantheonManager.pantheon else []
-	_interprete = Interprete.new(id_dei)
+	_interprete = Interprete.new(id_dei, PantheonManager.pantheon)
 
 ## La chiave API sta fuori dal repo: variabile d'ambiente il cui nome e' in config.
 func _leggi_chiave(cfg: Dictionary) -> String:

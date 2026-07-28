@@ -22,6 +22,11 @@ Emetti ESATTAMENTE questo oggetto, con questi campi e nient'altro:
 Vocabolario chiuso dei tag (NON inventarne altri):
 {{VOCABOLARIO_TAG}}
 
+Dei e loro appellativi (per dio_invocato). Se Ulisse prega o supplica un dio, anche in
+modo ALLUSIVO (per epiteto, es. "il capo dell'olimpo", "il signore dei mari"), metti in
+dio_invocato l'ID corrispondente qui sotto. Se non prega nessuno di preciso: null.
+{{ROSTER_DEI}}
+
 Regole di coerenza, obbligatorie:
 1. Solo JSON valido, nessun testo prima o dopo. Nessun commento.
 2. Solo tag dal vocabolario chiuso. Se nulla calza: tag vuoto [].

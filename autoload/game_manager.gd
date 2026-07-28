@@ -58,6 +58,7 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	var svegli: Array[String] = []
 	if in_mondo:
 		percorso.append(Fase.keys()[Fase.RISVEGLIO])
+		_risolvi_invocazione(envelope, input_testo)
 		svegli = PantheonManager.risveglio(envelope, eventi, _episodio_corrente())
 		_segna_in_gioco(svegli)
 
@@ -101,6 +102,26 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 func _episodio_corrente() -> String:
 	var ep: Variant = stato.ulisse.get("episodio_corrente", null)
 	return String(ep) if ep != null else ""
+
+## Riferimento allusivo a un dio: se Ulisse invoca/supplica (anche per epiteto:
+## "il capo dell'olimpo") senza che l'envelope abbia gia' un dio_invocato valido,
+## lo risolviamo deterministicamente dal testo. Gated sull'INTENTO di invocazione
+## (preghiera/supplica): una menzione di passaggio non deve svegliare un dio.
+func _risolvi_invocazione(envelope: Dictionary, input_testo: String) -> void:
+	if not _ha_intento_invocazione(envelope):
+		return
+	var attuale: Variant = envelope.get("dio_invocato", null)
+	if attuale != null and PantheonManager.pantheon.ha(String(attuale)):
+		return  # l'Interprete/LLM ha gia' fornito un id valido
+	var id := PantheonManager.risolvi_invocato(input_testo)
+	if id != "":
+		envelope["dio_invocato"] = id
+
+func _ha_intento_invocazione(envelope: Dictionary) -> bool:
+	if envelope.get("tipo", "") == "preghiera":
+		return true
+	var tag: Array = envelope.get("tag", [])
+	return tag.has("preghiera") or tag.has("supplica")
 
 ## Un dio che si sveglia entra "in gioco" (utile per i locali; i persistenti lo sono gia').
 func _segna_in_gioco(svegli: Array) -> void:

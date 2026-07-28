@@ -97,3 +97,35 @@ func _combacia(triggers: Array, presenti: Array) -> bool:
 		if presenti.has(t):
 			return true
 	return false
+
+## Risolve un riferimento a un dio dentro il testo libero — anche ALLUSIVO
+## ("il capo dell'olimpo" -> zeus, "signore dei mari" -> poseidone) — cercando nome
+## ed epiteti come sottostringhe. Ritorna l'id del dio, o "" se nessuno.
+## Deterministico (GDScript): l'allusione la scioglie una regola, non l'LLM.
+## Longest-match: se piu' epiteti combaciano, vince il piu' lungo (piu' specifico),
+## cosi' "figlia di zeus" -> atena batte "zeus" -> zeus.
+func risolvi_invocato(testo: String) -> String:
+	var t := _normalizza_testo(testo)
+	if t == "":
+		return ""
+	var best_id := ""
+	var best_len := 0
+	for dio in tutti():
+		var alias_list: Array[String] = dio.epiteti.duplicate()
+		if not alias_list.has(dio.nome):
+			alias_list.append(dio.nome)
+		for alias in alias_list:
+			var a := _normalizza_testo(alias)
+			if a.length() > best_len and a != "" and t.find(a) != -1:
+				best_len = a.length()
+				best_id = dio.id
+	return best_id
+
+## Minuscolo + accenti rimossi, per un confronto robusto sull'input del giocatore.
+func _normalizza_testo(s: String) -> String:
+	var out := s.to_lower()
+	var da := ["à", "á", "è", "é", "ì", "í", "ò", "ó", "ù", "ú"]
+	var a := ["a", "a", "e", "e", "i", "i", "o", "o", "u", "u"]
+	for i in da.size():
+		out = out.replace(da[i], a[i])
+	return out

@@ -59,6 +59,21 @@ func test_invariante_omero_non_nomina_dei():
 			assert_eq(bassa.find(dio.nome.to_lower()), -1,
 				"narrazione nomina '%s': \"%s\"" % [dio.nome, narrazione])
 
+func test_preghiera_allusiva_sveglia_zeus():
+	# "il capo dell'olimpo" -> zeus via risoluzione deterministica. Il mock restituisce
+	# tipo preghiera, tag [], dio_invocato null: l'unico modo in cui Zeus si sveglia
+	# e' la risoluzione dell'epiteto. Prova che l'allusione funziona end-to-end.
+	var esito := await GameManager.esegui_turno("Mi rivolgo al capo dell'olimpo e lo supplico.")
+	assert_eq(esito["voce"]["envelope"]["dio_invocato"], "zeus")
+	assert_eq(esito["svegli"], ["zeus"])
+
+func test_menzione_non_invocativa_non_sveglia():
+	# Stessa allusione ma senza intento di preghiera (tipo azione, tag []): il gating
+	# impedisce la risoluzione, nessun dio si sveglia per una menzione di passaggio.
+	var esito := await GameManager.esegui_turno("Riempio gli otri d'acqua alla sorgente.")
+	assert_eq(esito["voce"]["envelope"].get("dio_invocato"), null)
+	assert_eq(esito["svegli"], [])
+
 func test_registro_persistenti_in_gioco_da_subito():
 	# Re-eval Fase 0: i persistenti attivi nascono "risvegliato:true".
 	var reg: Dictionary = GameManager.stato.registro_divino

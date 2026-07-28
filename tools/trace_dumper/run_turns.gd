@@ -14,6 +14,7 @@ const COPIONE := [
 	"Dico al gigante che il mio nome e' Nessuno.",   # astuzia/inganno  -> Atena
 	"Prendo un aereo e volo a Itaca.",               # anacronistico    -> nessun dio, richiamo
 	"Riempio gli otri d'acqua alla sorgente.",       # neutro           -> nessun dio
+	"Mi rivolgo al capo dell'olimpo e lo supplico.", # preghiera allusiva -> Zeus (via epiteto)
 ]
 
 func _init() -> void:

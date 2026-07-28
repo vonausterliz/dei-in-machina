@@ -26,3 +26,7 @@ func risveglio(envelope: Dictionary, eventi: Array, episodio_corrente: String) -
 
 func eleggibili(episodio_corrente: String) -> Array[String]:
 	return pantheon.eleggibili(episodio_corrente) if pantheon else []
+
+## Risolve un riferimento (anche allusivo) a un dio nel testo -> id, o "".
+func risolvi_invocato(testo: String) -> String:
+	return pantheon.risolvi_invocato(testo) if pantheon else ""
