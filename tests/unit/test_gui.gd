@@ -21,6 +21,7 @@ func test_gui_gioca_un_turno():
 	await wait_frames(2)
 	ui._input.text = "Sono io, Odisseo, che t'ho accecato!"
 	await ui._on_agisci()
-	# Dopo il turno la narrazione e' cresciuta e le stat sono aggiornate.
+	# Dopo il turno la narrazione e' cresciuta e le stat (barre + valori) esistono.
 	assert_string_contains(ui._narrazione.get_parsed_text().to_lower(), "un dio")
-	assert_string_contains(ui._stats.text, "animo")
+	assert_true(ui._stat_vals.has("animo"))
+	assert_ne(ui._stat_vals["animo"].text, "—", "il valore dell'animo e' stato popolato")
