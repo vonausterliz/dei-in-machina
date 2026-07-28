@@ -56,15 +56,17 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	percorso.append(Fase.keys()[Fase.INTERPRETAZIONE])
 	var envelope: Dictionary = await LLMManager.interpreta(input_testo)
 
-	# VALIDAZIONE — instradamento minimo (ammonizione piena = fase 5).
+	# VALIDAZIONE — scala diegetica dell'ammonizione (design sez. 6). Un input
+	# fuori dal mondo non e' un errore: e' richiamo, poi smarrimento, poi follia.
 	percorso.append(Fase.keys()[Fase.VALIDAZIONE])
-	var in_mondo: bool = envelope.get("plausibilita", "") == "in_mondo"
+	var val := _valida(envelope, input_testo)
+	var in_mondo: bool = val["in_mondo"]
 
 	# RISVEGLIO — selezione deterministica dei dei che reagiscono.
 	var svegli: Array[String] = []
 	var proposte: Array = []
 	var verdetto: Dictionary = {}
-	var delta: Dictionary = {}
+	var delta: Dictionary = val["delta"]  # fuori-mondo: smarrimento/follia (vuoto se in_mondo)
 	var conflitto := false
 	if in_mondo:
 		percorso.append(Fase.keys()[Fase.RISVEGLIO])
@@ -93,7 +95,8 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 				delta = Delta.unisci(delta, Delta.da_reazione(
 					verdetto["attore"], verdetto["registro"], int(verdetto["intensita"])))
 
-		Delta.applica(stato, delta)
+	# APPLICAZIONE del delta (reazione divina in_mondo, oppure smarrimento/follia fuori-mondo).
+	Delta.applica(stato, delta)
 
 	# NARRAZIONE — Omero reticente, senza nomi di dei (invariante).
 	percorso.append(Fase.keys()[Fase.NARRAZIONE])
@@ -110,6 +113,7 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 		"delta": delta,
 		"impronta": impronta,
 		"esito_segno": _segno_esito(delta),
+		"ammonizione": val["classe"],  # "": nessuna; "richiamo"/"smarrimento"/"follia"
 	})
 
 	# Registrazioni: storico_olimpo (vista Olimpo/debug) + diario (player-facing).
@@ -123,18 +127,20 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 		"deliberazione": proposte,
 		"verdetto": verdetto,
 		"delta": delta,
+		"ammonizione": val["classe"],
 		"narrazione_omero": narrazione,
 	}
 	stato.storico_olimpo.append(voce)
 	stato.diario.append({
 		"turno": turno,
 		"voce": envelope.get("sintesi", input_testo),
-		"esito": Delta.marcatore_diario(delta) if in_mondo else "neutro",
+		"esito": Delta.marcatore_diario(delta) if in_mondo else "ill",
 	})
 
-	# ESITO — ora le stat cambiano: controllo reale (ciurma; gli altri esiti con le loro fasi).
+	# ESITO — la follia (ammonizione oltre soglia) chiude la partita; altrimenti
+	# valgono i controlli sulle stat (ciurma). Gli altri esiti con le loro fasi.
 	percorso.append(Fase.keys()[Fase.ESITO])
-	var esito := _controlla_esito()
+	var esito: String = val["esito"] if val["esito"] != "continua" else _controlla_esito()
 	if esito != "continua":
 		stato.stato = "finita"
 		stato.esito = esito
@@ -234,6 +240,46 @@ func _arbitra(proposte: Array) -> Dictionary:
 		"intensita": int(best.get("intensita", 1)),
 		"dice": best.get("dice", ""),
 	}
+
+## Entita' del crollo d'animo per smarrimento e per follia (valori-seme).
+const _CALO_SMARRIMENTO := 8
+const _CALO_FOLLIA := 100
+
+## VALIDAZIONE / AMMONIZIONE (design sez. 6). Scala DOLCE: il falso positivo qui uccide.
+## in_mondo -> turno pulito (+1) e decadimento graduale dell'ammonizione.
+## fuori-mondo -> contatore +1; primo scivolone = solo richiamo (Omero ti riporta dentro);
+## se insisti = smarrimento (l'animo cala); alla soglia = follia (un dio colpisce: game over).
+## Ritorna {in_mondo, delta, esito, classe}. classe in "": nessuna / richiamo / smarrimento / follia.
+func _valida(envelope: Dictionary, input_testo: String) -> Dictionary:
+	var amm: Dictionary = stato.ammonizioni
+	var in_mondo: bool = envelope.get("plausibilita", "") == "in_mondo"
+
+	if in_mondo:
+		amm["turni_puliti"] = int(amm.get("turni_puliti", 0)) + 1
+		var ogni: int = int(amm.get("decadimento_ogni", 3))
+		if int(amm.get("contatore", 0)) > 0 and ogni > 0 and amm["turni_puliti"] % ogni == 0:
+			amm["contatore"] = int(amm["contatore"]) - 1  # decadimento: torni sensato, si dimentica
+		return {"in_mondo": true, "delta": {}, "esito": "continua", "classe": ""}
+
+	# Fuori dal mondo: sale l'ammonizione, azzero i turni puliti.
+	amm["contatore"] = int(amm.get("contatore", 0)) + 1
+	amm["turni_puliti"] = 0
+	amm["ultimo_richiamo"] = {
+		"turno": stato.turno,
+		"input": input_testo,
+		"classe": envelope.get("plausibilita", ""),
+	}
+
+	var soglia: int = int(amm.get("soglia", 3))
+	var contatore: int = int(amm["contatore"])
+	if contatore >= soglia:
+		# FOLLIA: un dio colpisce l'empieta reiterata. Fine.
+		return {"in_mondo": false, "delta": {"ulisse.animo": -_CALO_FOLLIA}, "esito": "follia", "classe": "follia"}
+	if contatore >= 2:
+		# SMARRIMENTO: il mondo legge il nonsenso come sbandamento, l'animo cala.
+		return {"in_mondo": false, "delta": {"ulisse.animo": -_CALO_SMARRIMENTO}, "esito": "continua", "classe": "smarrimento"}
+	# Primo scivolone: solo richiamo, nessun danno.
+	return {"in_mondo": false, "delta": {}, "esito": "continua", "classe": "richiamo"}
 
 func _episodio_corrente() -> String:
 	var ep: Variant = stato.ulisse.get("episodio_corrente", null)

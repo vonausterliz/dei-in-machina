@@ -30,8 +30,13 @@ func _leggi(path: String) -> String:
 func costruisci_messaggi(contesto: Dictionary) -> Array:
 	var pezzi: Array[String] = []
 	pezzi.append("Ulisse ha appena: %s" % contesto.get("sintesi", "qualcosa"))
-	if not contesto.get("in_mondo", true):
-		pezzi.append("(Nota: e' un gesto fuori dal mondo dell'Odissea; riportalo dentro con un richiamo, senza spezzare l'incanto.)")
+	match contesto.get("ammonizione", ""):
+		"richiamo":
+			pezzi.append("(Gesto fuori dal mondo dell'Odissea: NON narrarlo come reale. Rifiutati con dolcezza e riportalo dentro la scena, senza spezzare l'incanto.)")
+		"smarrimento":
+			pezzi.append("(Ulisse insiste con gesti insensati: lo smarrimento lo prende, i compagni lo guardano con timore. Narra la confusione, non il gesto.)")
+		"follia":
+			pezzi.append("(Ulisse ha perso la ragione: l'empieta reiterata chiama la mano di un dio. E' la fine, per follia. Narra il tracollo, cupo e breve — mai un nome.)")
 	var segno: String = contesto.get("esito_segno", "")
 	if segno != "":
 		pezzi.append("La piega delle cose: %s." % segno)
