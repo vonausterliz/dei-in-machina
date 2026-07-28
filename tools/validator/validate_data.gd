@@ -16,8 +16,35 @@ var _avvisi: Array[String] = []
 func _init() -> void:
 	var pantheon := _valida_pantheon("res://data/pantheon.json")
 	_valida_stato_partita("res://data/stato_partita.json", pantheon)
+	_valida_episodi("res://data/episodi.json", pantheon)
 	_stampa_report()
 	quit(1 if not _errori.is_empty() else 0)
+
+func _valida_episodi(path: String, pantheon: Pantheon) -> void:
+	if not FileAccess.file_exists(path):
+		_warn("Episodi: nessun file in %s" % path)
+		return
+	var episodi := Episodi.carica(path)
+	if episodi.numero() == 0:
+		_err("Episodi: nessun episodio caricato da %s" % path)
+		return
+	var eventi_validi: Array = pantheon.meta.get("vocabolario_eventi", [])
+	for id in episodi.ordine():
+		var ep := episodi.get_episodio(id)
+		var et := "episodio '%s'" % id
+		if ep.dio_locale != null:
+			var idl := String(ep.dio_locale)
+			if not pantheon.ha(idl):
+				_err("%s: dio_locale '%s' non esiste nel pantheon" % [et, idl])
+			elif String(pantheon.get_dio(idl).episodio) != id:
+				_warn("%s: dio_locale '%s' non ha episodio '%s' nel pantheon" % [et, idl, id])
+		for e in ep.eventi_attivi:
+			if not eventi_validi.is_empty() and not eventi_validi.has(e):
+				_err("%s: evento_attivo '%s' non in _meta.vocabolario_eventi" % [et, e])
+		if ep.avanza_su_tag != null and not Contratto.TAG_VOCABOLARIO.has(String(ep.avanza_su_tag)):
+			_err("%s: avanza_su_tag '%s' fuori dal vocabolario chiuso" % [et, ep.avanza_su_tag])
+	if episodi.ordine()[-1] != "itaca":
+		_warn("Episodi: l'ultima tappa non e' 'itaca' (la vittoria potrebbe non scattare)")
 
 func _err(msg: String) -> void:
 	_errori.append(msg)

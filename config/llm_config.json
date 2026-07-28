@@ -2,7 +2,7 @@
   "mock": true,
   "provider": "ollama",
   "base_url": "http://localhost:11434",
-  "model": "llama3.3:latest",
-  "api_key_env": "DEI_IN_MACHINA_API_KEY",
+  "model": "mistral-small3.2:latest",
+  "api_key_env": "MISTRAL_API_KEY",
   "dei_attivi_stadio": 1
 }

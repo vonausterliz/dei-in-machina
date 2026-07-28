@@ -51,6 +51,21 @@ func dei_attivi() -> Array[Dio]:
 			out.append(dio)
 	return out
 
+## Tutti i dei locali legati a un episodio (per accenderli all'ingresso della tappa).
+func locali_di_episodio(episodio: String) -> Array[Dio]:
+	var out: Array[Dio] = []
+	for dio in tutti():
+		if dio.fascia == "locale" and dio.episodio != null and String(dio.episodio) == episodio:
+			out.append(dio)
+	return out
+
+## Riporta tutti i locali a spenti (attivo=false). Usato all'inizio di una nuova partita
+## perche' l'accensione delle tappe muta 'attivo' in memoria.
+func spegni_locali() -> void:
+	for dio in tutti():
+		if dio.fascia == "locale":
+			dio.attivo = false
+
 func numero_dei() -> int:
 	return _dei.size()
 

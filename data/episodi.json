@@ -1,0 +1,109 @@
+{
+  "_meta": {
+    "gioco": "Dei in machina",
+    "versione_schema": "0.1",
+    "descrizione": "Le tappe del viaggio di Ulisse. Ordine canonico. Ogni tappa accende i suoi dei locali (per 'episodio' nel pantheon) e definisce come si avanza. 'eventi_attivi' sono condizioni di mondo vere finche' si e' nella tappa (le legge il risveglio). 'avanza_su_tag' = azione che fa progredire la storia; 'turni_massimi' = tetto oltre cui si avanza comunque (niente vicoli ciechi). Contenuti-seme: facili da tarare. Itaca e' la meta: arrivarci e' la vittoria.",
+    "nota_avanzamento": "Assunzione MVP (il design lascia aperti gli obiettivi di tappa, sez. 12): si avanza quando compare 'avanza_su_tag' OPPURE al raggiungimento di 'turni_massimi'. Da raffinare episodio per episodio."
+  },
+  "episodi": [
+    {
+      "id": "ciclope",
+      "nome": "L'antro del Ciclope",
+      "intro": "Sei nell'antro buio del ciclope Polifemo. L'aria sa di gregge e di sangue. Il masso chiude l'uscita.",
+      "dio_locale": "polifemo",
+      "eventi_attivi": [],
+      "avanza_su_tag": "fuga",
+      "turni_massimi": 8
+    },
+    {
+      "id": "eolo",
+      "nome": "L'isola di Eolo",
+      "intro": "L'isola galleggiante di Eolo, signore dei venti. Ti accoglie come ospite: la rotta per casa sembra vicina.",
+      "dio_locale": "eolo",
+      "eventi_attivi": [],
+      "avanza_su_tag": "rotta",
+      "turni_massimi": 6
+    },
+    {
+      "id": "circe",
+      "nome": "Il palazzo di Circe",
+      "intro": "L'isola di Eea. Dal folto sale il fumo del palazzo di Circe, la maga. I tuoi uomini sono gia' andati avanti.",
+      "dio_locale": "circe",
+      "eventi_attivi": [],
+      "avanza_su_tag": "rotta",
+      "turni_massimi": 8
+    },
+    {
+      "id": "ade",
+      "nome": "La soglia dell'Ade",
+      "intro": "Ai confini del mondo, dove i morti si affollano attorno al sangue. Sei venuto a interrogare l'indovino Tiresia.",
+      "dio_locale": "tiresia",
+      "eventi_attivi": [],
+      "avanza_su_tag": "rotta",
+      "turni_massimi": 6
+    },
+    {
+      "id": "sirene",
+      "nome": "Il canto delle Sirene",
+      "intro": "Il mare si fa liscio come olio. Dall'isola sale un canto dolcissimo che promette ogni sapere.",
+      "dio_locale": "sirene",
+      "eventi_attivi": [],
+      "avanza_su_tag": "rotta",
+      "turni_massimi": 5
+    },
+    {
+      "id": "scilla",
+      "nome": "Lo stretto di Scilla e Cariddi",
+      "intro": "Uno stretto angusto: da un lato lo scoglio di Scilla, dall'altro il gorgo di Cariddi che inghiotte il mare.",
+      "dio_locale": "scilla",
+      "eventi_attivi": ["passaggio"],
+      "avanza_su_tag": "rotta",
+      "turni_massimi": 4
+    },
+    {
+      "id": "trinacia",
+      "nome": "L'isola del Sole",
+      "intro": "Trinacia, dove pascolano le mandrie sacre di Elio. I compagni hanno fame, e le bestie sono grasse.",
+      "dio_locale": "elio",
+      "eventi_attivi": [],
+      "avanza_su_tag": "rotta",
+      "turni_massimi": 6
+    },
+    {
+      "id": "ogigia",
+      "nome": "L'isola di Calipso",
+      "intro": "Ogigia, l'isola nascosta. Calipso ti trattiene con dolcezza e ti offre l'immortalita'. Il tempo qui non passa.",
+      "dio_locale": "calipso",
+      "eventi_attivi": [],
+      "avanza_su_tag": "rotta",
+      "turni_massimi": 8
+    },
+    {
+      "id": "naufragio",
+      "nome": "La tempesta",
+      "intro": "La zattera si sfascia sotto i colpi del mare in tempesta. Le onde ti trascinano sotto. Stai annegando.",
+      "dio_locale": "ino_leucotea",
+      "eventi_attivi": ["naufragio"],
+      "avanza_su_tag": "fuga",
+      "turni_massimi": 4
+    },
+    {
+      "id": "scheria",
+      "nome": "La terra dei Feaci",
+      "intro": "La spiaggia dei Feaci, gente di mare ospitale. Se saprai raccontarti, ti daranno una nave per casa.",
+      "dio_locale": null,
+      "eventi_attivi": [],
+      "avanza_su_tag": "rotta",
+      "turni_massimi": 5
+    },
+    {
+      "id": "itaca",
+      "nome": "Itaca",
+      "intro": "La tua isola. Sei a casa.",
+      "dio_locale": null,
+      "eventi_attivi": [],
+      "avanza_su_tag": null,
+      "turni_massimi": 0
+    }
+  ]
+}

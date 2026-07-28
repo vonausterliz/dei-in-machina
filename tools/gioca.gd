@@ -63,8 +63,13 @@ func _gioca() -> void:
 
 		var esito: Dictionary = await _gm.esegui_turno(riga)
 		_stampa_turno(esito)
+		if esito.get("avanzato", false) and esito["esito"] == "continua":
+			print("\n~ %s ~\nOmero: %s" % [_gm.stato.viaggio["corrente"], esito.get("intro", "")])
 		if esito["esito"] != "continua":
-			print("\n=== FINE: %s ===" % esito["esito"])
+			if esito["esito"] == "itaca":
+				print("\n=== VITTORIA: sei tornato a Itaca. ===")
+			else:
+				print("\n=== FINE: %s ===" % esito["esito"])
 			break
 
 	print("\nAddio, Ulisse.")
@@ -76,7 +81,7 @@ func _intro() -> void:
 	print(" Gli dei ti osservano, ma non li vedrai. Deducili.")
 	print(" Comandi: :olimpo  :stato  :esci")
 	print("============================================================")
-	print("\nOmero: Ti trovi nell'antro del ciclope, al buio. Cosa fai?")
+	print("\nOmero: %s\nCosa fai?" % _gm.intro_corrente())
 
 func _stampa_turno(esito: Dictionary) -> void:
 	var voce: Dictionary = esito["voce"]

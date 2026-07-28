@@ -43,7 +43,7 @@ static func nuova(pantheon: Pantheon, seed_partita: int, run_id: String = "") ->
 		"hybris": 0,
 		"cimeli": [],
 	}
-	s.viaggio = {"ordine_episodi": [], "completati": [], "corrente": null}
+	s.viaggio = {"ordine_episodi": [], "completati": [], "corrente": null, "turni_in_episodio": 0}
 	s.registro_divino = {}
 	for dio in pantheon.tutti():
 		# I persistenti attivi sono "in gioco" fin dall'inizio (sempre in ascolto);

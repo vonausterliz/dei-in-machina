@@ -9,6 +9,9 @@ extends Node
 ## da instradamento (in_mondo -> risveglio; fuori-mondo -> nessun dio + richiamo di Omero).
 
 const SALVATAGGIO_DEFAULT := "user://partita.json"
+const EPISODI_PATH := "res://data/episodi.json"
+
+var episodi: Episodi = null
 
 ## Fasi della macchina del turno (macchina_del_turno.mermaid).
 enum Fase {
@@ -31,10 +34,35 @@ var _rng := RandomNumberGenerator.new()
 
 var stato: StatoPartita = null
 
+func _ready() -> void:
+	episodi = Episodi.carica(EPISODI_PATH)
+
 func nuova_partita(seed_partita: int = 0) -> void:
 	var s := seed_partita if seed_partita != 0 else randi()
 	stato = StatoPartita.nuova(PantheonManager.pantheon, s)
 	_rng.seed = s  # riproducibilita': stessa run, stessi scavalcamenti
+	# Viaggio: i locali ripartono spenti; si entra nella prima tappa (accende i suoi locali).
+	PantheonManager.pantheon.spegni_locali()
+	stato.viaggio["ordine_episodi"] = episodi.ordine()
+	_entra_in_episodio(episodi.primo())
+
+## Entra in una tappa: la rende corrente, azzera i turni-in-tappa e ACCENDE i suoi
+## dei locali (attivo + in gioco). Ritorna l'intro della tappa (per il narratore/console).
+func _entra_in_episodio(id: String) -> String:
+	stato.viaggio["corrente"] = id
+	stato.viaggio["turni_in_episodio"] = 0
+	stato.ulisse["episodio_corrente"] = id
+	for dio in PantheonManager.pantheon.locali_di_episodio(id):
+		dio.attivo = true
+		if stato.registro_divino.has(dio.id):
+			stato.registro_divino[dio.id]["risvegliato"] = true
+	var ep := episodi.get_episodio(id)
+	return ep.intro if ep else ""
+
+## Intro della tappa corrente (per aprire la scena).
+func intro_corrente() -> String:
+	var ep := episodi.get_episodio(_episodio_corrente())
+	return ep.intro if ep else ""
 
 func carica_partita(path: String = SALVATAGGIO_DEFAULT) -> bool:
 	var s := StatoPartita.carica(path)
@@ -57,6 +85,9 @@ func salva_partita(path: String = SALVATAGGIO_DEFAULT) -> bool:
 func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	if stato == null:
 		push_error("GameManager: nessuna partita attiva.")
+		return {}
+	if stato.stato != "in_corso":
+		push_warning("GameManager: partita gia' conclusa (%s)." % str(stato.esito))
 		return {}
 
 	var percorso: Array[String] = []
@@ -85,10 +116,13 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	var scavalcamento: Dictionary = {}
 	var delta: Dictionary = val["delta"]  # fuori-mondo: smarrimento/follia (vuoto se in_mondo)
 	var conflitto := false
+	# Eventi di mondo attivi in questa tappa (es. 'passaggio' nello stretto), uniti a
+	# quelli passati dall'esterno: li legge il risveglio.
+	var eventi_turno := _eventi_del_turno(eventi)
 	if in_mondo:
 		percorso.append(Fase.keys()[Fase.RISVEGLIO])
 		_risolvi_invocazione(envelope, input_testo)
-		svegli = PantheonManager.risveglio(envelope, eventi, _episodio_corrente())
+		svegli = PantheonManager.risveglio(envelope, eventi_turno, _episodio_corrente())
 		_segna_in_gioco(svegli)
 
 		# L'azione cambia Ulisse comunque (hybris/metis), anche se nessun dio reagisce.
@@ -149,7 +183,8 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 		"input": input_testo,
 		"envelope": envelope,
 		"svegli": svegli,
-		"eventi_emessi": eventi,
+		"episodio": _episodio_corrente(),
+		"eventi_emessi": eventi_turno,
 		"conflitto": conflitto if in_mondo else false,
 		"deliberazione": proposte,
 		"verdetto": verdetto,
@@ -170,16 +205,27 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	# valgono i controlli sulle stat (ciurma). Gli altri esiti con le loro fasi.
 	percorso.append(Fase.keys()[Fase.ESITO])
 	var esito: String = val["esito"] if val["esito"] != "continua" else _controlla_esito()
+
+	# AVANZAMENTO — se la partita continua ed e' un turno in-mondo, la tappa puo' concludersi
+	# (azione di progresso o tetto turni) e si passa alla successiva; arrivare a Itaca e' vittoria.
+	percorso.append(Fase.keys()[Fase.AVANZAMENTO])
+	var avanzamento := {"avanzato": false, "intro": "", "episodio": _episodio_corrente()}
+	if esito == "continua" and in_mondo:
+		avanzamento = _avanza_episodio(envelope)
+		esito = avanzamento["esito"]
+
 	if esito != "continua":
 		stato.stato = "finita"
 		stato.esito = esito
 
-	percorso.append(Fase.keys()[Fase.AVANZAMENTO])
 	return {
 		"voce": voce,
 		"svegli": svegli,
 		"in_mondo": in_mondo,
 		"esito": esito,
+		"episodio": avanzamento["episodio"],
+		"avanzato": avanzamento["avanzato"],
+		"intro": avanzamento["intro"],
 		"fsm_path": percorso,
 	}
 
@@ -365,6 +411,40 @@ func _resa_dei_conti() -> Dictionary:
 func _episodio_corrente() -> String:
 	var ep: Variant = stato.ulisse.get("episodio_corrente", null)
 	return String(ep) if ep != null else ""
+
+## Eventi di mondo del turno: quelli della tappa corrente + quelli passati dall'esterno.
+func _eventi_del_turno(eventi: Array) -> Array:
+	var out: Array = eventi.duplicate()
+	var ep := episodi.get_episodio(_episodio_corrente()) if episodi else null
+	if ep:
+		for e in ep.eventi_attivi:
+			if not out.has(e):
+				out.append(e)
+	return out
+
+## AVANZAMENTO della tappa. Ritorna {esito, avanzato, intro, episodio}.
+## Si avanza se compare l'azione di progresso (avanza_su_tag) o si tocca il tetto turni.
+## Entrare in Itaca = vittoria (esito "itaca").
+func _avanza_episodio(envelope: Dictionary) -> Dictionary:
+	var v: Dictionary = stato.viaggio
+	v["turni_in_episodio"] = int(v.get("turni_in_episodio", 0)) + 1
+	var ep := episodi.get_episodio(String(v.get("corrente", "")))
+	var fermo := {"esito": "continua", "avanzato": false, "intro": "", "episodio": _episodio_corrente()}
+	if ep == null:
+		return fermo
+
+	var tag: Array = envelope.get("tag", [])
+	var per_tag: bool = ep.avanza_su_tag != null and tag.has(String(ep.avanza_su_tag))
+	var per_cap: bool = ep.turni_massimi > 0 and int(v["turni_in_episodio"]) >= ep.turni_massimi
+	if not (per_tag or per_cap):
+		return fermo
+
+	v["completati"].append(v["corrente"])
+	var prossimo := episodi.successivo(String(v["corrente"]))
+	if prossimo == "" or prossimo == "itaca":
+		return {"esito": "itaca", "avanzato": true, "intro": intro_corrente(), "episodio": "itaca"}
+	var intro := _entra_in_episodio(prossimo)
+	return {"esito": "continua", "avanzato": true, "intro": intro, "episodio": prossimo}
 
 ## Riferimento allusivo a un dio: se Ulisse invoca/supplica (anche per epiteto:
 ## "il capo dell'olimpo") senza che l'envelope abbia gia' un dio_invocato valido,

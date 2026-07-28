@@ -14,7 +14,8 @@ func before_each():
 func test_turno_in_mondo_sveglia_e_registra():
 	var esito := await GameManager.esegui_turno("Sono io, Odisseo, che t'ho accecato!")
 	assert_true(esito["in_mondo"])
-	assert_eq(esito["svegli"], ["poseidone"])
+	# Nel Ciclope il vanto sveglia Poseidone (tracotanza) e Polifemo (vanto): entrambi.
+	assert_has(esito["svegli"], "poseidone")
 	assert_eq(esito["esito"], "continua")
 	# La FSM ha attraversato il RISVEGLIO.
 	assert_has(esito["fsm_path"], "RISVEGLIO")
@@ -43,7 +44,8 @@ func test_turni_multipli_avanzano_il_contatore():
 
 func test_astuzia_sveglia_atena_nel_turno():
 	var esito := await GameManager.esegui_turno("Dico al gigante che il mio nome e' Nessuno.")
-	assert_eq(esito["svegli"], ["atena"])
+	# astuzia sveglia Atena; nel Ciclope l'inganno sveglia anche Polifemo.
+	assert_has(esito["svegli"], "atena")
 
 func test_invariante_omero_non_nomina_dei():
 	# Pilastro del "nascosto" (CLAUDE.md): la narrazione player-facing non nomina MAI un dio.
@@ -95,10 +97,12 @@ func test_conflitto_scatena_deliberazione_e_verdetto():
 	assert_has(["atena", "poseidone"], esito["voce"]["verdetto"]["attore"])
 	assert_false(esito["voce"]["delta"].is_empty())
 
-func test_singolo_dio_niente_conflitto():
+func test_dei_stessa_parte_niente_conflitto():
+	# Nel Ciclope il vanto sveglia Poseidone e Polifemo: entrambi puniscono (castigo),
+	# quindi nessun conflitto (il conflitto e' punitivo-vs-benigno).
 	var esito := await GameManager.esegui_turno("Sono io, Odisseo, che t'ho accecato!")
 	assert_false(esito["voce"]["conflitto"])
-	assert_eq(esito["voce"]["deliberazione"].size(), 1)
+	assert_gte(esito["voce"]["deliberazione"].size(), 1)
 
 func test_esito_ciurma_perduta_termina_partita():
 	# Forzo la ciurma a 0: il prossimo controllo d'esito deve dichiarare la sconfitta.

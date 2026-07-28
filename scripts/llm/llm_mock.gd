@@ -35,6 +35,27 @@ const _FIXTURES_INTERPRETE := {
 		"dio_invocato": null, "bersaglio": null, "tono": "sfida", "intensita": 2,
 		"sintesi": "Ulisse si vanta della propria astuzia sfidando le potenze.",
 	},
+	# Azioni di PROGRESSO (fanno avanzare la tappa): fuga e rotta.
+	"fugg": {
+		"plausibilita": "in_mondo", "tipo": "azione", "tag": ["fuga"],
+		"dio_invocato": null, "bersaglio": null, "tono": "risoluto", "intensita": 2,
+		"sintesi": "Ulisse fugge, lasciandosi il pericolo alle spalle.",
+	},
+	"scapp": {
+		"plausibilita": "in_mondo", "tipo": "azione", "tag": ["fuga"],
+		"dio_invocato": null, "bersaglio": null, "tono": "risoluto", "intensita": 2,
+		"sintesi": "Ulisse scappa via.",
+	},
+	"salp": {
+		"plausibilita": "in_mondo", "tipo": "movimento", "tag": ["rotta"],
+		"dio_invocato": null, "bersaglio": null, "tono": "deciso", "intensita": 1,
+		"sintesi": "Ulisse salpa e riprende il mare.",
+	},
+	"riprendo il mare": {
+		"plausibilita": "in_mondo", "tipo": "movimento", "tag": ["rotta"],
+		"dio_invocato": null, "bersaglio": null, "tono": "deciso", "intensita": 1,
+		"sintesi": "Ulisse riprende la rotta verso casa.",
+	},
 }
 
 const _ENVELOPE_DEFAULT := {

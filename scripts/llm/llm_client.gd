@@ -95,7 +95,10 @@ func disponibile() -> bool:
 	if _http == null:
 		return false
 	var url := "%s/v1/models" % base_url.trim_suffix("/")
-	var err := _http.request(url, PackedStringArray(), HTTPClient.METHOD_GET)
+	var headers := PackedStringArray()
+	if api_key != "":
+		headers.append("Authorization: Bearer %s" % api_key)  # richiesto dalle API cloud (Mistral)
+	var err := _http.request(url, headers, HTTPClient.METHOD_GET)
 	if err != OK:
 		return false
 	var risultato: Array = await _http.request_completed
