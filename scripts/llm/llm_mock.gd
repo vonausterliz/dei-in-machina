@@ -1,0 +1,65 @@
+class_name LLMMock
+extends RefCounted
+
+## Implementazione finta di LLMManager: nessuna rete, output predefiniti e
+## deterministici. Permette di far girare l'intera macchina del turno senza
+## token, latenza o modelli attivi (mandato di auto-verifica, CLAUDE.md).
+
+const _FIXTURES_INTERPRETE := {
+	"nessuno": {
+		"plausibilita": "in_mondo", "tipo": "parola", "tag": ["astuzia", "inganno"],
+		"dio_invocato": null, "bersaglio": "polifemo", "tono": "astuto", "intensita": 2,
+		"sintesi": "Ulisse si presenta come 'Nessuno' al ciclope.",
+	},
+	"sono io, odisseo": {
+		"plausibilita": "in_mondo", "tipo": "parola", "tag": ["vanto", "tracotanza"],
+		"dio_invocato": null, "bersaglio": "polifemo", "tono": "sfida", "intensita": 2,
+		"sintesi": "Ulisse grida il proprio nome al ciclope accecato.",
+	},
+	"prendo un aereo": {
+		"plausibilita": "anacronistico", "tipo": "azione", "tag": [],
+		"dio_invocato": null, "bersaglio": null, "tono": "neutro", "intensita": 1,
+		"sintesi": "Richiesta priva di senso nel mondo del gioco.",
+	},
+}
+
+const _ENVELOPE_DEFAULT := {
+	"plausibilita": "in_mondo", "tipo": "azione", "tag": [],
+	"dio_invocato": null, "bersaglio": null, "tono": "neutro", "intensita": 1,
+	"sintesi": "",
+}
+
+func interpreta(testo_libero: String) -> Dictionary:
+	var chiave := testo_libero.to_lower()
+	for frammento in _FIXTURES_INTERPRETE.keys():
+		if chiave.find(frammento) != -1:
+			return (_FIXTURES_INTERPRETE[frammento] as Dictionary).duplicate(true)
+	var esito: Dictionary = _ENVELOPE_DEFAULT.duplicate(true)
+	esito["sintesi"] = "Ulisse: \"%s\"" % testo_libero
+	return esito
+
+## contesto atteso: {"favore": int, "ira": int, "umore": String}
+func proposta_dio(dio: Dio, _contesto: Dictionary) -> Dictionary:
+	var registro: String = dio.registri[0] if dio.registri.size() > 0 else "silenzio"
+	var battuta: String = dio.esempi_voce[0] if dio.esempi_voce.size() > 0 else "..."
+	return {
+		"dio": dio.id,
+		"registro": registro,
+		"dice": battuta,
+		"intensita": 1,
+	}
+
+func verdetto_arbitro(proposte: Array) -> Dictionary:
+	if proposte.is_empty():
+		return {"registro": "silenzio", "colpevole": null, "delta": {}}
+	var scelta: Dictionary = proposte[0]
+	return {
+		"registro": scelta.get("registro", "silenzio"),
+		"colpevole": scelta.get("dio", null),
+		"delta": {},
+	}
+
+## contesto atteso: {"sintesi": String, ...}. Non nomina MAI un dio (invariante di design).
+func narrazione_omero(contesto: Dictionary) -> String:
+	var sintesi: String = contesto.get("sintesi", "qualcosa accade")
+	return "Un dio - e non diro' quale - osservo' %s. Le conseguenze si vedranno." % sintesi

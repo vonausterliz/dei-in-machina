@@ -1,0 +1,24 @@
+; Dei in machina — progetto Godot 4
+; Fase 0: scaffolding. Nessuna scena principale ancora (UI = fase 8).
+
+config_version=5
+
+[application]
+
+config/name="Dei in machina"
+config/features=PackedStringArray("4.7", "Forward Plus")
+
+[autoload]
+
+PantheonManager="*res://autoload/pantheon_manager.gd"
+GameManager="*res://autoload/game_manager.gd"
+LLMManager="*res://autoload/llm_manager.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/gut/plugin.cfg")
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
