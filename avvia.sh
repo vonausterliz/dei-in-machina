@@ -56,6 +56,16 @@ if [ ! -x "$GODOT" ]; then
   echo "  fatto: $GODOT"
 fi
 
+# Prima importazione: genera .godot e REGISTRA le classi global (class_name) e gli
+# autoload. Senza questo passo, al primo avvio i tipi (Pantheon, Dio, Delta, ...) non
+# sono ancora noti e il progetto non parte.
+if [ ! -f "$DIR/.godot/global_script_class_cache.cfg" ]; then
+  echo "Prima importazione del progetto (una volta sola)…"
+  "$GODOT" --headless --path "$DIR" --import >/dev/null 2>&1 || true
+  # Una seconda passata assicura la registrazione completa delle classi.
+  "$GODOT" --headless --path "$DIR" --import >/dev/null 2>&1 || true
+fi
+
 MODE="${1:-gui}"
 case "$MODE" in
   gui)     exec "$GODOT" --path "$DIR" ;;
