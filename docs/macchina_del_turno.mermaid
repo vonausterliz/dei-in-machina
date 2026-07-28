@@ -1,0 +1,54 @@
+flowchart TD
+    A0["Inizio turno"] --> RC["RESA DEI CONTI - Zeus<br/>verifica scavalcamenti pendenti<br/>il sospetto sale, una spia rivale lo accelera"]
+    RC --> RCQ{"sospetto<br/>>= soglia?"}
+    RCQ -->|si| RET["ZEUS - ritorsione<br/>confronta il colpevole<br/>aggiorna relazioni.zeus_verso<br/>(ripercussioni di rimbalzo su Ulisse)"]
+    RCQ -->|no| A
+    RET --> A
+
+    A["Ulisse scrive - testo libero"] --> B["INTERPRETE<br/>testo -> envelope JSON"]
+    B --> C{"plausibilita<br/>= in_mondo?"}
+
+    C -->|no| D["Ammonizione +1<br/>turni_puliti = 0"]
+    D --> E{"contatore >= soglia?"}
+    E -->|si| F["FOLLIA - un dio colpisce"]
+    E -->|no| G["OMERO: richiamo diegetico"]
+    G --> ZZ["Fine turno"]
+    ZZ --> A0
+
+    C -->|si| H["turni_puliti +1<br/>decadimento ammonizioni"]
+    H --> I["RISVEGLIO - regole<br/>trigger_azione / trigger_evento / dio_invocato"]
+    I --> J{"dei che reagiscono?"}
+    J -->|nessuno| NAR
+    J -->|uno| M["Proposta singola<br/>segno / aiuto / trappola / silenzio"]
+    J -->|due o piu| K{"in conflitto?"}
+    K -->|no| M
+    K -->|si| L["DELIBERAZIONE VERA<br/>solo i dei in conflitto, 1-2 giri"]
+
+    L --> AR["ARBITRO Zeus<br/>risolve -> verdetto"]
+    M --> AR
+    AR --> SCQ{"un dio bocciato<br/>tenta lo scavalcamento?"}
+    SCQ -->|si| SCB["SCAVALCAMENTO occulto<br/>registra pendente<br/>+ delta nascosto a Zeus"]
+    SCQ -->|no| AP["Applica delta - regole<br/>ulisse + registro + relazioni<br/>+ append storico_olimpo"]
+    SCB --> AP
+    AP --> NAR["OMERO<br/>narra reticente, senza nomi<br/>+ voce nel diario"]
+
+    NAR --> ES{"controllo esito"}
+    ES -->|itaca| WIN["VITTORIA"]
+    ES -->|"morte / ciurma 0 / prigionia"| LOSE["SCONFITTA"]
+    ES -->|continua| AV{"episodio concluso?"}
+    AV -->|si| NEXT["Avanza episodio<br/>risveglia i locali"]
+    AV -->|no| A2["Prossima scena"]
+    NEXT --> A2
+    A2 --> A0
+
+    classDef llm fill:#26324d,stroke:#5b7fb5,color:#eaf0fb,stroke-width:1px;
+    classDef logic fill:#f0ede6,stroke:#b9ae93,color:#2a2620;
+    classDef win fill:#dcefdc,stroke:#4a8b5a,color:#1e3a24;
+    classDef lose fill:#f3dcd6,stroke:#b0503a,color:#4a1e14;
+    classDef fine fill:#e6e6ea,stroke:#8b93ad,color:#2a2a33;
+
+    class B,G,L,M,AR,NAR,RET llm;
+    class D,H,I,AP,NEXT,A2,RC,SCB logic;
+    class WIN win;
+    class F,LOSE lose;
+    class ZZ fine;

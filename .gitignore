@@ -1,0 +1,18 @@
+# Godot
+.godot/
+.import/
+export.cfg
+export_presets.cfg
+*.translation
+
+# Binario Godot scaricato localmente (grosso, non da versionare)
+tools/godot/godot4
+tools/godot/*.zip
+
+# Segreti / config locale
+.env
+*.local.json
+config.local.*
+
+# OS
+.DS_Store

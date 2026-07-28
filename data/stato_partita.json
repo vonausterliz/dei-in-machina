@@ -1,0 +1,258 @@
+{
+  "_meta": {
+    "gioco": "Dei in machina",
+    "versione_schema": "0.3",
+    "descrizione": "Stato di partita RUNTIME (uno per partita, mutabile). Distinto da pantheon.json (dato statico). Esempio popolato a meta' partita.",
+    "note": "registro_divino nasce copiando 'disposizione_iniziale' dal pantheon e poi muta. 'relazioni.zeus_verso' traccia l'ira che Zeus cova verso gli altri dei (politica divina, non rapporto con Ulisse). 'scavalcamenti_pendenti' sono atti compiuti alle spalle di Zeus: il 'sospetto_zeus' sale ogni turno (una spia rivale lo accelera) e alla soglia scatta la resa dei conti. 'storico_olimpo' e' append-only ed esternalizzabile. 'coalizioni' = alleanze temporanee tra dei (blocco di voto in deliberazione); rare, col tetto, instabili. 'piano' (opzionale, dentro ogni voce di registro_divino) = strategia a piu turni che inclina le reazioni del dio.",
+    "run_id": "run-7f3a9c",
+    "seed": 4815162342,
+    "creato": "2026-07-27T10:00:00Z",
+    "aggiornato": "2026-07-27T22:10:00Z",
+    "turno": 12,
+    "stato": "in_corso",
+    "esito": null,
+    "esiti_possibili": [
+      "itaca",
+      "morte",
+      "prigionia_eterna",
+      "follia",
+      "ciurma_perduta"
+    ]
+  },
+  "ulisse": {
+    "episodio_corrente": "ciclope",
+    "stat": {
+      "metis": 78,
+      "animo": 60,
+      "ciurma": {
+        "vivi": 34,
+        "iniziali": 45
+      }
+    },
+    "hybris": 22,
+    "cimeli": []
+  },
+  "viaggio": {
+    "ordine_episodi": [
+      "ciclope",
+      "eolo",
+      "circe",
+      "ade",
+      "sirene",
+      "scilla",
+      "trinacia",
+      "ogigia",
+      "naufragio",
+      "scheria",
+      "itaca"
+    ],
+    "completati": [],
+    "corrente": "ciclope"
+  },
+  "registro_divino": {
+    "atena": {
+      "favore": 71,
+      "ira": 0,
+      "umore": "protettiva",
+      "risvegliato": true
+    },
+    "poseidone": {
+      "favore": 0,
+      "ira": 88,
+      "umore": "rancoroso",
+      "risvegliato": true,
+      "piano": {
+        "obiettivo": "spezzare Ulisse nel momento peggiore, non subito",
+        "innesco": "quando sara' piu' vicino alla salvezza",
+        "orizzonte": "lungo"
+      }
+    },
+    "zeus": {
+      "favore": 40,
+      "ira": 0,
+      "umore": "equanime",
+      "risvegliato": true
+    },
+    "polifemo": {
+      "favore": 0,
+      "ira": 95,
+      "umore": "furente",
+      "risvegliato": true
+    },
+    "eolo": {
+      "favore": 55,
+      "ira": 0,
+      "umore": "cordiale",
+      "risvegliato": false
+    },
+    "circe": {
+      "favore": 20,
+      "ira": 0,
+      "umore": "guardinga",
+      "risvegliato": false
+    },
+    "ermes": {
+      "favore": 50,
+      "ira": 0,
+      "umore": "neutrale",
+      "risvegliato": false
+    },
+    "tiresia": {
+      "favore": 50,
+      "ira": 0,
+      "umore": "distaccato",
+      "risvegliato": false
+    },
+    "sirene": {
+      "favore": 0,
+      "ira": 0,
+      "umore": "lusinghiere",
+      "risvegliato": false
+    },
+    "scilla": {
+      "favore": 0,
+      "ira": 0,
+      "umore": "in_agguato",
+      "risvegliato": false
+    },
+    "elio": {
+      "favore": 0,
+      "ira": 0,
+      "umore": "indifferente",
+      "risvegliato": false
+    },
+    "calipso": {
+      "favore": 60,
+      "ira": 0,
+      "umore": "malinconica",
+      "risvegliato": false
+    },
+    "ino_leucotea": {
+      "favore": 60,
+      "ira": 0,
+      "umore": "compassionevole",
+      "risvegliato": false
+    }
+  },
+  "relazioni": {
+    "zeus_verso": {
+      "atena": 0,
+      "poseidone": 0,
+      "polifemo": 0,
+      "eolo": 0,
+      "circe": 0,
+      "ermes": 0,
+      "tiresia": 0,
+      "sirene": 0,
+      "scilla": 0,
+      "elio": 0,
+      "calipso": 0,
+      "ino_leucotea": 0
+    }
+  },
+  "scavalcamenti_pendenti": [
+    {
+      "turno": 12,
+      "colpevole": "poseidone",
+      "cosa": "Oltre al vento contrario deciso da Zeus, ha gonfiato di nascosto il mare fino alla tempesta.",
+      "sfrontatezza": 2,
+      "sospetto_zeus": 20,
+      "soglia_scoperta": 60,
+      "rilevato": false
+    }
+  ],
+  "ammonizioni": {
+    "contatore": 1,
+    "soglia": 3,
+    "turni_puliti": 0,
+    "decadimento_ogni": 3,
+    "ultimo_richiamo": {
+      "turno": 8,
+      "input": "prendo un aereo",
+      "classe": "anacronistico"
+    }
+  },
+  "diario": [
+    {
+      "turno": 3,
+      "voce": "Accecato il gigante nel suo antro.",
+      "esito": "ill"
+    },
+    {
+      "turno": 8,
+      "voce": "Offerto vino allo straniero incontrato al buio.",
+      "esito": "fair"
+    },
+    {
+      "turno": 11,
+      "voce": "Sfuggiti all'antro aggrappati al ventre del gregge.",
+      "esito": "fair"
+    }
+  ],
+  "storico_olimpo": [
+    {
+      "turno": 12,
+      "input": "Grido: sono io, Odisseo, che t'ho accecato!",
+      "envelope": {
+        "plausibilita": "in_mondo",
+        "tipo": "parola",
+        "tag": [
+          "vanto",
+          "tracotanza"
+        ],
+        "dio_invocato": null,
+        "bersaglio": "polifemo",
+        "tono": "sfida",
+        "intensita": 2
+      },
+      "svegli": [
+        "atena",
+        "poseidone",
+        "zeus"
+      ],
+      "eventi_emessi": [
+        "maledizione_di_polifemo"
+      ],
+      "deliberazione": [
+        {
+          "dio": "poseidone",
+          "dice": "Grida il suo nome sull'onda: la mia collera per il figlio non e' spenta. Che il mare lo prenda.",
+          "proposta": "castigo"
+        },
+        {
+          "dio": "atena",
+          "dice": "Un'ultima volta lo difendo: la sua astuzia e' dono mio. Non spezzarlo, piegalo.",
+          "proposta": "mitiga"
+        },
+        {
+          "dio": "zeus",
+          "dice": "Non morte, non oggi. Il mare avra' il suo pegno: vento contrario, rotta perduta.",
+          "verdetto": "vento_contrario"
+        }
+      ],
+      "scavalcamento": {
+        "colpevole": "poseidone",
+        "cosa": "Ha ecceduto il verdetto: dal vento contrario alla tempesta, all'insaputa di Zeus."
+      },
+      "delta": {
+        "poseidone.ira": "+4",
+        "ulisse.animo": "-1",
+        "ulisse.hybris": "+6",
+        "rotta": "deviata_a_sud"
+      },
+      "narrazione_omero": "Appena il tuo nome corse sui flutti, il mare parve irrigidirsi. Un dio - e non diro' quale - piego' l'orecchio verso di te. Il vento muto'. Non in tuo favore."
+    }
+  ],
+  "coalizioni": [
+    {
+      "membri": [
+        "poseidone",
+        "polifemo"
+      ],
+      "obiettivo": "vendetta per l'accecamento: negare il ritorno",
+      "formata_al_turno": 12,
+      "coesione": 70,
+      "scadenza": "obiettivo_raggiunto_o_interessi_divergenti"
+    }
+  ]
+}

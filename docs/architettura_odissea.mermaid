@@ -1,0 +1,39 @@
+flowchart TD
+    subgraph UI["UI / View — Godot"]
+        Input["Input libero<br/>parole · azioni · preghiere"]
+        SceneView["SceneView<br/>narrazione in-world"]
+        Stats["Stat<br/>metis · ciurma · morale"]
+    end
+
+    subgraph CORE["Core — Autoload singletons"]
+        GM["GameManager<br/>stato · loop turni<br/>stat Ulisse · seed run · win/loss"]
+        PM["PantheonManager<br/>ledger nascosto favore/ira<br/>umori · fasce · chi è sveglio"]
+        OM["OllamaManager<br/>HTTP :11434 · coda · batch · timeout"]
+    end
+
+    subgraph AGENTS["Agenti LLM (via Ollama)"]
+        INT["Interprete<br/>testo libero → envelope<br/>tono · dio invocato · flag<br/>hybris/astuzia/xenia/desiderio"]
+        GODS["Dei-agenti<br/>trigger-gate = REGOLE (coerenza)<br/>risposta = LLM (carattere + capriccio)<br/>→ segno / aiuto / trappola / silenzio"]
+        ARB["Arbitro<br/>risolve conflitti divini<br/>calcola delta mondo"]
+        NAR["Narratore<br/>rende in-world SENZA nomi<br/>impronte divine"]
+    end
+
+    subgraph DATA["Data layer — JSON"]
+        PJSON["pantheon.json<br/>dominio · agenda · trigger · voce · fascia"]
+        EJSON["episodi.json<br/>tappe · dilemmi · dio locale · pericoli"]
+    end
+
+    Input --> GM
+    GM --> INT
+    INT --> PM
+    PM -->|"sveglia: persistenti + locale di tappa"| GODS
+    GODS --> ARB
+    ARB --> NAR
+    NAR --> SceneView
+    ARB --> GM --> Stats
+    ARB -.aggiorna.-> PM
+
+    INT & GODS & ARB & NAR -.via.-> OM
+
+    PJSON --> PM
+    EJSON --> GM
