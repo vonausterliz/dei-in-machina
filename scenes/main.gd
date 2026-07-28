@@ -54,6 +54,15 @@ func _prepara_finestra() -> void:
 	w.title = "Dei in machina"
 	w.min_size = Vector2i(1000, 680)
 	w.mode = Window.MODE_MAXIMIZED
+	# HiDPI/Retina: su schermi ad alta densita' Godot disegna a pixel nativi e la UI
+	# risulta minuscola. Applichiamo un fattore di scala. Usiamo la scala riportata dal
+	# sistema; se non e' affidabile ma lo schermo e' molto largo, la deriviamo.
+	var scr := w.current_screen
+	var scala := maxf(DisplayServer.screen_get_scale(scr), 1.0)
+	var larghezza := DisplayServer.screen_get_size(scr).x
+	if scala <= 1.0 and larghezza >= 2560:
+		scala = clampf(roundf(float(larghezza) / 1600.0), 1.0, 3.0)
+	w.content_scale_factor = clampf(scala, 1.0, 3.0)
 
 # --- helper di stile ---
 
