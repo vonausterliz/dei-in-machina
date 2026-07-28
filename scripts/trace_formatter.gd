@@ -35,8 +35,12 @@ static func turno(voce: Dictionary) -> String:
 		for battuta in delib:
 			var chi: String = battuta.get("dio", "?")
 			var testo: String = battuta.get("dice", "")
-			var esito: String = battuta.get("proposta", battuta.get("verdetto", ""))
+			var esito: String = battuta.get("registro", battuta.get("proposta", battuta.get("verdetto", "")))
 			r.append("  %-12s %s  [%s]" % [chi + ":", testo, esito])
+
+	var verdetto: Dictionary = voce.get("verdetto", {})
+	if not verdetto.is_empty():
+		r.append("Verdetto:   %s -> %s" % [verdetto.get("attore", "?"), verdetto.get("registro", "?")])
 
 	var scav: Dictionary = voce.get("scavalcamento", {})
 	if not scav.is_empty():

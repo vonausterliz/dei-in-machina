@@ -1,0 +1,101 @@
+class_name Delta
+extends RefCounted
+
+## Motore del DELTA: come cambia il mondo dopo un turno. DETERMINISTICO (GDScript):
+## l'LLM sceglie il registro (castigo/aiuto/segno/trappola/silenzio) e la voce; qui i
+## NUMERI. Cosi' l'effetto sul gioco e' testabile e l'LLM non inventa danni arbitrari.
+## Valori-seme (design sez. 12: taratura numerica rimandata): facili da ritoccare.
+##
+## Un delta e' un dizionario path->intero, con path a punti:
+##   ulisse.animo, ulisse.metis, ulisse.hybris, ulisse.ciurma.vivi,
+##   <id_dio>.favore, <id_dio>.ira
+
+const STAT_MIN := 0
+const STAT_MAX := 100
+
+const _TAG_HYBRIS := ["tracotanza", "vanto", "empieta", "violenza"]
+const _TAG_ASTUZIA := ["astuzia", "inganno"]
+
+## Effetto della sola AZIONE di Ulisse (indipendente dai dei): la tracotanza gonfia
+## la hybris, l'astuzia affina la metis. E' cio' che l'atto fa a lui, comunque.
+static func da_azione(envelope: Dictionary) -> Dictionary:
+	var d: Dictionary = {}
+	var tag: Array = envelope.get("tag", [])
+	var intensita: int = int(envelope.get("intensita", 1))
+	for t in _TAG_HYBRIS:
+		if tag.has(t):
+			d["ulisse.hybris"] = d.get("ulisse.hybris", 0) + 2 * intensita
+	for t in _TAG_ASTUZIA:
+		if tag.has(t):
+			d["ulisse.metis"] = d.get("ulisse.metis", 0) + intensita
+			break
+	return d
+
+## Effetto della REAZIONE di un dio, dato il registro scelto e l'intensita'.
+static func da_reazione(dio_id: String, registro: String, intensita: int) -> Dictionary:
+	var k: int = max(1, intensita)
+	match registro:
+		"castigo":
+			return {"ulisse.animo": -2 * k, "%s.ira" % dio_id: 2 * k}
+		"aiuto":
+			return {"ulisse.animo": 2 * k, "%s.favore" % dio_id: k}
+		"aiuto_negato":
+			return {"ulisse.animo": -k, "%s.ira" % dio_id: k}
+		"segno":
+			return {"ulisse.metis": k, "%s.favore" % dio_id: 1}
+		"trappola":
+			# Pare un aiuto adesso; il costo nascosto e' lavoro di una fase futura.
+			return {"ulisse.animo": k}
+		_:
+			# silenzio / arbitrato: nessun effetto diretto sulle stat.
+			return {}
+
+## Somma additiva di due delta.
+static func unisci(a: Dictionary, b: Dictionary) -> Dictionary:
+	var out: Dictionary = a.duplicate(true)
+	for path in b:
+		out[path] = out.get(path, 0) + b[path]
+	return out
+
+## Applica il delta allo stato, con clamp sui range sensati.
+static func applica(stato: StatoPartita, delta: Dictionary) -> void:
+	for path in delta:
+		_applica_path(stato, path, int(delta[path]))
+
+static func _applica_path(stato: StatoPartita, path: String, amount: int) -> void:
+	var p := path.split(".")
+	if p[0] == "ulisse":
+		_applica_ulisse(stato, p, amount)
+	else:
+		_applica_dio(stato, p, amount)
+
+static func _applica_ulisse(stato: StatoPartita, p: PackedStringArray, amount: int) -> void:
+	if p.size() == 2 and p[1] == "hybris":
+		stato.ulisse["hybris"] = clampi(int(stato.ulisse.get("hybris", 0)) + amount, STAT_MIN, STAT_MAX)
+	elif p.size() == 2 and (p[1] == "animo" or p[1] == "metis"):
+		var st: Dictionary = stato.ulisse["stat"]
+		st[p[1]] = clampi(int(st.get(p[1], 0)) + amount, STAT_MIN, STAT_MAX)
+	elif p.size() == 3 and p[1] == "ciurma" and p[2] == "vivi":
+		var c: Dictionary = stato.ulisse["stat"]["ciurma"]
+		var maxv: int = int(c.get("iniziali", STAT_MAX))
+		c["vivi"] = clampi(int(c.get("vivi", 0)) + amount, 0, maxv)
+	else:
+		push_warning("Delta: path ulisse sconosciuto: %s" % ".".join(p))
+
+static func _applica_dio(stato: StatoPartita, p: PackedStringArray, amount: int) -> void:
+	var dio: String = p[0]
+	if p.size() == 2 and (p[1] == "favore" or p[1] == "ira") and stato.registro_divino.has(dio):
+		var r: Dictionary = stato.registro_divino[dio]
+		r[p[1]] = clampi(int(r.get(p[1], 0)) + amount, STAT_MIN, STAT_MAX)
+	else:
+		push_warning("Delta: path dio sconosciuto: %s" % ".".join(p))
+
+## Marcatore d'esito per il diario (reticente, ambiguo): ando' male / parve giovare / neutro.
+static func marcatore_diario(delta: Dictionary) -> String:
+	var animo: int = int(delta.get("ulisse.animo", 0))
+	var ciurma: int = int(delta.get("ulisse.ciurma.vivi", 0))
+	if animo < 0 or ciurma < 0:
+		return "ill"
+	if animo > 0:
+		return "fair"
+	return "neutro"

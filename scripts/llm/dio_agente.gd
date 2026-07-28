@@ -1,0 +1,79 @@
+class_name DioAgente
+extends RefCounted
+
+## Dio-agente: data la situazione (envelope) e il suo stato (favore/ira), un dio decide
+## in carattere COME reagire — registro + intensita' + una battuta. La REGOLA (trigger,
+## delta) sta altrove: qui l'LLM mette solo voce e capriccio.
+##
+## Il registro proposto e' vincolato ai registri ammessi del dio (contratto dati): se
+## l'LLM ne inventa uno, o l'output e' malformato, si ripiega su "silenzio" (inerte).
+## chat_fn iniettabile: Callable(messaggi, opzioni) -> {ok, content, error}.
+
+const PROMPT_SYSTEM := "res://prompts/dio_agente_system.txt"
+const PROMPT_GUARDRAIL := "res://prompts/guardrail_anti_assistente.txt"
+
+var _template: String = ""
+var _guardrail: String = ""
+var _cache_prompt: Dictionary = {}  # id dio -> system prompt
+
+func _init() -> void:
+	_template = _leggi(PROMPT_SYSTEM)
+	_guardrail = _leggi(PROMPT_GUARDRAIL)
+
+func _leggi(path: String) -> String:
+	if not FileAccess.file_exists(path):
+		push_error("DioAgente: prompt mancante: %s" % path)
+		return ""
+	return FileAccess.get_file_as_string(path)
+
+func system_prompt(dio: Dio) -> String:
+	if _cache_prompt.has(dio.id):
+		return _cache_prompt[dio.id]
+	var sp := _template
+	sp = sp.replace("{{GUARDRAIL}}", _guardrail)
+	sp = sp.replace("{{NOME}}", dio.nome)
+	sp = sp.replace("{{DOMINIO}}", dio.dominio)
+	sp = sp.replace("{{AGENDA}}", dio.agenda)
+	sp = sp.replace("{{VOCE}}", dio.voce)
+	sp = sp.replace("{{TEMPERAMENTO}}", dio.temperamento)
+	sp = sp.replace("{{ANTI_PATTERN}}", dio.anti_pattern)
+	sp = sp.replace("{{ESEMPI}}", "\n".join(dio.esempi_voce))
+	sp = sp.replace("{{REGISTRI}}", ", ".join(dio.registri))
+	_cache_prompt[dio.id] = sp
+	return sp
+
+func costruisci_messaggi(dio: Dio, contesto: Dictionary) -> Array:
+	var env: Dictionary = contesto.get("envelope", {})
+	var situazione := "Ulisse ha appena: %s\n(tag: %s, tono: %s, intensita: %s)\nIl tuo animo verso di lui ora: favore %s, ira %s." % [
+		env.get("sintesi", "qualcosa"), env.get("tag", []), env.get("tono", "?"),
+		env.get("intensita", 1), contesto.get("favore", 0), contesto.get("ira", 0),
+	]
+	return [
+		{"role": "system", "content": system_prompt(dio)},
+		{"role": "user", "content": situazione},
+	]
+
+## Ritorna {dio, registro, intensita, dice}. Sempre valido (fallback silenzio).
+func proponi(dio: Dio, contesto: Dictionary, chat_fn: Callable, seed: int = 0) -> Dictionary:
+	var opzioni := {"temperature": 0.8, "json_mode": true}
+	if seed != 0:
+		opzioni["seed"] = seed
+	var risposta = await chat_fn.call(costruisci_messaggi(dio, contesto), opzioni)
+	if typeof(risposta) != TYPE_DICTIONARY or not risposta.get("ok", false):
+		return _silenzio(dio)
+
+	var grezzo := Contratto.estrai_json(risposta.get("content", ""))
+	if grezzo.is_empty():
+		return _silenzio(dio)
+
+	var registro := String(grezzo.get("registro", "silenzio"))
+	# Vincolo ai registri ammessi del dio: niente registri inventati.
+	if registro != "silenzio" and not dio.registri.has(registro):
+		return _silenzio(dio)
+
+	var intensita: int = clampi(int(grezzo.get("intensita", 1)), 1, 3)
+	var dice := String(grezzo.get("dice", "")).strip_edges()
+	return {"dio": dio.id, "registro": registro, "intensita": intensita, "dice": dice}
+
+func _silenzio(dio: Dio) -> Dictionary:
+	return {"dio": dio.id, "registro": "silenzio", "intensita": 1, "dice": ""}

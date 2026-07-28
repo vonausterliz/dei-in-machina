@@ -40,5 +40,17 @@ func _avvia() -> void:
 		print("  esito: %s" % esito["esito"])
 		print("")
 
+	# Stato finale di Ulisse: si vede l'effetto cumulativo delle reazioni divine.
+	var st: Dictionary = gm.stato.ulisse["stat"]
+	print("--- Ulisse dopo %d turni ---" % COPIONE.size())
+	print("  animo=%d metis=%d hybris=%d ciurma=%d/%d" % [
+		st["animo"], st["metis"], gm.stato.ulisse["hybris"],
+		st["ciurma"]["vivi"], st["ciurma"]["iniziali"]])
+	print("  favore/ira: poseidone(%d/%d) atena(%d/%d) zeus(%d/%d)" % [
+		gm.stato.registro_divino["poseidone"]["favore"], gm.stato.registro_divino["poseidone"]["ira"],
+		gm.stato.registro_divino["atena"]["favore"], gm.stato.registro_divino["atena"]["ira"],
+		gm.stato.registro_divino["zeus"]["favore"], gm.stato.registro_divino["zeus"]["ira"]])
+	print("")
+
 	print("=== Fine: %d turni eseguiti col mock ===" % COPIONE.size())
 	quit(0)

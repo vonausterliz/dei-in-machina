@@ -17,11 +17,20 @@ var config: Dictionary = {}
 var _mock := LLMMock.new()
 var _client: LLMClient = null
 var _interprete: Interprete = null
+var _dio_agente: DioAgente = null
+var _narratore: Narratore = null
 
 func _ready() -> void:
 	config = _carica_config()
 	mock_mode = config.get("mock", true)
 	if not mock_mode:
+		_inizializza_reale()
+
+## Abilita il percorso LLM reale a runtime (usato dalla console con Ollama), anche se
+## la config parte in mock. Idempotente.
+func abilita_reale() -> void:
+	mock_mode = false
+	if _client == null:
 		_inizializza_reale()
 
 func _inizializza_reale() -> void:
@@ -30,6 +39,12 @@ func _inizializza_reale() -> void:
 	_client.configura(config, _leggi_chiave(config))
 	var id_dei: Array = PantheonManager.pantheon.tutti_gli_id() if PantheonManager.pantheon else []
 	_interprete = Interprete.new(id_dei, PantheonManager.pantheon)
+	_dio_agente = DioAgente.new()
+	var nomi: Array = []
+	if PantheonManager.pantheon:
+		for d in PantheonManager.pantheon.tutti():
+			nomi.append(d.nome)
+	_narratore = Narratore.new(nomi)
 
 ## La chiave API sta fuori dal repo: variabile d'ambiente il cui nome e' in config.
 func _leggi_chiave(cfg: Dictionary) -> String:
@@ -55,23 +70,14 @@ func interpreta(testo_libero: String, seed: int = 0) -> Dictionary:
 		return _mock.interpreta(testo_libero)
 	return await _interprete.interpreta(testo_libero, _client.chat, seed)
 
-func proposta_dio(dio: Dio, contesto: Dictionary) -> Dictionary:
-	await get_tree().process_frame
+func proposta_dio(dio: Dio, contesto: Dictionary, seed: int = 0) -> Dictionary:
 	if mock_mode:
+		await get_tree().process_frame
 		return _mock.proposta_dio(dio, contesto)
-	push_error("LLMManager: dei-agenti reali non ancora implementati (fase 3).")
-	return _mock.proposta_dio(dio, contesto)
+	return await _dio_agente.proponi(dio, contesto, _client.chat, seed)
 
-func verdetto_arbitro(proposte: Array) -> Dictionary:
-	await get_tree().process_frame
+func narrazione_omero(contesto: Dictionary, seed: int = 0) -> String:
 	if mock_mode:
-		return _mock.verdetto_arbitro(proposte)
-	push_error("LLMManager: Arbitro reale non ancora implementato (fase 3).")
-	return _mock.verdetto_arbitro(proposte)
-
-func narrazione_omero(contesto: Dictionary) -> String:
-	await get_tree().process_frame
-	if mock_mode:
+		await get_tree().process_frame
 		return _mock.narrazione_omero(contesto)
-	push_error("LLMManager: Omero reale non ancora implementato (fase 3).")
-	return _mock.narrazione_omero(contesto)
+	return await _narratore.narra(contesto, _client.chat, seed)

@@ -10,8 +10,14 @@ extends Node
 
 const SALVATAGGIO_DEFAULT := "user://partita.json"
 
-## Fasi della macchina del turno attraversate in Fase 2 (le altre arrivano dopo).
-enum Fase { INTERPRETAZIONE, VALIDAZIONE, RISVEGLIO, NARRAZIONE, ESITO, AVANZAMENTO }
+## Fasi della macchina del turno (macchina_del_turno.mermaid). RESA_DEI_CONTI e
+## SCAVALCAMENTO (politica divina) sono fase 6; la DELIBERAZIONE in fase 3 e' solo
+## raccolta di proposte, non ancora dialogo tra dei in conflitto (quello e' fase 4).
+enum Fase {
+	INTERPRETAZIONE, VALIDAZIONE, RISVEGLIO,
+	DELIBERAZIONE, ARBITRATO, APPLICAZIONE,
+	NARRAZIONE, ESITO, AVANZAMENTO,
+}
 
 var stato: StatoPartita = null
 
@@ -54,20 +60,53 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	percorso.append(Fase.keys()[Fase.VALIDAZIONE])
 	var in_mondo: bool = envelope.get("plausibilita", "") == "in_mondo"
 
-	# RISVEGLIO — solo selezione deterministica; i dei non vengono ancora chiamati.
+	# RISVEGLIO — selezione deterministica dei dei che reagiscono.
 	var svegli: Array[String] = []
+	var proposte: Array = []
+	var verdetto: Dictionary = {}
+	var delta: Dictionary = {}
 	if in_mondo:
 		percorso.append(Fase.keys()[Fase.RISVEGLIO])
 		_risolvi_invocazione(envelope, input_testo)
 		svegli = PantheonManager.risveglio(envelope, eventi, _episodio_corrente())
 		_segna_in_gioco(svegli)
 
-	# NARRAZIONE — Omero reticente, senza nomi di dei (invariante). Mock in fase 2.
+		# L'azione cambia Ulisse comunque (hybris/metis), anche se nessun dio reagisce.
+		delta = Delta.da_azione(envelope)
+
+		if not svegli.is_empty():
+			# DELIBERAZIONE — in fase 3: ogni dio sveglio propone (voce + registro), senza
+			# ancora parlarsi tra loro (il dialogo tra dei in conflitto e' fase 4).
+			percorso.append(Fase.keys()[Fase.DELIBERAZIONE])
+			proposte = await _raccogli_proposte(svegli, envelope)
+
+			# ARBITRATO — verdetto deterministico: vince la proposta piu' intensa
+			# (a parita', l'ordine del pantheon). Lo Zeus-che-media e' fase 4.
+			percorso.append(Fase.keys()[Fase.ARBITRATO])
+			verdetto = _arbitra(proposte)
+
+			# APPLICAZIONE — delta della reazione (numeri = regola, non LLM).
+			percorso.append(Fase.keys()[Fase.APPLICAZIONE])
+			delta = Delta.unisci(delta, Delta.da_reazione(
+				verdetto["attore"], verdetto["registro"], verdetto["intensita"]))
+
+		Delta.applica(stato, delta)
+
+	# NARRAZIONE — Omero reticente, senza nomi di dei (invariante).
 	percorso.append(Fase.keys()[Fase.NARRAZIONE])
+	var impronta := ""
+	if not verdetto.is_empty():
+		var attore: Dio = PantheonManager.get_dio(verdetto["attore"])
+		if attore != null:
+			impronta = attore.impronta
 	var narrazione: String = await LLMManager.narrazione_omero({
 		"sintesi": envelope.get("sintesi", ""),
 		"in_mondo": in_mondo,
 		"svegli": svegli,
+		"verdetto": verdetto,
+		"delta": delta,
+		"impronta": impronta,
+		"esito_segno": _segno_esito(delta),
 	})
 
 	# Registrazioni: storico_olimpo (vista Olimpo/debug) + diario (player-facing).
@@ -77,18 +116,24 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 		"envelope": envelope,
 		"svegli": svegli,
 		"eventi_emessi": eventi,
+		"deliberazione": proposte,
+		"verdetto": verdetto,
+		"delta": delta,
 		"narrazione_omero": narrazione,
 	}
 	stato.storico_olimpo.append(voce)
 	stato.diario.append({
 		"turno": turno,
 		"voce": envelope.get("sintesi", input_testo),
-		"esito": "neutro",  # marcatore d'esito vero = fase 3 (i dei applicano delta)
+		"esito": Delta.marcatore_diario(delta) if in_mondo else "neutro",
 	})
 
-	# ESITO — in fase 2 nessun delta divino, quindi di norma "continua".
+	# ESITO — ora le stat cambiano: controllo reale (ciurma; gli altri esiti con le loro fasi).
 	percorso.append(Fase.keys()[Fase.ESITO])
 	var esito := _controlla_esito()
+	if esito != "continua":
+		stato.stato = "finita"
+		stato.esito = esito
 
 	percorso.append(Fase.keys()[Fase.AVANZAMENTO])
 	return {
@@ -97,6 +142,34 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 		"in_mondo": in_mondo,
 		"esito": esito,
 		"fsm_path": percorso,
+	}
+
+## Ogni dio sveglio produce una proposta (voce + registro) dato il suo stato corrente.
+func _raccogli_proposte(svegli: Array, envelope: Dictionary) -> Array:
+	var out: Array = []
+	for id in svegli:
+		var dio: Dio = PantheonManager.get_dio(id)
+		var reg: Dictionary = stato.registro_divino.get(id, {})
+		var contesto := {
+			"favore": reg.get("favore", 0),
+			"ira": reg.get("ira", 0),
+			"umore": reg.get("umore", ""),
+			"envelope": envelope,
+		}
+		out.append(await LLMManager.proposta_dio(dio, contesto))
+	return out
+
+## Verdetto: vince la proposta piu' intensa; a parita' resta l'ordine (pantheon).
+func _arbitra(proposte: Array) -> Dictionary:
+	var best: Dictionary = proposte[0]
+	for p in proposte:
+		if int(p.get("intensita", 1)) > int(best.get("intensita", 1)):
+			best = p
+	return {
+		"attore": best.get("dio", ""),
+		"registro": best.get("registro", "silenzio"),
+		"intensita": int(best.get("intensita", 1)),
+		"dice": best.get("dice", ""),
 	}
 
 func _episodio_corrente() -> String:
@@ -136,3 +209,12 @@ func _controlla_esito() -> String:
 	if int(ciurma.get("vivi", 1)) <= 0:
 		return "ciurma_perduta"
 	return "continua"
+
+## Segno d'esito per il narratore (senza numeri): peggiorato / parve giovare / neutro.
+func _segno_esito(delta: Dictionary) -> String:
+	var animo: int = int(delta.get("ulisse.animo", 0))
+	if animo < 0 or int(delta.get("ulisse.ciurma.vivi", 0)) < 0:
+		return "le cose hanno preso una brutta piega"
+	if animo > 0 or int(delta.get("ulisse.metis", 0)) > 0:
+		return "qualcosa e' parso giovare"
+	return ""

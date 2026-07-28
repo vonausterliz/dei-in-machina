@@ -59,6 +59,44 @@ func test_invariante_omero_non_nomina_dei():
 			assert_eq(bassa.find(dio.nome.to_lower()), -1,
 				"narrazione nomina '%s': \"%s\"" % [dio.nome, narrazione])
 
+func test_vanto_scatena_castigo_e_abbassa_animo():
+	var animo0: int = GameManager.stato.ulisse["stat"]["animo"]
+	var ira0: int = GameManager.stato.registro_divino["poseidone"]["ira"]
+	var esito := await GameManager.esegui_turno("Sono io, Odisseo, che t'ho accecato!")
+	# Poseidone reagisce con castigo (il suo primo registro nel mock).
+	assert_eq(esito["voce"]["verdetto"]["attore"], "poseidone")
+	assert_eq(esito["voce"]["verdetto"]["registro"], "castigo")
+	# Il delta ha abbassato l'animo e alzato l'ira di Poseidone.
+	assert_lt(GameManager.stato.ulisse["stat"]["animo"], animo0)
+	assert_gt(GameManager.stato.registro_divino["poseidone"]["ira"], ira0)
+	# La hybris e' salita (vanto + tracotanza).
+	assert_gt(GameManager.stato.ulisse["hybris"], 0)
+	# Diario: ando' male.
+	assert_eq(GameManager.stato.diario[-1]["esito"], "ill")
+	# FSM completa con reazione.
+	for fase in ["DELIBERAZIONE", "ARBITRATO", "APPLICAZIONE"]:
+		assert_has(esito["fsm_path"], fase)
+
+func test_astuzia_scatena_aiuto_di_atena():
+	var esito := await GameManager.esegui_turno("Dico al gigante che il mio nome e' Nessuno.")
+	assert_eq(esito["voce"]["verdetto"]["attore"], "atena")
+	assert_eq(esito["voce"]["verdetto"]["registro"], "aiuto")
+	assert_eq(GameManager.stato.diario[-1]["esito"], "fair")
+
+func test_esito_ciurma_perduta_termina_partita():
+	# Forzo la ciurma a 0: il prossimo controllo d'esito deve dichiarare la sconfitta.
+	GameManager.stato.ulisse["stat"]["ciurma"]["vivi"] = 0
+	var esito := await GameManager.esegui_turno("Riempio gli otri d'acqua alla sorgente.")
+	assert_eq(esito["esito"], "ciurma_perduta")
+	assert_eq(GameManager.stato.stato, "finita")
+	assert_eq(GameManager.stato.esito, "ciurma_perduta")
+
+func test_turno_senza_dei_niente_reazione():
+	var esito := await GameManager.esegui_turno("Riempio gli otri d'acqua alla sorgente.")
+	assert_eq(esito["svegli"], [])
+	assert_true(esito["voce"]["deliberazione"].is_empty())
+	assert_does_not_have(esito["fsm_path"], "ARBITRATO")
+
 func test_preghiera_allusiva_sveglia_zeus():
 	# "il capo dell'olimpo" -> zeus via risoluzione deterministica. Il mock restituisce
 	# tipo preghiera, tag [], dio_invocato null: l'unico modo in cui Zeus si sveglia
