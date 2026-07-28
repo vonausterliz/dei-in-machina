@@ -83,6 +83,22 @@ func test_astuzia_scatena_aiuto_di_atena():
 	assert_eq(esito["voce"]["verdetto"]["registro"], "aiuto")
 	assert_eq(GameManager.stato.diario[-1]["esito"], "fair")
 
+func test_conflitto_scatena_deliberazione_e_verdetto():
+	# astuzia + tracotanza svegliano Atena (aiuto) e Poseidone (castigo): conflitto.
+	var esito := await GameManager.esegui_turno("Mi vanto della mia astuzia davanti a tutti")
+	assert_eq(esito["svegli"], ["atena", "poseidone"])
+	assert_true(esito["voce"]["conflitto"], "aiuto vs castigo deve essere conflitto")
+	assert_eq(esito["voce"]["deliberazione"].size(), 2)
+	assert_has(esito["fsm_path"], "ARBITRATO")
+	# Il verdetto sceglie uno dei due contendenti e produce un delta.
+	assert_has(["atena", "poseidone"], esito["voce"]["verdetto"]["attore"])
+	assert_false(esito["voce"]["delta"].is_empty())
+
+func test_singolo_dio_niente_conflitto():
+	var esito := await GameManager.esegui_turno("Sono io, Odisseo, che t'ho accecato!")
+	assert_false(esito["voce"]["conflitto"])
+	assert_eq(esito["voce"]["deliberazione"].size(), 1)
+
 func test_esito_ciurma_perduta_termina_partita():
 	# Forzo la ciurma a 0: il prossimo controllo d'esito deve dichiarare la sconfitta.
 	GameManager.stato.ulisse["stat"]["ciurma"]["vivi"] = 0

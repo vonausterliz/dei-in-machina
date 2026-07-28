@@ -31,7 +31,7 @@ static func turno(voce: Dictionary) -> String:
 
 	var delib: Array = voce.get("deliberazione", [])
 	if not delib.is_empty():
-		r.append("Deliberazione:")
+		r.append("Deliberazione:%s" % ("  (CONFLITTO)" if voce.get("conflitto", false) else ""))
 		for battuta in delib:
 			var chi: String = battuta.get("dio", "?")
 			var testo: String = battuta.get("dice", "")

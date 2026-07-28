@@ -65,6 +65,7 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	var proposte: Array = []
 	var verdetto: Dictionary = {}
 	var delta: Dictionary = {}
+	var conflitto := false
 	if in_mondo:
 		percorso.append(Fase.keys()[Fase.RISVEGLIO])
 		_risolvi_invocazione(envelope, input_testo)
@@ -75,20 +76,22 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 		delta = Delta.da_azione(envelope)
 
 		if not svegli.is_empty():
-			# DELIBERAZIONE — in fase 3: ogni dio sveglio propone (voce + registro), senza
-			# ancora parlarsi tra loro (il dialogo tra dei in conflitto e' fase 4).
+			# DELIBERAZIONE — ogni dio sveglio propone; se le proposte confliggono
+			# (chi punisce vs chi aiuta) i dei si ribattono (round 2) e Zeus arbitra.
 			percorso.append(Fase.keys()[Fase.DELIBERAZIONE])
-			proposte = await _raccogli_proposte(svegli, envelope)
+			var esito_delib := await _delibera(svegli, envelope)
+			proposte = esito_delib["proposte"]
+			conflitto = esito_delib["conflitto"]
 
-			# ARBITRATO — verdetto deterministico: vince la proposta piu' intensa
-			# (a parita', l'ordine del pantheon). Lo Zeus-che-media e' fase 4.
+			# ARBITRATO — verdetto: Zeus se c'e' conflitto, altrimenti deterministico.
 			percorso.append(Fase.keys()[Fase.ARBITRATO])
-			verdetto = _arbitra(proposte)
+			verdetto = esito_delib["verdetto"]
 
 			# APPLICAZIONE — delta della reazione (numeri = regola, non LLM).
-			percorso.append(Fase.keys()[Fase.APPLICAZIONE])
-			delta = Delta.unisci(delta, Delta.da_reazione(
-				verdetto["attore"], verdetto["registro"], verdetto["intensita"]))
+			if verdetto.get("attore", "") != "" and verdetto.get("registro", "silenzio") != "silenzio":
+				percorso.append(Fase.keys()[Fase.APPLICAZIONE])
+				delta = Delta.unisci(delta, Delta.da_reazione(
+					verdetto["attore"], verdetto["registro"], int(verdetto["intensita"])))
 
 		Delta.applica(stato, delta)
 
@@ -116,6 +119,7 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 		"envelope": envelope,
 		"svegli": svegli,
 		"eventi_emessi": eventi,
+		"conflitto": conflitto if in_mondo else false,
 		"deliberazione": proposte,
 		"verdetto": verdetto,
 		"delta": delta,
@@ -144,22 +148,81 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 		"fsm_path": percorso,
 	}
 
-## Ogni dio sveglio produce una proposta (voce + registro) dato il suo stato corrente.
-func _raccogli_proposte(svegli: Array, envelope: Dictionary) -> Array:
+## Registri che "puniscono" vs "aiutano": il loro incontro definisce il conflitto.
+const _REGISTRI_PUNITIVI := ["castigo", "aiuto_negato", "trappola"]
+const _REGISTRI_BENIGNI := ["aiuto", "segno"]
+
+## Deliberazione. Ritorna {proposte, conflitto, verdetto}.
+## - proposte aperte (round 1); si scartano i 'silenzio'.
+## - se le proposte attive confliggono: round 2 di repliche (i dei si sentono tra loro)
+##   e verdetto di Zeus (Arbitro LLM). Altrimenti verdetto deterministico.
+func _delibera(svegli: Array, envelope: Dictionary) -> Dictionary:
+	var proposte := await _raccogli_proposte(svegli, envelope, [])
+	var attive := _attive(proposte)
+	if attive.is_empty():
+		return {"proposte": proposte, "conflitto": false, "verdetto": {}}
+	if attive.size() == 1 or not _in_conflitto(attive):
+		return {"proposte": attive, "conflitto": false, "verdetto": _arbitra(attive)}
+
+	# CONFLITTO: i dei si ribattono, poi Zeus chiude.
+	var repliche := await _repliche(attive, envelope)
+	var verdetto: Dictionary = await LLMManager.verdetto_arbitro(repliche)
+	return {"proposte": repliche, "conflitto": true, "verdetto": verdetto}
+
+## Ogni dio in 'svegli' propone. 'altri' (opzionale) = proposte altrui da mostrargli (replica).
+func _raccogli_proposte(svegli: Array, envelope: Dictionary, altri: Array) -> Array:
 	var out: Array = []
 	for id in svegli:
-		var dio: Dio = PantheonManager.get_dio(id)
-		var reg: Dictionary = stato.registro_divino.get(id, {})
-		var contesto := {
-			"favore": reg.get("favore", 0),
-			"ira": reg.get("ira", 0),
-			"umore": reg.get("umore", ""),
-			"envelope": envelope,
-		}
-		out.append(await LLMManager.proposta_dio(dio, contesto))
+		out.append(await LLMManager.proposta_dio(PantheonManager.get_dio(id), _contesto_dio(id, envelope, altri)))
 	return out
 
-## Verdetto: vince la proposta piu' intensa; a parita' resta l'ordine (pantheon).
+## Round 2: ogni dio ribatte vedendo le proposte degli ALTRI.
+func _repliche(attive: Array, envelope: Dictionary) -> Array:
+	var out: Array = []
+	for p in attive:
+		var id: String = p.get("dio", "")
+		var altri := _altri_dei(attive, id)
+		out.append(await LLMManager.proposta_dio(PantheonManager.get_dio(id), _contesto_dio(id, envelope, altri)))
+	return out
+
+func _contesto_dio(id: String, envelope: Dictionary, altri: Array) -> Dictionary:
+	var reg: Dictionary = stato.registro_divino.get(id, {})
+	return {
+		"favore": reg.get("favore", 0),
+		"ira": reg.get("ira", 0),
+		"umore": reg.get("umore", ""),
+		"envelope": envelope,
+		"altri_dei": altri,
+	}
+
+## Le proposte degli altri dei (nome + registro + battuta), per la replica.
+func _altri_dei(proposte: Array, escluso: String) -> Array:
+	var out: Array = []
+	for p in proposte:
+		if p.get("dio", "") != escluso:
+			var d: Dio = PantheonManager.get_dio(p.get("dio", ""))
+			out.append({"nome": d.nome if d else p.get("dio", "?"), "registro": p.get("registro", "?"), "dice": p.get("dice", "")})
+	return out
+
+func _attive(proposte: Array) -> Array:
+	var out: Array = []
+	for p in proposte:
+		if p.get("registro", "silenzio") != "silenzio":
+			out.append(p)
+	return out
+
+func _in_conflitto(attive: Array) -> bool:
+	var punisce := false
+	var aiuta := false
+	for p in attive:
+		var r: String = p.get("registro", "")
+		if _REGISTRI_PUNITIVI.has(r):
+			punisce = true
+		elif _REGISTRI_BENIGNI.has(r):
+			aiuta = true
+	return punisce and aiuta
+
+## Verdetto deterministico (no conflitto): vince la proposta piu' intensa; a parita', l'ordine.
 func _arbitra(proposte: Array) -> Dictionary:
 	var best: Dictionary = proposte[0]
 	for p in proposte:

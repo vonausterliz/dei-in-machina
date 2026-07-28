@@ -28,6 +28,13 @@ const _FIXTURES_INTERPRETE := {
 		"dio_invocato": null, "bersaglio": null, "tono": "umile", "intensita": 2,
 		"sintesi": "Ulisse invoca il signore dell'Olimpo.",
 	},
+	# Astuzia + tracotanza insieme: sveglia Atena (astuzia) E Poseidone (tracotanza),
+	# che propongono registri opposti -> CONFLITTO, per collaudare la deliberazione.
+	"vanto della mia astuzia": {
+		"plausibilita": "in_mondo", "tipo": "parola", "tag": ["astuzia", "tracotanza"],
+		"dio_invocato": null, "bersaglio": null, "tono": "sfida", "intensita": 2,
+		"sintesi": "Ulisse si vanta della propria astuzia sfidando le potenze.",
+	},
 }
 
 const _ENVELOPE_DEFAULT := {
@@ -56,14 +63,20 @@ func proposta_dio(dio: Dio, _contesto: Dictionary) -> Dictionary:
 		"intensita": 1,
 	}
 
-func verdetto_arbitro(proposte: Array) -> Dictionary:
+## Verdetto dell'Arbitro (Zeus): deterministico nel mock — vince la proposta piu'
+## intensa (a parita', l'ordine di arrivo). Ritorna {attore, registro, intensita, dice}.
+func verdetto_arbitro(proposte: Array, _contesto: Dictionary = {}) -> Dictionary:
 	if proposte.is_empty():
-		return {"registro": "silenzio", "colpevole": null, "delta": {}}
+		return {"attore": "", "registro": "silenzio", "intensita": 1, "dice": ""}
 	var scelta: Dictionary = proposte[0]
+	for p in proposte:
+		if int(p.get("intensita", 1)) > int(scelta.get("intensita", 1)):
+			scelta = p
 	return {
+		"attore": scelta.get("dio", ""),
 		"registro": scelta.get("registro", "silenzio"),
-		"colpevole": scelta.get("dio", null),
-		"delta": {},
+		"intensita": int(scelta.get("intensita", 1)),
+		"dice": "Ho udito. Decido io.",
 	}
 
 ## contesto atteso: {"sintesi": String, ...}. Non nomina MAI un dio (invariante di design).

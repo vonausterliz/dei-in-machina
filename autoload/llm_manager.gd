@@ -19,6 +19,7 @@ var _client: LLMClient = null
 var _interprete: Interprete = null
 var _dio_agente: DioAgente = null
 var _narratore: Narratore = null
+var _arbitro: Arbitro = null
 
 func _ready() -> void:
 	config = _carica_config()
@@ -45,6 +46,7 @@ func _inizializza_reale() -> void:
 		for d in PantheonManager.pantheon.tutti():
 			nomi.append(d.nome)
 	_narratore = Narratore.new(nomi)
+	_arbitro = Arbitro.new(PantheonManager.pantheon)
 
 ## La chiave API sta fuori dal repo: variabile d'ambiente il cui nome e' in config.
 func _leggi_chiave(cfg: Dictionary) -> String:
@@ -75,6 +77,12 @@ func proposta_dio(dio: Dio, contesto: Dictionary, seed: int = 0) -> Dictionary:
 		await get_tree().process_frame
 		return _mock.proposta_dio(dio, contesto)
 	return await _dio_agente.proponi(dio, contesto, _client.chat, seed)
+
+func verdetto_arbitro(proposte: Array, seed: int = 0) -> Dictionary:
+	if mock_mode:
+		await get_tree().process_frame
+		return _mock.verdetto_arbitro(proposte)
+	return await _arbitro.decidi(proposte, _client.chat, seed)
 
 func narrazione_omero(contesto: Dictionary, seed: int = 0) -> String:
 	if mock_mode:

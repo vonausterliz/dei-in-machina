@@ -48,6 +48,13 @@ func costruisci_messaggi(dio: Dio, contesto: Dictionary) -> Array:
 		env.get("sintesi", "qualcosa"), env.get("tag", []), env.get("tono", "?"),
 		env.get("intensita", 1), contesto.get("favore", 0), contesto.get("ira", 0),
 	]
+	# Round di replica: il dio vede cosa hanno proposto gli ALTRI dei e puo' ribattere.
+	var altri: Array = contesto.get("altri_dei", [])
+	if not altri.is_empty():
+		var voci: Array[String] = []
+		for a in altri:
+			voci.append("- %s vuole %s: \"%s\"" % [a.get("nome", "un dio"), a.get("registro", "?"), a.get("dice", "")])
+		situazione += "\n\nAltri dei si sono fatti sentire:\n%s\nRibatti in carattere: insisti, rilancia o cambia idea." % "\n".join(voci)
 	return [
 		{"role": "system", "content": system_prompt(dio)},
 		{"role": "user", "content": situazione},

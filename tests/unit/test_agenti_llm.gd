@@ -94,3 +94,36 @@ func test_redazione_ultima_difesa():
 	var testo := await nar.narra({"sintesi": "x"}, fake.chat)
 	assert_false(nar.nomina_un_dio(testo), "il nome va redatto: %s" % testo)
 	assert_string_contains(testo.to_lower(), "un dio")
+
+# --- Arbitro (Zeus) ---
+
+func _proposte_conflitto() -> Array:
+	return [
+		{"dio": "atena", "registro": "aiuto", "intensita": 2, "dice": "Lo difendo."},
+		{"dio": "poseidone", "registro": "castigo", "intensita": 3, "dice": "Che il mare lo prenda."},
+	]
+
+func test_arbitro_verdetto_valido():
+	var arb := Arbitro.new(_p)
+	var fake := FakeChat.new()
+	fake.risposte = [_ok('{"attore":"poseidone","registro":"castigo","intensita":2,"dice":"Il mare avra il suo pegno, ma non la vita."}')]
+	var v := await arb.decidi(_proposte_conflitto(), fake.chat)
+	assert_eq(v["attore"], "poseidone")
+	assert_eq(v["registro"], "castigo")
+	assert_eq(v["intensita"], 2, "Zeus puo' ridurre l'intensita'")
+
+func test_arbitro_attore_non_in_campo_va_in_fallback():
+	# Zeus nomina un dio che non era in campo: verdetto rifiutato -> fallback (piu' intensa).
+	var arb := Arbitro.new(_p)
+	var fake := FakeChat.new()
+	fake.risposte = [_ok('{"attore":"circe","registro":"trappola","intensita":3,"dice":"x"}')]
+	var v := await arb.decidi(_proposte_conflitto(), fake.chat)
+	assert_eq(v["attore"], "poseidone", "fallback: la proposta piu' intensa")
+
+func test_arbitro_malformato_va_in_fallback():
+	var arb := Arbitro.new(_p)
+	var fake := FakeChat.new()
+	fake.risposte = [_ok("Decido io e basta.")]
+	var v := await arb.decidi(_proposte_conflitto(), fake.chat)
+	assert_eq(v["attore"], "poseidone")
+	assert_eq(v["registro"], "castigo")
