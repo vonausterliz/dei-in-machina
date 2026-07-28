@@ -10,20 +10,31 @@ extends Node
 
 const SALVATAGGIO_DEFAULT := "user://partita.json"
 
-## Fasi della macchina del turno (macchina_del_turno.mermaid). RESA_DEI_CONTI e
-## SCAVALCAMENTO (politica divina) sono fase 6; la DELIBERAZIONE in fase 3 e' solo
-## raccolta di proposte, non ancora dialogo tra dei in conflitto (quello e' fase 4).
+## Fasi della macchina del turno (macchina_del_turno.mermaid).
 enum Fase {
+	RESA_DEI_CONTI,
 	INTERPRETAZIONE, VALIDAZIONE, RISVEGLIO,
-	DELIBERAZIONE, ARBITRATO, APPLICAZIONE,
+	DELIBERAZIONE, ARBITRATO, APPLICAZIONE, SCAVALCAMENTO,
 	NARRAZIONE, ESITO, AVANZAMENTO,
 }
+
+## Politica divina (fase 6), valori-seme.
+const _PROB_SCAVALCAMENTO_DEFAULT := 0.35  # raro: non deve annegare il segnale deducibile
+const _RATE_SOSPETTO := 20                 # quanto sale il sospetto di Zeus a ogni turno
+const _IRA_ZEUS_SCOPERTA := 15             # ira che Zeus cova verso il colpevole scoperto
+const _RIMBALZO_ULISSE := 5                # ripercussione di rimbalzo su Ulisse
+const _SOGLIA_SCOPERTA := 60
+
+## Probabilita' che un dio bocciato scavalchi Zeus. Sovrascrivibile nei test (0/1).
+var prob_scavalcamento := _PROB_SCAVALCAMENTO_DEFAULT
+var _rng := RandomNumberGenerator.new()
 
 var stato: StatoPartita = null
 
 func nuova_partita(seed_partita: int = 0) -> void:
 	var s := seed_partita if seed_partita != 0 else randi()
 	stato = StatoPartita.nuova(PantheonManager.pantheon, s)
+	_rng.seed = s  # riproducibilita': stessa run, stessi scavalcamenti
 
 func carica_partita(path: String = SALVATAGGIO_DEFAULT) -> bool:
 	var s := StatoPartita.carica(path)
@@ -52,6 +63,11 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	stato.turno += 1
 	var turno := stato.turno
 
+	# RESA DEI CONTI — Zeus verifica gli scavalcamenti pendenti: il sospetto sale, e
+	# alla soglia scopre il colpevole (cova ira, e il conto rimbalza su Ulisse).
+	percorso.append(Fase.keys()[Fase.RESA_DEI_CONTI])
+	var resa := _resa_dei_conti()
+
 	# INTERPRETAZIONE — testo libero -> envelope (Interprete via LLMManager).
 	percorso.append(Fase.keys()[Fase.INTERPRETAZIONE])
 	var envelope: Dictionary = await LLMManager.interpreta(input_testo)
@@ -66,6 +82,7 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	var svegli: Array[String] = []
 	var proposte: Array = []
 	var verdetto: Dictionary = {}
+	var scavalcamento: Dictionary = {}
 	var delta: Dictionary = val["delta"]  # fuori-mondo: smarrimento/follia (vuoto se in_mondo)
 	var conflitto := false
 	if in_mondo:
@@ -95,7 +112,17 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 				delta = Delta.unisci(delta, Delta.da_reazione(
 					verdetto["attore"], verdetto["registro"], int(verdetto["intensita"])))
 
-	# APPLICAZIONE del delta (reazione divina in_mondo, oppure smarrimento/follia fuori-mondo).
+			# SCAVALCAMENTO — un dio punitivo bocciato puo' agire di nascosto (raro):
+			# applica il suo delta all'insaputa di Zeus e lascia una traccia (pendente).
+			scavalcamento = _tenta_scavalcamento(proposte, verdetto)
+			if not scavalcamento.is_empty():
+				percorso.append(Fase.keys()[Fase.SCAVALCAMENTO])
+				delta = Delta.unisci(delta, scavalcamento["delta"])
+
+	# La ripercussione della resa dei conti (rimbalzo su Ulisse) confluisce nel turno.
+	delta = Delta.unisci(delta, resa.get("delta", {}))
+
+	# APPLICAZIONE del delta (reazione divina in_mondo, smarrimento/follia, resa, scavalcamento).
 	Delta.applica(stato, delta)
 
 	# NARRAZIONE — Omero reticente, senza nomi di dei (invariante).
@@ -126,6 +153,8 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 		"conflitto": conflitto if in_mondo else false,
 		"deliberazione": proposte,
 		"verdetto": verdetto,
+		"scavalcamento": scavalcamento,
+		"resa_dei_conti": resa,
 		"delta": delta,
 		"ammonizione": val["classe"],
 		"narrazione_omero": narrazione,
@@ -280,6 +309,58 @@ func _valida(envelope: Dictionary, input_testo: String) -> Dictionary:
 		return {"in_mondo": false, "delta": {"ulisse.animo": -_CALO_SMARRIMENTO}, "esito": "continua", "classe": "smarrimento"}
 	# Primo scivolone: solo richiamo, nessun danno.
 	return {"in_mondo": false, "delta": {}, "esito": "continua", "classe": "richiamo"}
+
+## SCAVALCAMENTO: se una proposta punitiva ha perso il verdetto, quel dio puo' (raro)
+## fare di testa sua alle spalle di Zeus. Applica il suo delta e registra un pendente.
+## Ritorna {} se nessuno scavalca, altrimenti {colpevole, delta, cosa}.
+func _tenta_scavalcamento(proposte: Array, verdetto: Dictionary) -> Dictionary:
+	var perdente := _perdente_punitivo(proposte, verdetto)
+	if perdente.is_empty() or prob_scavalcamento <= 0.0:
+		return {}
+	if prob_scavalcamento < 1.0 and _rng.randf() > prob_scavalcamento:
+		return {}
+	var d := Delta.da_reazione(perdente["dio"], perdente["registro"], int(perdente.get("intensita", 1)))
+	var cosa := "Oltre al verdetto, ha agito di nascosto: %s con intensita' %d." % [perdente["registro"], int(perdente.get("intensita", 1))]
+	stato.scavalcamenti_pendenti.append({
+		"turno": stato.turno,
+		"colpevole": perdente["dio"],
+		"cosa": cosa,
+		"sfrontatezza": int(perdente.get("intensita", 1)),
+		"sospetto_zeus": 0,
+		"soglia_scoperta": _SOGLIA_SCOPERTA,
+		"rilevato": false,
+	})
+	return {"colpevole": perdente["dio"], "delta": d, "cosa": cosa}
+
+## Una proposta con registro punitivo il cui dio NON e' l'attore del verdetto (ha perso).
+func _perdente_punitivo(proposte: Array, verdetto: Dictionary) -> Dictionary:
+	var vincitore: String = verdetto.get("attore", "")
+	for p in proposte:
+		if p.get("dio", "") != vincitore and _REGISTRI_PUNITIVI.has(p.get("registro", "")):
+			return p
+	return {}
+
+## RESA DEI CONTI (inizio turno): il sospetto di Zeus sale sui pendenti; alla soglia
+## scopre il colpevole, cova ira (relazioni.zeus_verso) e il conto rimbalza su Ulisse.
+## Ritorna {} o {scoperti: [id...], delta} (rimbalzo da applicare nel turno).
+func _resa_dei_conti() -> Dictionary:
+	var scoperti: Array = []
+	var delta: Dictionary = {}
+	for sc in stato.scavalcamenti_pendenti:
+		if sc.get("rilevato", false):
+			continue
+		sc["sospetto_zeus"] = int(sc.get("sospetto_zeus", 0)) + _RATE_SOSPETTO
+		if int(sc["sospetto_zeus"]) >= int(sc.get("soglia_scoperta", _SOGLIA_SCOPERTA)):
+			sc["rilevato"] = true
+			var colpevole: String = sc.get("colpevole", "")
+			var zv: Dictionary = stato.relazioni.get("zeus_verso", {})
+			if zv.has(colpevole):
+				zv[colpevole] = int(zv[colpevole]) + _IRA_ZEUS_SCOPERTA
+			scoperti.append(colpevole)
+			delta = Delta.unisci(delta, {"ulisse.animo": -_RIMBALZO_ULISSE})
+	if scoperti.is_empty():
+		return {}
+	return {"scoperti": scoperti, "delta": delta}
 
 func _episodio_corrente() -> String:
 	var ep: Variant = stato.ulisse.get("episodio_corrente", null)

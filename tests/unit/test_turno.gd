@@ -18,7 +18,8 @@ func test_turno_in_mondo_sveglia_e_registra():
 	assert_eq(esito["esito"], "continua")
 	# La FSM ha attraversato il RISVEGLIO.
 	assert_has(esito["fsm_path"], "RISVEGLIO")
-	assert_eq(esito["fsm_path"][0], "INTERPRETAZIONE")
+	assert_eq(esito["fsm_path"][0], "RESA_DEI_CONTI")
+	assert_has(esito["fsm_path"], "INTERPRETAZIONE")
 	assert_eq(esito["fsm_path"][-1], "AVANZAMENTO")
 	# Registrazioni.
 	assert_eq(GameManager.stato.turno, 1)
