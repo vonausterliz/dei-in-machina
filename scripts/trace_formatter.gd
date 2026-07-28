@@ -46,6 +46,12 @@ static func turno(voce: Dictionary) -> String:
 	if not scav.is_empty():
 		r.append("Scavalcamento: %s — %s" % [scav.get("colpevole", "?"), scav.get("cosa", "")])
 
+	var coal: Array = voce.get("coalizioni", [])
+	if not coal.is_empty():
+		for c in coal:
+			r.append("Coalizione:  %s (coesione %s) — %s" % [
+				", ".join(c.get("membri", [])), c.get("coesione", "?"), c.get("obiettivo", "")])
+
 	var delta: Dictionary = voce.get("delta", {})
 	if not delta.is_empty():
 		r.append("Delta:      %s" % delta)

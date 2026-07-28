@@ -32,6 +32,16 @@ const _SOGLIA_SCOPERTA := 60
 var prob_scavalcamento := _PROB_SCAVALCAMENTO_DEFAULT
 var _rng := RandomNumberGenerator.new()
 
+## Coalizioni & strategie (fase 6-bis), valori-seme. Rare e bounded per non annegare
+## il segnale deducibile: restano modulazione di sfondo, mai la causa dominante.
+const _PROB_COALIZIONE_DEFAULT := 0.4
+const _COESIONE_INIZIALE := 70
+const _COESIONE_DECADIMENTO := 15
+const _MAX_COALIZIONI := 1
+const _PESO_COALIZIONE := 1              # bonus d'intensita' per chi fa blocco
+const _SOGLIA_VULNERABILITA := 40        # animo sotto cui Ulisse e' "debole"
+var prob_coalizione := _PROB_COALIZIONE_DEFAULT
+
 var stato: StatoPartita = null
 
 func _ready() -> void:
@@ -153,6 +163,10 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 				percorso.append(Fase.keys()[Fase.SCAVALCAMENTO])
 				delta = Delta.unisci(delta, scavalcamento["delta"])
 
+	# Coalizioni (fase 6-bis): decadono ogni turno e, raramente, se ne formano di nuove
+	# dal blocco di dei punitivi della stessa fazione (proposte vuote se nessuno ha reagito).
+	_aggiorna_coalizioni(proposte)
+
 	# La ripercussione della resa dei conti (rimbalzo su Ulisse) confluisce nel turno.
 	delta = Delta.unisci(delta, resa.get("delta", {}))
 
@@ -190,6 +204,7 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 		"verdetto": verdetto,
 		"scavalcamento": scavalcamento,
 		"resa_dei_conti": resa,
+		"coalizioni": stato.coalizioni.duplicate(true),
 		"delta": delta,
 		"ammonizione": val["classe"],
 		"narrazione_omero": narrazione,
@@ -243,12 +258,19 @@ func _delibera(svegli: Array, envelope: Dictionary) -> Dictionary:
 	if attive.is_empty():
 		return {"proposte": proposte, "conflitto": false, "verdetto": {}}
 	if attive.size() == 1 or not _in_conflitto(attive):
-		return {"proposte": attive, "conflitto": false, "verdetto": _arbitra(attive)}
+		var prep := _prepara_per_arbitrato(attive)
+		return {"proposte": prep, "conflitto": false, "verdetto": _arbitra(prep)}
 
 	# CONFLITTO: i dei si ribattono, poi Zeus chiude.
 	var repliche := await _repliche(attive, envelope)
-	var verdetto: Dictionary = await LLMManager.verdetto_arbitro(repliche)
-	return {"proposte": repliche, "conflitto": true, "verdetto": verdetto}
+	var prep_c := _prepara_per_arbitrato(repliche)
+	var verdetto: Dictionary = await LLMManager.verdetto_arbitro(prep_c)
+	return {"proposte": prep_c, "conflitto": true, "verdetto": verdetto}
+
+## Sfondo (fase 6-bis) sulle proposte prima del verdetto: strategie (piano) e peso di
+## coalizione. Modulano l'intensita', non sostituiscono la scelta LLM del registro.
+func _prepara_per_arbitrato(proposte: Array) -> Array:
+	return _applica_peso_coalizioni(_modula_proposte_per_piano(proposte))
 
 ## Ogni dio in 'svegli' propone. 'altri' (opzionale) = proposte altrui da mostrargli (replica).
 func _raccogli_proposte(svegli: Array, envelope: Dictionary, altri: Array) -> Array:
@@ -291,6 +313,82 @@ func _attive(proposte: Array) -> Array:
 		if p.get("registro", "silenzio") != "silenzio":
 			out.append(p)
 	return out
+
+# --- Fase 6-bis: strategie (piano) ---
+
+## Un dio con un piano a orizzonte "lungo" (la pazienza di Poseidone) inclina la sua
+## reazione: aspetta (intensita' giu') finche' Ulisse e' saldo, colpisce piu' forte
+## (intensita' su) quando e' debole o vicino alla salvezza. Sfondo, non causa dominante.
+func _modula_proposte_per_piano(proposte: Array) -> Array:
+	var vulnerabile := _ulisse_vulnerabile()
+	var out: Array = []
+	for p in proposte:
+		var q: Dictionary = p.duplicate()
+		var reg: Dictionary = stato.registro_divino.get(p.get("dio", ""), {})
+		var piano = reg.get("piano", null)
+		if typeof(piano) == TYPE_DICTIONARY and String(piano.get("orizzonte", "")) == "lungo":
+			var delta_i := 1 if vulnerabile else -1
+			q["intensita"] = clampi(int(q.get("intensita", 1)) + delta_i, 1, 3)
+		out.append(q)
+	return out
+
+func _ulisse_vulnerabile() -> bool:
+	var animo := int(stato.ulisse.get("stat", {}).get("animo", 100))
+	var ep := _episodio_corrente()
+	return animo <= _SOGLIA_VULNERABILITA or ep == "naufragio" or ep == "scheria"
+
+# --- Fase 6-bis: coalizioni ---
+
+## Peso di blocco: chi e' in una coalizione attiva spinge con piu' forza (intensita' +).
+func _applica_peso_coalizioni(proposte: Array) -> Array:
+	var out: Array = []
+	for p in proposte:
+		var q: Dictionary = p.duplicate()
+		if _in_coalizione(p.get("dio", "")):
+			q["intensita"] = clampi(int(q.get("intensita", 1)) + _PESO_COALIZIONE, 1, 3)
+		out.append(q)
+	return out
+
+func _in_coalizione(id: String) -> bool:
+	for c in stato.coalizioni:
+		if c.get("membri", []).has(id):
+			return true
+	return false
+
+## Fine turno: le coalizioni attive perdono coesione (e si sciolgono a zero); poi, raro
+## e col tetto, un blocco di dei punitivi della stessa fazione puo' formarne una nuova.
+func _aggiorna_coalizioni(proposte: Array) -> void:
+	var vive: Array = []
+	for c in stato.coalizioni:
+		c["coesione"] = int(c.get("coesione", 0)) - _COESIONE_DECADIMENTO
+		if int(c["coesione"]) > 0:
+			vive.append(c)
+	stato.coalizioni = vive
+
+	if stato.coalizioni.size() >= _MAX_COALIZIONI or prob_coalizione <= 0.0:
+		return
+	var blocco := _blocco_punitivo_stessa_fazione(proposte)
+	if blocco.size() < 2:
+		return
+	if prob_coalizione < 1.0 and _rng.randf() > prob_coalizione:
+		return
+	stato.coalizioni.append({
+		"membri": blocco,
+		"obiettivo": "negare il ritorno a Ulisse",
+		"formata_al_turno": stato.turno,
+		"coesione": _COESIONE_INIZIALE,
+		"scadenza": "obiettivo_raggiunto_o_interessi_divergenti",
+	})
+
+## Dei con proposta punitiva e stessa fazione contro-ritorno: la base di una coalizione.
+func _blocco_punitivo_stessa_fazione(proposte: Array) -> Array:
+	var membri: Array = []
+	for p in proposte:
+		if _REGISTRI_PUNITIVI.has(p.get("registro", "")):
+			var d: Dio = PantheonManager.get_dio(p.get("dio", ""))
+			if d != null and d.fazione == "contro-ritorno":
+				membri.append(p.get("dio", ""))
+	return membri
 
 func _in_conflitto(attive: Array) -> bool:
 	var punisce := false

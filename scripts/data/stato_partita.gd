@@ -55,6 +55,14 @@ static func nuova(pantheon: Pantheon, seed_partita: int, run_id: String = "") ->
 			"umore": "",
 			"risvegliato": in_gioco,
 		}
+	# Strategia di sfondo (fase 6-bis): la pazienza crudele di Poseidone, che aspetta
+	# il momento peggiore per colpire. Un 'piano' leggero che inclina le sue reazioni.
+	if s.registro_divino.has("poseidone"):
+		s.registro_divino["poseidone"]["piano"] = {
+			"obiettivo": "spezzare Ulisse nel momento peggiore, non subito",
+			"innesco": "quando sara' piu' vicino alla salvezza o piu' debole",
+			"orizzonte": "lungo",
+		}
 	s.relazioni = {"zeus_verso": {}}
 	for id in pantheon.tutti_gli_id():
 		if id != "zeus":
