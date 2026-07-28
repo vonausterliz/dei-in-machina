@@ -53,3 +53,47 @@ func dei_attivi() -> Array[Dio]:
 
 func numero_dei() -> int:
 	return _dei.size()
+
+## Dei "in ascolto" questo turno: attivi e nella condizione di poter reagire.
+## Persistente = sempre in ascolto; locale = solo quando si e' nel suo episodio.
+## 'attivo' e' l'interruttore di rollout (stadio 1 = solo i persistenti attivi).
+func eleggibili(episodio_corrente: String) -> Array[String]:
+	var out: Array[String] = []
+	for dio in tutti():
+		if not dio.attivo:
+			continue
+		if dio.fascia == "persistente":
+			out.append(dio.id)
+		elif dio.fascia == "locale" and dio.episodio != null and String(dio.episodio) == episodio_corrente:
+			out.append(dio.id)
+	return out
+
+## RISVEGLIO (macchina_del_turno.mermaid): tra gli eleggibili, chi si sveglia per
+## via dei TRIGGER. Regola deterministica (GDScript), cuore del "nascosto ma leale":
+## stessa azione -> stessi tag -> stessi dei svegliati. Un dio si sveglia se
+##  - un suo trigger_azione e' tra i tag dell'envelope, OPPURE
+##  - un suo trigger_evento e' tra gli eventi di mondo di questo turno, OPPURE
+##  - e' il dio_invocato (Ulisse lo chiama per nome).
+##
+## NOTA DI DESIGN: il testo dice i persistenti "valutati ogni turno", ma la coerenza
+## "vive nel trigger" e il diagramma gatea il risveglio sui trigger. Scelta: risveglio
+## gated dai trigger (un persistente non-innescato resta silente), cosi' il segnale e'
+## deducibile. L'esempio in stato_partita.json (svegli = tutti i persistenti) e' trattato
+## come illustrativo, non normativo. Vedi STATO_LAVORI.md.
+func risveglio(envelope: Dictionary, eventi: Array, episodio_corrente: String) -> Array[String]:
+	var tag: Array = envelope.get("tag", [])
+	var dio_invocato: Variant = envelope.get("dio_invocato", null)
+	var out: Array[String] = []
+	for id in eleggibili(episodio_corrente):
+		var dio := get_dio(id)
+		if _combacia(dio.trigger_azione, tag) \
+				or _combacia(dio.trigger_evento, eventi) \
+				or (dio_invocato != null and String(dio_invocato) == id):
+			out.append(id)
+	return out
+
+func _combacia(triggers: Array, presenti: Array) -> bool:
+	for t in triggers:
+		if presenti.has(t):
+			return true
+	return false

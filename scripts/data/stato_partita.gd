@@ -46,11 +46,14 @@ static func nuova(pantheon: Pantheon, seed_partita: int, run_id: String = "") ->
 	s.viaggio = {"ordine_episodi": [], "completati": [], "corrente": null}
 	s.registro_divino = {}
 	for dio in pantheon.tutti():
+		# I persistenti attivi sono "in gioco" fin dall'inizio (sempre in ascolto);
+		# i locali entrano in gioco quando si raggiunge il loro episodio.
+		var in_gioco := dio.attivo and dio.fascia == "persistente"
 		s.registro_divino[dio.id] = {
 			"favore": dio.favore_iniziale,
 			"ira": dio.ira_iniziale,
 			"umore": "",
-			"risvegliato": false,
+			"risvegliato": in_gioco,
 		}
 	s.relazioni = {"zeus_verso": {}}
 	for id in pantheon.tutti_gli_id():
