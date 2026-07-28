@@ -5,8 +5,10 @@ export.cfg
 export_presets.cfg
 *.translation
 
-# Binario Godot scaricato localmente (grosso, non da versionare)
+# Binari Godot scaricati localmente dal launcher (grossi, non da versionare):
+# uno per OS, scelti/scaricati da avvia.sh in base al sistema.
 tools/godot/godot4
+tools/godot/Godot.app/
 tools/godot/*.zip
 
 # Segreti / config locale
