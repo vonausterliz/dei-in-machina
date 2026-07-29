@@ -19,6 +19,8 @@ signal applicate
 ## Il motore scelto: chi dà voce agli dèi. La GUI principale reagisce attivando il
 ## percorso giusto (mock / Ollama / API esterna) e mostrandone l'esito.
 signal motore_scelto(modo: int)
+## Dimensione dell'interfaccia scelta dall'utente (moltiplicatore sulla scala schermo).
+signal zoom_scelto(fattore: float)
 
 const MOTORE_MOCK := 0
 const MOTORE_OLLAMA := 1
@@ -51,6 +53,21 @@ func _ready() -> void:
 	v.add_theme_constant_override("separation", 14)
 	margine.add_child(v)
 
+	v.add_child(_etichetta("ASPETTO", 14, C_GOLD))
+	var riga_zoom := HBoxContainer.new()
+	riga_zoom.add_theme_constant_override("separation", 10)
+	v.add_child(riga_zoom)
+	riga_zoom.add_child(_etichetta("Dimensione interfaccia:", 13, C_BONE_DIM))
+	var opt_zoom := OptionButton.new()
+	for etichetta in ["100%", "115%", "130%", "150%", "175%"]:
+		opt_zoom.add_item(etichetta)
+	opt_zoom.select(0)
+	opt_zoom.item_selected.connect(func(i):
+		zoom_scelto.emit([1.0, 1.15, 1.30, 1.50, 1.75][i]))
+	riga_zoom.add_child(opt_zoom)
+	riga_zoom.add_child(_etichetta("(vale per il gioco e per le finestre di servizio)", 12, C_BONE_DIM))
+
+	v.add_child(_separatore())
 	v.add_child(_etichetta("MOTORE", 14, C_GOLD))
 	var riga_motore := HBoxContainer.new()
 	riga_motore.add_theme_constant_override("separation", 10)

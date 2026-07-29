@@ -6,7 +6,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "1.8"
+const VERSIONE := "1.9"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -42,6 +42,8 @@ var _fin_olimpo: FinestraTesto   # finestra separata: traccia dell'ultimo turno
 var _fin_log: FinestraTesto      # finestra separata: log delle chiamate LLM
 var _menu_view: PopupMenu
 var _lbl_motore: Label
+var _scala_schermo: float = 1.0
+var _zoom_utente: float = 1.0
 var _fin_impostazioni: FinestraImpostazioni
 var _btn_olimpo: Button
 var _btn_log: Button
@@ -85,7 +87,24 @@ func _prepara_finestra() -> void:
 	var larghezza := DisplayServer.screen_get_size(scr).x
 	if scala <= 1.0 and larghezza >= 2560:
 		scala = clampf(roundf(float(larghezza) / 1600.0), 1.0, 3.0)
-	w.content_scale_factor = clampf(scala, 1.0, 3.0)
+	_scala_schermo = clampf(scala, 1.0, 3.0)
+	_applica_scala()
+
+## Scala dell'interfaccia = quella dello schermo per un moltiplicatore scelto dall'utente
+## (Settings). Va applicata a OGNI finestra: le secondarie non la ereditano da sola.
+func _applica_scala() -> void:
+	var f := _scala_schermo * _zoom_utente
+	get_window().content_scale_factor = clampf(f, 1.0, 3.0)
+	for fin in [_fin_log, _fin_olimpo]:
+		if fin:
+			fin.applica_scala(f)
+	if _fin_impostazioni:
+		_fin_impostazioni.content_scale_factor = clampf(f, 1.0, 3.0)
+
+## Chiamata da Settings quando l'utente cambia la dimensione dell'interfaccia.
+func imposta_zoom(fattore: float) -> void:
+	_zoom_utente = clampf(fattore, 0.8, 2.0)
+	_applica_scala()
 
 # --- helper di stile ---
 
@@ -177,22 +196,35 @@ func _crea_finestre_servizio() -> void:
 	get_tree().root.gui_embed_subwindows = false  # finestre vere del sistema, non incorporate
 	# Due finestre DISTINTE, in posizioni diverse: non devono sembrare la stessa che
 	# cambia contenuto. Le sfalso in base allo schermo.
+	# Dimensioni e posizioni RICAVATE DALLO SCHERMO, non fisse: due riquadri affiancati
+	# che non si coprono mai. (Con misure fisse il window manager riposizionava la seconda
+	# perche' usciva dallo schermo, e finivano una sopra l'altra.)
 	var schermo := DisplayServer.screen_get_size()
-	var alto := Vector2i(maxi(40, schermo.x - 900), 80)
-	var basso := Vector2i(maxi(20, schermo.x - 940), 120)
-	_fin_log = FinestraTesto.new("Log LLM · traffico verso il modello", true, Vector2i(860, 560), alto)
+	var margine := 24
+	var larg: int = clampi(int((schermo.x - margine * 3) / 2.0), 420, 900)
+	var alt: int = clampi(schermo.y - 160, 360, 900)
+	var y := 70
+	var alto := Vector2i(schermo.x - larg * 2 - margine * 2, y)
+	var basso := Vector2i(schermo.x - larg - margine, y)
+	if schermo.x < 1400:  # schermo stretto: impilate, ognuna di mezza altezza
+		alt = clampi(int((schermo.y - 200) / 2.0), 260, 520)
+		alto = Vector2i(maxi(margine, schermo.x - larg - margine), y)
+		basso = Vector2i(alto.x, y + alt + 46)
+	_fin_log = FinestraTesto.new("Log LLM · traffico verso il modello", true, Vector2i(larg, alt), alto)
 	_fin_log.chiusa.connect(func():
 		_btn_log.button_pressed = false
 		_spunta_view(VOCE_LOG, false))
 	add_child(_fin_log)
 	_fin_impostazioni = FinestraImpostazioni.new()
 	_fin_impostazioni.motore_scelto.connect(_on_motore_scelto)
+	_fin_impostazioni.zoom_scelto.connect(imposta_zoom)
 	add_child(_fin_impostazioni)
-	_fin_olimpo = FinestraTesto.new("Vista Olimpo · le voci degli dèi", false, Vector2i(820, 640), basso)
+	_fin_olimpo = FinestraTesto.new("Vista Olimpo · le voci degli dèi", false, Vector2i(larg, alt), basso)
 	_fin_olimpo.chiusa.connect(func():
 		_btn_olimpo.button_pressed = false
 		_spunta_view(VOCE_OLIMPO, false))
 	add_child(_fin_olimpo)
+	_applica_scala()  # le sub-window non ereditano la scala: gliela do io
 
 ## Barra dei menu (View, Settings). Le voci di View sono spuntabili: riflettono se la
 ## finestra è aperta.
@@ -297,7 +329,7 @@ func _colonna_rapsodia() -> Control:
 	_narrazione.add_theme_font_override("normal_font", _serif)
 	_narrazione.add_theme_font_override("bold_font", _serif_bold)
 	_narrazione.add_theme_font_override("italics_font", _serif_italic)
-	_narrazione.add_theme_font_size_override("normal_font_size", 19)
+	_narrazione.add_theme_font_size_override("normal_font_size", 21)
 	_narrazione.add_theme_color_override("default_color", C_BONE)
 	v.add_child(_narrazione)
 
@@ -320,7 +352,7 @@ func _colonna_rapsodia() -> Control:
 	_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_input.add_theme_color_override("font_color", C_BONE)
 	_input.add_theme_color_override("font_placeholder_color", C_BONE_DIM)
-	_input.add_theme_font_size_override("font_size", 15)
+	_input.add_theme_font_size_override("font_size", 17)
 	_input.add_theme_stylebox_override("normal", _sfondo(11, C_SEA2, Color(C_OXBLOOD, 0.45)))
 	_input.add_theme_stylebox_override("focus", _sfondo(11, C_SEA2, C_OXBLOOD))
 	_input.text_submitted.connect(_on_invio)
@@ -605,7 +637,7 @@ func _cue(testo: String, rischio: bool) -> Button:
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.add_theme_font_override("font", _serif)
-	b.add_theme_font_size_override("font_size", 15)
+	b.add_theme_font_size_override("font_size", 17)
 	b.add_theme_color_override("font_color", C_BONE)
 	b.add_theme_color_override("font_hover_color", C_BONE)
 	b.add_theme_stylebox_override("normal", _sfondo(11, Color(1, 1, 1, 0.015), _line()))
@@ -682,7 +714,7 @@ func _aggiungi_diario() -> void:
 	testo.context_menu_enabled = true
 	testo.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	testo.add_theme_font_override("normal_font", _serif)
-	testo.add_theme_font_size_override("normal_font_size", 14)
+	testo.add_theme_font_size_override("normal_font_size", 15)
 	testo.add_theme_color_override("default_color", C_BONE)
 	testo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	testo.custom_minimum_size = Vector2(240, 0)
@@ -702,16 +734,18 @@ func _nome_tappa() -> String:
 # --- toggle ---
 
 func _on_toggle_olimpo(premuto: bool) -> void:
+	# NIENTE move_to_center: sovrascriverebbe la posizione scelta e le due finestre
+	# finirebbero una sopra l'altra (era proprio il difetto segnalato).
 	_fin_olimpo.visible = premuto
 	if premuto:
-		_fin_olimpo.move_to_center()
+		_fin_olimpo.grab_focus()
 		if not GameManager.stato.storico_olimpo.is_empty():
 			_aggiorna_olimpo(GameManager.stato.storico_olimpo[-1])
 
 func _on_toggle_log(premuto: bool) -> void:
 	_fin_log.visible = premuto
 	if premuto:
-		_fin_log.move_to_center()
+		_fin_log.grab_focus()
 
 func _on_toggle_ollama(premuto: bool) -> void:
 	if not premuto:
