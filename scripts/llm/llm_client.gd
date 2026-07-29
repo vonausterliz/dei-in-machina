@@ -19,11 +19,21 @@ var timeout_sec: float = 120.0
 var logger: Callable = Callable()
 
 var _http: HTTPRequest
+var _hb: Timer          # battito d'attesa: mostra nel log che la richiesta e' viva
+var _t_inizio: int = 0
 
 func _ready() -> void:
 	_http = HTTPRequest.new()
 	_http.timeout = timeout_sec
 	add_child(_http)
+	_hb = Timer.new()
+	_hb.wait_time = 8.0
+	_hb.one_shot = false
+	add_child(_hb)
+	_hb.timeout.connect(_battito)
+
+func _battito() -> void:
+	_log("    … in attesa di Ollama (%d s)…" % int((Time.get_ticks_msec() - _t_inizio) / 1000))
 
 func configura(config: Dictionary, chiave: String = "") -> void:
 	base_url = config.get("base_url", base_url)
@@ -62,13 +72,18 @@ func chat(messaggi: Array, opzioni: Dictionary = {}) -> Dictionary:
 	if err != OK:
 		return _fallita("richiesta HTTP fallita in partenza: %s" % error_string(err))
 
+	_t_inizio = Time.get_ticks_msec()
+	_hb.start()
 	var risultato: Array = await _http.request_completed
+	_hb.stop()
 	# risultato = [result, response_code, headers, body]
 	var result_code: int = risultato[0]
 	var status: int = risultato[1]
 	var body: PackedByteArray = risultato[3]
 
 	if result_code != HTTPRequest.RESULT_SUCCESS:
+		if result_code == HTTPRequest.RESULT_TIMEOUT:
+			return _fallita("timeout: nessuna risposta entro %d s (modello troppo lento su questa macchina?)" % int(timeout_sec))
 		return _fallita("trasporto HTTP fallito (result=%d) — Ollama non risponde?" % result_code)
 	if status < 200 or status >= 300:
 		return _fallita("HTTP %d: %s" % [status, body.get_string_from_utf8().substr(0, 300)])

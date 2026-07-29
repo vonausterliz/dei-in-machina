@@ -4,5 +4,6 @@
   "base_url": "http://localhost:11434",
   "model": "mistral-small3.2:latest",
   "api_key_env": "MISTRAL_API_KEY",
+  "timeout_sec": 300,
   "dei_attivi_stadio": 1
 }

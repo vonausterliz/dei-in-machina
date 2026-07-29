@@ -98,6 +98,11 @@ ollama_preflight() {
     echo "Scarico il modello '${model}' (una volta sola, puo' richiedere alcuni minuti)..."
     ollama pull "${model}" || echo "[!] Download fallito: scaricalo a mano con 'ollama pull ${model}'."
   fi
+  # 3) pre-riscaldamento: carica il modello in RAM in background (keep_alive lungo),
+  #    cosi' la prima mossa nel gioco non paga il cold-start. Non blocca l'avvio.
+  echo "[..] Scaldo '${model}' in background (keep_alive 30m): la prima mossa sara' piu' pronta."
+  curl -fsS "${url}/api/generate" -H 'Content-Type: application/json' \
+    -d "{\"model\":\"${model}\",\"prompt\":\"ok\",\"stream\":false,\"keep_alive\":\"30m\"}" >/dev/null 2>&1 &
   echo "[ok] Ollama pronto - modello '${model}' (attiva 'Ollama (dei reali)' nel gioco)."
 }
 
