@@ -20,6 +20,15 @@ var _interprete: Interprete = null
 var _dio_agente: DioAgente = null
 var _narratore: Narratore = null
 var _arbitro: Arbitro = null
+var _suggeritore: Suggeritore = null
+
+## Spunti generici sempre validi: usati in mock (test deterministici) e come fallback
+## quando l'LLM non ne produce di buoni. Restano 3, per non lasciare mai la UI vuota.
+const _SPUNTI_GENERICI := [
+	{"testo": "Piega ai remi e prosegui la rotta.", "rischio": false},
+	{"testo": "Prega in silenzio chi veglia sugli astuti.", "rischio": false},
+	{"testo": "Alza la voce e sfida apertamente la sorte.", "rischio": true},
+]
 
 func _ready() -> void:
 	config = _carica_config()
@@ -66,6 +75,7 @@ func _inizializza_reale() -> void:
 			nomi.append(d.nome)
 	_narratore = Narratore.new(nomi)
 	_arbitro = Arbitro.new(PantheonManager.pantheon)
+	_suggeritore = Suggeritore.new()
 
 ## La chiave API sta fuori dal repo: variabile d'ambiente il cui nome e' in config.
 func _leggi_chiave(cfg: Dictionary) -> String:
@@ -162,6 +172,22 @@ func verdetto_arbitro(proposte: Array, seed: int = 0) -> Dictionary:
 	var v := await _arbitro.decidi(proposte, _client.chat, seed)
 	_reg("← Zeus: %s → %s · %d ms" % [v.get("attore", "?"), v.get("registro", "?"), Time.get_ticks_msec() - t0])
 	return v
+
+## 3 spunti d'azione per il giocatore, generati sul contesto della scena. In mock (e come
+## fallback) usa spunti generici. Sanitizza: nessuno spunto puo' nominare un dio.
+func suggerisci(contesto: Dictionary = {}, seed: int = 0) -> Array:
+	if mock_mode:
+		return _SPUNTI_GENERICI.duplicate(true)
+	_reg("→ Suggeritore: 3 spunti…")
+	var t0 := Time.get_ticks_msec()
+	var sp := await _suggeritore.suggerisci(contesto, _client.chat, seed)
+	for s in sp:
+		if _narratore and _narratore.nomina_un_dio(s["testo"]):
+			s["testo"] = _narratore.redigi(s["testo"])  # invariante: mai un nome di dio
+	if sp.is_empty():
+		sp = _SPUNTI_GENERICI.duplicate(true)
+	_reg("← Suggeritore: %d spunti · %d ms" % [sp.size(), Time.get_ticks_msec() - t0])
+	return sp
 
 func narrazione_omero(contesto: Dictionary, seed: int = 0) -> String:
 	if mock_mode:

@@ -95,6 +95,35 @@ func test_redazione_ultima_difesa():
 	assert_false(nar.nomina_un_dio(testo), "il nome va redatto: %s" % testo)
 	assert_string_contains(testo.to_lower(), "un dio")
 
+# --- Suggeritore (spunti d'azione player-facing) ---
+
+func test_prompt_suggeritore_include_guardrail():
+	var s := Suggeritore.new()
+	assert_string_contains(s.system_prompt(), "non un assistente")
+
+func test_suggeritore_parsa_tre_spunti():
+	var s := Suggeritore.new()
+	var fake := FakeChat.new()
+	fake.risposte = [_ok('{"spunti":[{"testo":"Piega ai remi","rischio":false},{"testo":"Prega chi veglia sugli astuti","rischio":false},{"testo":"Sfida il mare","rischio":true}]}')]
+	var sp := await s.suggerisci({"episodio": "il mare"}, fake.chat)
+	assert_eq(sp.size(), 3)
+	assert_eq(sp[0]["testo"], "Piega ai remi")
+	assert_true(sp[2]["rischio"], "il terzo e' marcato rischioso")
+
+func test_suggeritore_taglia_a_tre():
+	var s := Suggeritore.new()
+	var fake := FakeChat.new()
+	fake.risposte = [_ok('{"spunti":[{"testo":"a"},{"testo":"b"},{"testo":"c"},{"testo":"d"}]}')]
+	var sp := await s.suggerisci({}, fake.chat)
+	assert_eq(sp.size(), 3, "al massimo 3 spunti")
+
+func test_suggeritore_malformato_vuoto():
+	var s := Suggeritore.new()
+	var fake := FakeChat.new()
+	fake.risposte = [_ok("non so proprio")]
+	var sp := await s.suggerisci({}, fake.chat)
+	assert_eq(sp, [], "output inservibile -> vuoto (il manager mette i generici)")
+
 # --- Arbitro (Zeus) ---
 
 func _proposte_conflitto() -> Array:

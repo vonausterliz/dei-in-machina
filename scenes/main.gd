@@ -22,6 +22,8 @@ var _serif_bold: FontFile
 var _serif_italic: FontFile
 
 var _narrazione: RichTextLabel
+var _spunti_box: VBoxContainer
+var _ultima_narrazione: String = ""
 var _diario_box: VBoxContainer
 var _input: LineEdit
 var _episodio: Label
@@ -172,7 +174,13 @@ func _colonna_rapsodia() -> Control:
 
 	v.add_child(_riga_oro())
 
-	# "Cosa fai, Ulisse?" + campo input + hint
+	# "Ciò che ti circonda": 3 spunti d'azione generati sul contesto (cliccabili).
+	v.add_child(_titolo("CIÒ CHE TI CIRCONDA", 11, C_BONE_DIM, _serif_bold))
+	_spunti_box = VBoxContainer.new()
+	_spunti_box.add_theme_constant_override("separation", 7)
+	v.add_child(_spunti_box)
+
+	# "Cosa fai, Ulisse?" + campo input + hint (il 4o percorso: scrivere liberamente)
 	var speak := _titolo("Cosa fai, Ulisse?", 15, C_GOLD, _serif_italic)
 	v.add_child(speak)
 
@@ -347,9 +355,11 @@ func _on_llm_log(riga: String) -> void:
 
 func _apri_scena() -> void:
 	_episodio.text = "· %s ·" % _nome_tappa()
-	_narrazione.append_text("[i]Omero:[/i] %s\n\n" % GameManager.intro_corrente())
+	_ultima_narrazione = GameManager.intro_corrente()
+	_narrazione.append_text("[i]Omero:[/i] %s\n\n" % _ultima_narrazione)
 	_aggiorna_stats()
 	_input.grab_focus()
+	await _rigenera_spunti()
 
 func _on_invio(_t: String) -> void:
 	_on_agisci()
@@ -369,9 +379,12 @@ func _on_agisci() -> void:
 	if not LLMManager.mock_mode:
 		_on_llm_log("[color=%s]— turno %d —[/color]" % [C_VERDIGRIS.to_html(), GameManager.stato.turno + 1])
 
+	# Mentre il turno gira, gli spunti vecchi non valgono piu': li svuoto.
+	_pulisci_spunti()
 	var esito: Dictionary = await GameManager.esegui_turno(testo)
 
-	_narrazione.append_text("[i]Omero:[/i] %s\n\n" % esito["voce"].get("narrazione_omero", ""))
+	_ultima_narrazione = String(esito["voce"].get("narrazione_omero", ""))
+	_narrazione.append_text("[i]Omero:[/i] %s\n\n" % _ultima_narrazione)
 	_aggiungi_diario()
 	_aggiorna_stats()
 	if _col_olimpo.visible:
@@ -379,7 +392,8 @@ func _on_agisci() -> void:
 
 	if esito.get("avanzato", false) and esito["esito"] == "continua":
 		_episodio.text = "· %s ·" % _nome_tappa()
-		_narrazione.append_text("[color=%s]— %s —[/color]\n[i]Omero:[/i] %s\n\n" % [C_GOLD.to_html(), _nome_tappa(), esito.get("intro", "")])
+		_ultima_narrazione = String(esito.get("intro", ""))
+		_narrazione.append_text("[color=%s]— %s —[/color]\n[i]Omero:[/i] %s\n\n" % [C_GOLD.to_html(), _nome_tappa(), _ultima_narrazione])
 
 	if esito["esito"] != "continua":
 		_finita = true
@@ -389,11 +403,50 @@ func _on_agisci() -> void:
 		else:
 			_narrazione.append_text("\n[b][color=%s]— FINE: %s —[/color][/b]\n" % [C_OXBLOOD.to_html(), esito["esito"]])
 	else:
+		await _rigenera_spunti()  # nuovi spunti sulla scena aggiornata (busy: nessun conflitto)
 		_input.editable = true
 		_input.grab_focus()
 	_btn_agisci.text = "Agisci"
 	_btn_agisci.disabled = false
 	_busy = false
+
+# --- spunti (pre-confezionati, generati dall'LLM sul contesto) ---
+
+func _rigenera_spunti() -> void:
+	_pulisci_spunti()
+	if not LLMManager.mock_mode:  # in reale la generazione e' lenta: mostro un'attesa
+		_spunti_box.add_child(_titolo("… il mare suggerisce …", 13, C_BONE_DIM, _serif_italic))
+	var contesto := {"episodio": _nome_tappa(), "narrazione": _ultima_narrazione}
+	var spunti: Array = await LLMManager.suggerisci(contesto)
+	_pulisci_spunti()
+	for sp in spunti:
+		_spunti_box.add_child(_cue(String(sp.get("testo", "")), bool(sp.get("rischio", false))))
+
+func _pulisci_spunti() -> void:
+	for c in _spunti_box.get_children():
+		c.queue_free()
+
+func _cue(testo: String, rischio: bool) -> Button:
+	var accento := C_OXBLOOD if rischio else C_GOLD
+	var b := Button.new()
+	b.text = "◈  " + testo
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	b.add_theme_font_override("font", _serif)
+	b.add_theme_font_size_override("font_size", 15)
+	b.add_theme_color_override("font_color", C_BONE)
+	b.add_theme_color_override("font_hover_color", C_BONE)
+	b.add_theme_stylebox_override("normal", _sfondo(11, Color(1, 1, 1, 0.015), _line()))
+	b.add_theme_stylebox_override("hover", _sfondo(11, Color(accento, 0.09), Color(accento, 0.5)))
+	b.add_theme_stylebox_override("pressed", _sfondo(11, Color(accento, 0.16), accento))
+	b.pressed.connect(_scegli_spunto.bind(testo))
+	return b
+
+func _scegli_spunto(testo: String) -> void:
+	if _busy or _finita:
+		return
+	_input.text = testo
+	_on_agisci()
 
 func _aggiorna_stats() -> void:
 	var st: Dictionary = GameManager.stato.ulisse["stat"]
@@ -480,6 +533,8 @@ func _on_toggle_ollama(premuto: bool) -> void:
 		_narrazione.append_text("[color=%s]Il modello «%s» non è installato: uso «%s». Puoi cambiarlo dal menù accanto.[/color]\n" % [C_OXBLOOD.to_html(), v["atteso"], scelto])
 	_popola_modelli(v["modelli"], scelto)
 	_narrazione.append_text("[color=%s][modalità Ollama: dèi e narratore reali (%s). Può essere lento; guarda il log a destra.][/color]\n" % [C_VERDIGRIS.to_html(), scelto])
+	if not _busy and not _finita:
+		await _rigenera_spunti()  # spunti contestuali generati dal modello
 
 func _popola_modelli(modelli: Array, selezionato: String) -> void:
 	_opt_modello.clear()
