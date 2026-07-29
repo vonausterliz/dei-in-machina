@@ -73,6 +73,19 @@ func test_narratore_include_la_scena_nel_messaggio():
 	var m := nar.costruisci_messaggi({"sintesi": "guardo il mare", "scena": "Antro del ciclope, chiuso da un masso."})
 	assert_string_contains(m[1]["content"], "Antro del ciclope")
 
+func test_narratore_include_storia_e_orientamento():
+	# Continuita' del discorso + orientamento discreto: storia, ultima voce, luogo/progresso.
+	var nar := Narratore.new(_nomi())
+	var m := nar.costruisci_messaggi({
+		"sintesi": "prego", "storia": ["accecato il ciclope", "fuggito dall'antro"],
+		"ultima_narrazione": "Il mare si gonfiò contro di te.",
+		"luogo": "L'isola di Eolo", "progresso": "mezzo", "morale": "duro",
+	})
+	var testo: String = m[1]["content"]
+	assert_string_contains(testo, "accecato il ciclope")   # storia
+	assert_string_contains(testo, "Il mare si gonfiò")     # continuita' immediata
+	assert_string_contains(testo, "L'isola di Eolo")       # orientamento (luogo)
+
 func test_narrazione_pulita_passa():
 	var nar := Narratore.new(_nomi())
 	var fake := FakeChat.new()

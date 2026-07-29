@@ -44,12 +44,16 @@ var prob_coalizione := _PROB_COALIZIONE_DEFAULT
 
 var stato: StatoPartita = null
 
+## Ultima narrazione di Omero: la ripassiamo al turno dopo per la continuità del discorso.
+var _ultima_narrazione: String = ""
+
 func _ready() -> void:
 	episodi = Episodi.carica(EPISODI_PATH)
 
 func nuova_partita(seed_partita: int = 0) -> void:
 	var s := seed_partita if seed_partita != 0 else randi()
 	stato = StatoPartita.nuova(PantheonManager.pantheon, s)
+	_ultima_narrazione = ""
 	_rng.seed = s  # riproducibilita': stessa run, stessi scavalcamenti
 	prob_scavalcamento = _PROB_SCAVALCAMENTO_DEFAULT
 	prob_coalizione = _PROB_COALIZIONE_DEFAULT
@@ -69,7 +73,9 @@ func _entra_in_episodio(id: String) -> String:
 		if stato.registro_divino.has(dio.id):
 			stato.registro_divino[dio.id]["risvegliato"] = true
 	var ep := episodi.get_episodio(id)
-	return ep.intro if ep else ""
+	var intro := ep.intro if ep else ""
+	_ultima_narrazione = intro  # continuita': il primo turno prosegue dall'intro della tappa
+	return intro
 
 ## Intro della tappa corrente (per aprire la scena).
 func intro_corrente() -> String:
@@ -81,6 +87,48 @@ func intro_corrente() -> String:
 func scena_corrente() -> String:
 	var ep := episodi.get_episodio(_episodio_corrente())
 	return ep.scena if ep else ""
+
+func _nome_tappa_corrente() -> String:
+	var ep := episodi.get_episodio(_episodio_corrente())
+	return ep.nome if ep else ""
+
+## Gli ultimi beat del diario (cosa ha fatto Ulisse, di recente): la "storia finora"
+## compatta per la continuita' del discorso di Omero. Niente chiamata LLM: e' gia' pronta.
+func _storia_recente(quanti: int = 5) -> Array:
+	var out: Array = []
+	var d: Array = stato.diario
+	var da := maxi(0, d.size() - quanti)
+	for i in range(da, d.size()):
+		out.append(String(d[i].get("voce", "")))
+	return out
+
+## A che punto e' il ritorno: inizio / mezzo / vicino (per l'orientamento discreto).
+func _progresso_viaggio() -> String:
+	var ord: Array = episodi.ordine()
+	var i := ord.find(_episodio_corrente())
+	if i < 0 or ord.size() <= 1:
+		return "inizio"
+	var f := float(i) / float(ord.size() - 1)
+	if f < 0.34:
+		return "inizio"
+	elif f < 0.72:
+		return "mezzo"
+	return "vicino"
+
+## Come stanno andando le cose, dagli ultimi esiti del diario: duro / bene / incerto.
+func _morale_recente(quanti: int = 4) -> String:
+	var d: Array = stato.diario
+	var mal := 0
+	var ben := 0
+	for i in range(maxi(0, d.size() - quanti), d.size()):
+		match String(d[i].get("esito", "")):
+			"ill": mal += 1
+			"fair": ben += 1
+	if mal > ben:
+		return "duro"
+	elif ben > mal:
+		return "bene"
+	return "incerto"
 
 ## Salta direttamente a una tappa (test/strumenti/debug). Accende i suoi locali.
 func vai_a_tappa(id: String) -> void:
@@ -195,6 +243,11 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	var narrazione: String = await LLMManager.narrazione_omero({
 		"sintesi": envelope.get("sintesi", ""),
 		"scena": scena_corrente(),  # ancora: dove si trova Ulisse e chi c'e' (coerenza)
+		"storia": _storia_recente(),           # i beat precedenti (continuita' del discorso)
+		"ultima_narrazione": _ultima_narrazione, # l'ultima voce di Omero (continuita' immediata)
+		"luogo": _nome_tappa_corrente(),       # per l'orientamento discreto
+		"progresso": _progresso_viaggio(),     # inizio / mezzo / vicino a Itaca
+		"morale": _morale_recente(),           # duro / bene / incerto (come sta andando)
 		"in_mondo": in_mondo,
 		"svegli": svegli,
 		"verdetto": verdetto,
@@ -203,6 +256,7 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 		"esito_segno": _segno_esito(delta),
 		"ammonizione": val["classe"],  # "": nessuna; "richiamo"/"smarrimento"/"follia"
 	})
+	_ultima_narrazione = narrazione  # per la continuita' al turno successivo
 
 	# Registrazioni: storico_olimpo (vista Olimpo/debug) + diario (player-facing).
 	var voce := {

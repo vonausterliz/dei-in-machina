@@ -32,6 +32,18 @@ func costruisci_messaggi(contesto: Dictionary) -> Array:
 	var scena: String = contesto.get("scena", "")
 	if scena != "":
 		pezzi.append("LA SCENA (attieniti a questa: luogo, chi è presente, cosa NO): %s" % scena)
+	var storia: Array = contesto.get("storia", [])
+	if not storia.is_empty():
+		pezzi.append("LA STORIA FINORA (i fatti già accaduti, non contraddirli): %s" % " → ".join(storia))
+	var ultima: String = contesto.get("ultima_narrazione", "")
+	if ultima != "":
+		pezzi.append("LA TUA ULTIMA VOCE (prosegui coerente, senza ripeterla): %s" % ultima)
+	# Orientamento discreto: dove siamo e come sta andando (Omero li fa sentire, non li recita).
+	var luogo: String = contesto.get("luogo", "")
+	if luogo != "":
+		var progresso: String = {"inizio": "il ritorno è ancora lontano", "mezzo": "sei a metà del cammino verso Itaca", "vicino": "Itaca non è più tanto lontana"}.get(contesto.get("progresso", ""), "")
+		var morale: String = {"duro": "le ultime vicende sono state dure", "bene": "le cose sembrano volgere al meglio", "incerto": ""}.get(contesto.get("morale", ""), "")
+		pezzi.append("ORIENTAMENTO (fallo SENTIRE con naturalezza, non ogni volta e mai come un elenco): siamo a «%s»; %s; %s." % [luogo, progresso, morale])
 	pezzi.append("Ulisse ha appena: %s" % contesto.get("sintesi", "qualcosa"))
 	match contesto.get("ammonizione", ""):
 		"richiamo":
