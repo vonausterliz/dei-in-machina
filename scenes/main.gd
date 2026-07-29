@@ -428,12 +428,25 @@ func _on_toggle_olimpo(premuto: bool) -> void:
 		_aggiorna_olimpo(GameManager.stato.storico_olimpo[-1])
 
 func _on_toggle_ollama(premuto: bool) -> void:
-	if premuto:
-		LLMManager.abilita_reale()
-		_narrazione.append_text("[color=%s][modalità Ollama: dèi e narratore reali, può essere lento — apro il log a destra][/color]\n" % C_VERDIGRIS.to_html())
-		# Apri automaticamente la colonna di debug col log, cosi' si vede l'elaborazione.
-		_btn_olimpo.button_pressed = true
-		_col_olimpo.visible = true
-		_on_llm_log("[color=%s]Ollama attivo (%s).[/color]" % [C_VERDIGRIS.to_html(), LLMManager.config.get("model", "?")])
-	else:
+	if not premuto:
 		LLMManager.mock_mode = true
+		return
+	# Apri la colonna di debug col log, cosi' si vede subito la verifica e il traffico.
+	_btn_olimpo.button_pressed = true
+	_col_olimpo.visible = true
+	_chk_ollama.disabled = true
+	LLMManager.abilita_reale()
+	var v: Dictionary = await LLMManager.verifica_ollama()
+	_chk_ollama.disabled = false
+	if not v["ok"]:
+		# Non fingere: se Ollama non e' pronto, resta sui dèi simulati e spiega perche'.
+		LLMManager.mock_mode = true
+		_chk_ollama.set_pressed_no_signal(false)
+		var msg: String
+		if not v["attivo"]:
+			msg = "Ollama non risponde. Avvialo con «ollama serve» (o rilancia ./avvia.sh, che lo fa da solo)."
+		else:
+			msg = "Il modello «%s» non è caricato su Ollama. Scaricalo con «ollama pull %s»." % [v["atteso"], v["atteso"]]
+		_narrazione.append_text("[color=%s]%s Resto sui dèi simulati (mock).[/color]\n" % [C_OXBLOOD.to_html(), msg])
+		return
+	_narrazione.append_text("[color=%s][modalità Ollama: dèi e narratore reali (%s). Può essere lento; guarda il log a destra.][/color]\n" % [C_VERDIGRIS.to_html(), v["atteso"]])

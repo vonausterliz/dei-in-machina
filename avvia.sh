@@ -65,10 +65,43 @@ fi
 "$GODOT" --headless --path "$DIR" --import >/dev/null 2>&1 || true
 "$GODOT" --headless --path "$DIR" --import >/dev/null 2>&1 || true
 
+# --- Ollama: verifica/attiva server e modello prima di avviare (modalita' "dei reali") ---
+# Legge il nome del modello da config/llm_config.json (senza dipendenze extra).
+_leggi_modello() {
+  grep -o '"model"[[:space:]]*:[[:space:]]*"[^"]*"' "$DIR/config/llm_config.json" 2>/dev/null \
+    | head -1 | sed -E 's/.*:[[:space:]]*"([^"]*)"/\1/'
+}
+
+ollama_preflight() {
+  local url="http://localhost:11434" model base
+  if ! command -v ollama >/dev/null 2>&1; then
+    echo "ℹ Ollama non installato: la modalità «dèi reali» non sarà disponibile (si gioca coi dèi simulati)."
+    return 0
+  fi
+  model="$(_leggi_modello)"; [ -z "$model" ] && model="mistral-small3.2:latest"
+  # 1) server attivo? altrimenti avvialo in background e attendi che risponda.
+  if ! curl -fsS "$url/api/tags" >/dev/null 2>&1; then
+    echo "Avvio Ollama in background (ollama serve)…"
+    ollama serve >/dev/null 2>&1 &
+    for _ in $(seq 1 30); do curl -fsS "$url/api/tags" >/dev/null 2>&1 && break; sleep 0.5; done
+  fi
+  if ! curl -fsS "$url/api/tags" >/dev/null 2>&1; then
+    echo "⚠ Non riesco a contattare Ollama su $url. Avvialo a mano con «ollama serve»."
+    return 0
+  fi
+  # 2) modello presente? (confronto sul nome base, tollera il tag :latest)
+  base="${model%%:*}"
+  if ! ollama list 2>/dev/null | awk 'NR>1{print $1}' | grep -Eq "^${base}(:|$)"; then
+    echo "Scarico il modello «$model» (una volta sola, può richiedere alcuni minuti)…"
+    ollama pull "$model" || echo "⚠ Download fallito: scaricalo a mano con «ollama pull $model»."
+  fi
+  echo "✓ Ollama pronto · modello «$model» (attiva «Ollama (dèi reali)» nel gioco)."
+}
+
 MODE="${1:-gui}"
 case "$MODE" in
-  gui)     exec "$GODOT" --path "$DIR" --audio-driver Dummy ;;  # gioco testuale: niente audio (evita l'avviso CoreAudio su macOS)
-  console) shift; exec "$GODOT" --headless --path "$DIR" --script res://tools/gioca.gd "$@" ;;
+  gui)     ollama_preflight; exec "$GODOT" --path "$DIR" --audio-driver Dummy ;;  # gioco testuale: niente audio (evita l'avviso CoreAudio su macOS)
+  console) shift; ollama_preflight; exec "$GODOT" --headless --path "$DIR" --script res://tools/gioca.gd "$@" ;;
   test)    exec "$GODOT" --headless --path "$DIR" -s addons/gut/gut_cmdln.gd -gconfig=res://.gutconfig.json ;;
   *)       echo "Uso: ./avvia.sh [gui|console|test]"; exit 1 ;;
 esac

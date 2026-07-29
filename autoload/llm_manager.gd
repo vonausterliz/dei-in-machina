@@ -38,6 +38,7 @@ func _inizializza_reale() -> void:
 	_client = LLMClient.new()
 	add_child(_client)
 	_client.configura(config, _leggi_chiave(config))
+	_client.logger = Callable(self, "_reg")  # il traffico HTTP finisce nel log di debug
 	var id_dei: Array = PantheonManager.pantheon.tutti_gli_id() if PantheonManager.pantheon else []
 	_interprete = Interprete.new(id_dei, PantheonManager.pantheon)
 	_dio_agente = DioAgente.new()
@@ -71,6 +72,36 @@ signal llm_log(riga: String)
 
 func _reg(r: String) -> void:
 	llm_log.emit(r)
+
+## Verifica pre-partita del percorso reale: il server risponde? il modello atteso
+## (config.model) e' caricato? Ritorna {ok, attivo, modello_presente, modelli, atteso, errore}.
+## Non attiva nulla da sola: la GUI decide se procedere o restare sul mock.
+func verifica_ollama() -> Dictionary:
+	if _client == null:
+		_inizializza_reale()
+	var atteso: String = config.get("model", "?")
+	_reg("→ verifica: server LLM e modello «%s»…" % atteso)
+	var r: Dictionary = await _client.elenca_modelli()
+	if not r["ok"]:
+		_reg("✗ server non raggiungibile: %s" % r["errore"])
+		return {"ok": false, "attivo": false, "modello_presente": false, "modelli": [], "atteso": atteso, "errore": r["errore"]}
+	var modelli: Array = r["modelli"]
+	var presente := _modello_presente(atteso, modelli)
+	if presente:
+		_reg("✓ server attivo · modello «%s» disponibile." % atteso)
+	else:
+		_reg("✗ modello «%s» non caricato. Disponibili: %s" % [atteso, ", ".join(modelli) if not modelli.is_empty() else "(nessuno)"])
+	return {"ok": presente, "attivo": true, "modello_presente": presente, "modelli": modelli, "atteso": atteso, "errore": ""}
+
+## Confronto tollerante: "mistral-small3.2:latest" combacia con "mistral-small3.2" e viceversa.
+func _modello_presente(atteso: String, modelli: Array) -> bool:
+	if atteso in modelli:
+		return true
+	var base := atteso.get_slice(":", 0)
+	for m in modelli:
+		if String(m).get_slice(":", 0) == base:
+			return true
+	return false
 
 func interpreta(testo_libero: String, seed: int = 0) -> Dictionary:
 	if mock_mode:
