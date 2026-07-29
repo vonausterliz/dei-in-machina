@@ -67,7 +67,7 @@ fi
 
 MODE="${1:-gui}"
 case "$MODE" in
-  gui)     exec "$GODOT" --path "$DIR" ;;
+  gui)     exec "$GODOT" --path "$DIR" --audio-driver Dummy ;;  # gioco testuale: niente audio (evita l'avviso CoreAudio su macOS)
   console) shift; exec "$GODOT" --headless --path "$DIR" --script res://tools/gioca.gd "$@" ;;
   test)    exec "$GODOT" --headless --path "$DIR" -s addons/gut/gut_cmdln.gd -gconfig=res://.gutconfig.json ;;
   *)       echo "Uso: ./avvia.sh [gui|console|test]"; exit 1 ;;
