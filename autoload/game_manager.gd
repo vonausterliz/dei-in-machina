@@ -92,6 +92,35 @@ func _nome_tappa_corrente() -> String:
 	var ep := episodi.get_episodio(_episodio_corrente())
 	return ep.nome if ep else ""
 
+## Ogni quanti turni si aggiorna il riassunto rotolante. Non a ogni turno: sarebbe una
+## chiamata LLM in piu' sempre. Cosi' la memoria costa poco e resta a dimensione costante.
+const _CRONACA_OGNI := 4
+
+## Aggiorna la cronaca (memoria della vicenda) se sono passati abbastanza turni. Prende i
+## fatti NON ancora riassunti da storico_olimpo (azione + cosa e' seguito).
+func _aggiorna_cronaca_se_serve() -> void:
+	if stato.turno - stato.cronaca_turno < _CRONACA_OGNI:
+		return
+	var fatti: Array = []
+	for v in stato.storico_olimpo:
+		if int(v.get("turno", 0)) <= stato.cronaca_turno:
+			continue
+		var narr := String(v.get("narrazione_omero", ""))
+		if narr == "":
+			continue  # turni fuori-mondo: non fanno storia
+		fatti.append("- Ulisse: «%s» → %s" % [String(v.get("input", "")), narr])
+	if fatti.is_empty():
+		stato.cronaca_turno = stato.turno
+		return
+	var nuova_cronaca: String = await LLMManager.aggiorna_cronaca({
+		"precedente": stato.cronaca,
+		"fatti": fatti,
+		"luogo": _nome_tappa_corrente(),
+	})
+	if nuova_cronaca != "":
+		stato.cronaca = nuova_cronaca
+	stato.cronaca_turno = stato.turno
+
 ## Gli ultimi beat del diario (cosa ha fatto Ulisse, di recente): la "storia finora"
 ## compatta per la continuita' del discorso di Omero. Niente chiamata LLM: e' gia' pronta.
 func _storia_recente(quanti: int = 5) -> Array:
@@ -252,6 +281,7 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 			"sintesi": envelope.get("sintesi", ""),
 			"azione": input_testo,      # le parole/gesto esatti: Omero deve rispondere a QUESTO
 			"scena": scena_corrente(),  # ancora: dove si trova Ulisse e chi c'e' (coerenza)
+			"cronaca": stato.cronaca,                # memoria della vicenda finora
 			"storia": _storia_recente(),             # i beat precedenti (continuita' del discorso)
 			"ultima_narrazione": _ultima_narrazione, # l'ultima voce di Omero (continuita' immediata)
 			"luogo": _nome_tappa_corrente(),         # per l'orientamento discreto
@@ -306,6 +336,8 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	if esito != "continua":
 		stato.stato = "finita"
 		stato.esito = esito
+	else:
+		await _aggiorna_cronaca_se_serve()  # memoria della vicenda, ogni N turni
 
 	return {
 		"voce": voce,
@@ -371,6 +403,7 @@ func _contesto_dio(id: String, envelope: Dictionary, altri: Array) -> Dictionary
 		"umore": reg.get("umore", ""),
 		"envelope": envelope,
 		"altri_dei": altri,
+		"cronaca": stato.cronaca,  # anche i dei sanno cos'e' accaduto finora
 	}
 
 ## Le proposte degli altri dei (nome + registro + battuta), per la replica.

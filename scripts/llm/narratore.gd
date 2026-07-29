@@ -46,9 +46,12 @@ func costruisci_messaggi(contesto: Dictionary) -> Array:
 	var scena: String = contesto.get("scena", "")
 	if scena != "":
 		pezzi.append("LA SCENA (attieniti a questa: luogo, chi è presente, cosa NO): %s" % scena)
+	var cronaca: String = contesto.get("cronaca", "")
+	if cronaca != "":
+		pezzi.append("LA VICENDA FINORA (memoria: non contraddirla): %s" % cronaca)
 	var storia: Array = contesto.get("storia", [])
 	if not storia.is_empty():
-		pezzi.append("LA STORIA FINORA (i fatti già accaduti, non contraddirli): %s" % " → ".join(storia))
+		pezzi.append("LE ULTIME MOSSE DI ULISSE: %s" % " → ".join(storia))
 	var ultima: String = contesto.get("ultima_narrazione", "")
 	if ultima != "":
 		pezzi.append("LA TUA ULTIMA VOCE (prosegui coerente, senza ripeterla): %s" % ultima)

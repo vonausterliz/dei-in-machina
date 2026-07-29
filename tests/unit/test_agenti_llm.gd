@@ -171,6 +171,44 @@ func test_suggeritore_malformato_vuoto():
 	var sp := await s.suggerisci({}, fake.chat)
 	assert_eq(sp, [], "output inservibile -> vuoto (il manager mette i generici)")
 
+# --- Cronista (memoria rotolante della vicenda) ---
+
+func test_cronista_prompt_e_messaggi():
+	var c := Cronista.new()
+	assert_string_contains(c.system_prompt(), "non un assistente")  # guardrail
+	assert_string_contains(c.system_prompt(), "età del bronzo")     # mondo
+	var m := c.costruisci_messaggi({
+		"precedente": "Ulisse lasciò Troia.",
+		"fatti": ["- Ulisse: «saccheggio» → i Ciconi contrattaccarono"],
+		"luogo": "Ismaro",
+	})
+	assert_string_contains(m[1]["content"], "Ulisse lasciò Troia")
+	assert_string_contains(m[1]["content"], "Ciconi contrattaccarono")
+
+func test_cronista_ritorna_riassunto():
+	var c := Cronista.new()
+	var fake := FakeChat.new()
+	fake.risposte = [_ok("Lasciata Troia, Ulisse saccheggiò Ismaro e perse uomini.")]
+	var r := await c.aggiorna({"precedente": "", "fatti": ["- x"]}, fake.chat)
+	assert_string_contains(r, "Ismaro")
+
+func test_cronista_errore_ritorna_vuoto():
+	# Se l'LLM non risponde si tiene il riassunto precedente (nessuna perdita di memoria).
+	var c := Cronista.new()
+	var fake := FakeChat.new()
+	fake.risposte = [{"ok": false, "content": "", "error": "giu'"}]
+	assert_eq(await c.aggiorna({"precedente": "vecchio", "fatti": []}, fake.chat), "")
+
+func test_agenti_ricevono_la_cronaca():
+	# La memoria arriva a Omero, al Suggeritore e ai dei.
+	var cron := "Ulisse ha accecato il ciclope ed è fuggito."
+	var mo := Narratore.new(_nomi()).costruisci_messaggi({"cronaca": cron, "sintesi": "x"})
+	assert_string_contains(mo[1]["content"], "accecato il ciclope")
+	var ms := Suggeritore.new().costruisci_messaggi({"cronaca": cron})
+	assert_string_contains(ms[1]["content"], "accecato il ciclope")
+	var md := DioAgente.new().costruisci_messaggi(_p.get_dio("poseidone"), {"cronaca": cron, "envelope": {}})
+	assert_string_contains(md[1]["content"], "accecato il ciclope")
+
 # --- Arbitro (Zeus) ---
 
 func _proposte_conflitto() -> Array:

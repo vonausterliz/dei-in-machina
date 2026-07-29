@@ -6,7 +6,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "1.1"
+const VERSIONE := "1.2"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -490,7 +490,12 @@ func _rigenera_spunti() -> void:
 	_pulisci_spunti()
 	if not LLMManager.mock_mode:  # in reale la generazione e' lenta: mostro un'attesa
 		_spunti_box.add_child(_titolo("… il mare suggerisce …", 13, C_BONE_DIM, _serif_italic))
-	var contesto := {"episodio": _nome_tappa(), "scena": GameManager.scena_corrente(), "narrazione": _ultima_narrazione}
+	var contesto := {
+		"episodio": _nome_tappa(),
+		"scena": GameManager.scena_corrente(),
+		"cronaca": GameManager.stato.cronaca,  # memoria: spunti coerenti col già accaduto
+		"narrazione": _ultima_narrazione,
+	}
 	var spunti: Array = await LLMManager.suggerisci(contesto)
 	_pulisci_spunti()
 	for sp in spunti:

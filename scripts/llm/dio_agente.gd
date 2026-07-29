@@ -48,7 +48,9 @@ func system_prompt(dio: Dio) -> String:
 
 func costruisci_messaggi(dio: Dio, contesto: Dictionary) -> Array:
 	var env: Dictionary = contesto.get("envelope", {})
-	var situazione := "Ulisse ha appena: %s\n(tag: %s, tono: %s, intensita: %s)\nIl tuo animo verso di lui ora: favore %s, ira %s." % [
+	var cronaca: String = contesto.get("cronaca", "")
+	var memoria := ("La vicenda finora: %s\n\n" % cronaca) if cronaca != "" else ""
+	var situazione := memoria + "Ulisse ha appena: %s\n(tag: %s, tono: %s, intensita: %s)\nIl tuo animo verso di lui ora: favore %s, ira %s." % [
 		env.get("sintesi", "qualcosa"), env.get("tag", []), env.get("tono", "?"),
 		env.get("intensita", 1), contesto.get("favore", 0), contesto.get("ira", 0),
 	]

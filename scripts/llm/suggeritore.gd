@@ -34,6 +34,9 @@ func costruisci_messaggi(contesto: Dictionary) -> Array:
 		contesto.get("episodio", "il mare aperto"),
 		contesto.get("narrazione", "(l'inizio del viaggio)"),
 	]
+	var cronaca: String = contesto.get("cronaca", "")
+	if cronaca != "":
+		testo += "\n\nLA VICENDA FINORA (per spunti coerenti con ciò che è già accaduto): %s" % cronaca
 	return [
 		{"role": "system", "content": _system_prompt},
 		{"role": "user", "content": testo},

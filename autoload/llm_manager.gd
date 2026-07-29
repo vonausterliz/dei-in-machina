@@ -25,6 +25,7 @@ var _dio_agente: DioAgente = null
 var _narratore: Narratore = null
 var _arbitro: Arbitro = null
 var _suggeritore: Suggeritore = null
+var _cronista: Cronista = null
 
 ## Spunti generici sempre validi: usati in mock (test deterministici) e come fallback
 ## quando l'LLM non ne produce di buoni. Restano 3, per non lasciare mai la UI vuota.
@@ -143,6 +144,7 @@ func _inizializza_reale() -> void:
 	_narratore = Narratore.new(nomi)
 	_arbitro = Arbitro.new(PantheonManager.pantheon)
 	_suggeritore = Suggeritore.new()
+	_cronista = Cronista.new()
 
 ## La chiave API sta fuori dal repo: variabile d'ambiente il cui nome e' in config.
 func _leggi_chiave(cfg: Dictionary) -> String:
@@ -207,6 +209,20 @@ func interpreta(testo_libero: String, seed: int = 0) -> Dictionary:
 	var env := await _interprete.interpreta(testo_libero, _client.chat, seed)
 	_reg("← Interprete: tag %s · %s · %d ms" % [str(env.get("tag", [])), env.get("plausibilita", "?"), Time.get_ticks_msec() - t0])
 	return env
+
+## Aggiorna il riassunto rotolante della vicenda (memoria condivisa da tutti gli agenti).
+## In mock ritorna "" (nessuna cronaca: i test restano deterministici). Sanifica i nomi
+## divini: la cronaca finisce anche in agenti player-facing (Omero, Suggeritore).
+func aggiorna_cronaca(contesto: Dictionary, seed: int = 0) -> String:
+	if mock_mode:
+		return ""
+	_reg("→ Cronista: aggiorno la memoria della vicenda…")
+	var t0 := Time.get_ticks_msec()
+	var testo := await _cronista.aggiorna(contesto, _client.chat, seed)
+	if testo != "" and _narratore and _narratore.nomina_un_dio(testo):
+		testo = _narratore.redigi(testo)  # invariante: la memoria non tradisce i nomi
+	_reg("← Cronista: %d caratteri · %d ms" % [testo.length(), Time.get_ticks_msec() - t0])
+	return testo
 
 ## Secondo parere dedicato sulla plausibilità (anacronismi che la lista non prevede).
 ## In mock ritorna "" (i test restano deterministici). "" = nessun cambiamento.

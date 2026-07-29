@@ -25,6 +25,10 @@ var ammonizioni: Dictionary = {}
 var diario: Array = []
 var storico_olimpo: Array = []
 var coalizioni: Array = []
+## Riassunto rotolante della vicenda finora (aggiornato ogni N turni dal Cronista):
+## e' la "memoria" passata a tutti gli agenti, a costo costante.
+var cronaca: String = ""
+var cronaca_turno: int = 0  # ultimo turno gia' incluso nella cronaca
 
 static func nuova(pantheon: Pantheon, seed_partita: int, run_id: String = "") -> StatoPartita:
 	var s := StatoPartita.new()
@@ -114,6 +118,8 @@ static func from_dict(d: Dictionary) -> StatoPartita:
 	s.diario = d.get("diario", [])
 	s.storico_olimpo = d.get("storico_olimpo", [])
 	s.coalizioni = d.get("coalizioni", [])
+	s.cronaca = String(d.get("cronaca", ""))
+	s.cronaca_turno = int(d.get("cronaca_turno", 0))
 	return s
 
 func to_dict() -> Dictionary:
@@ -139,6 +145,8 @@ func to_dict() -> Dictionary:
 		"diario": diario,
 		"storico_olimpo": storico_olimpo,
 		"coalizioni": coalizioni,
+		"cronaca": cronaca,
+		"cronaca_turno": cronaca_turno,
 	}
 
 func salva(path: String) -> bool:
