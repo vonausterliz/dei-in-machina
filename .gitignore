@@ -18,3 +18,7 @@ config.local.*
 
 # OS
 .DS_Store
+
+# Gateway LLM: log e pid locali
+llm_gateway/gateway.log
+llm_gateway/gateway.pid

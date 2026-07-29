@@ -1,0 +1,9 @@
+{
+  "_nota": "Passa dal Gateway locale (llm_gateway/): coda, throttling free tier, cache e backoff. Avvialo con llm_gateway/gateway.sh start. Il modello va scritto «provider/modello» (es. mistral/..., google/...): al resto pensa il gateway, comprese le chiavi API.",
+  "nome": "Gateway (free tier)",
+  "provider": "gateway",
+  "base_url": "http://localhost:8800",
+  "model": "mistral/mistral-small-latest",
+  "api_key_env": "",
+  "timeout_sec": 300
+}

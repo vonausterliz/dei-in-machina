@@ -1,0 +1,57 @@
+{
+  "_nota": "Limiti del piano gratuito, tutti in un solo posto. min_intervallo_s = distanza minima tra due richieste (limite di VELOCITA'); rpm = tetto al minuto; rpd = tetto al giorno (0 = nessun tetto). I valori sono prudenziali: se il provider cambia i limiti, si ritocca solo qui.",
+
+  "throttling_attivo": true,
+  "provider_predefinito": "mistral",
+
+  "cache": {
+    "_nota": "Cache aggressiva: stessa richiesta identica -> risposta immediata, zero quota. ttl_s 0 la disattiva.",
+    "ttl_s": 3600,
+    "massimo": 500
+  },
+
+  "providers": [
+    {
+      "nome": "mistral",
+      "base_url": "https://api.mistral.ai",
+      "api_key_env": "MISTRAL_API_KEY",
+      "min_intervallo_s": 1.1,
+      "rpm": 28,
+      "rpd": 0,
+      "tentativi": 5,
+      "timeout_s": 180
+    },
+    {
+      "nome": "google",
+      "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "chat_path": "/chat/completions",
+      "models_path": "/models",
+      "api_key_env": "GEMINI_API_KEY",
+      "min_intervallo_s": 4.2,
+      "rpm": 14,
+      "rpd": 1400,
+      "tentativi": 5,
+      "timeout_s": 180
+    },
+    {
+      "nome": "openai",
+      "base_url": "https://api.openai.com",
+      "api_key_env": "OPENAI_API_KEY",
+      "min_intervallo_s": 0,
+      "rpm": 0,
+      "rpd": 0,
+      "tentativi": 4,
+      "timeout_s": 180
+    },
+    {
+      "nome": "ollama",
+      "base_url": "http://localhost:11434",
+      "api_key_env": "",
+      "min_intervallo_s": 0,
+      "rpm": 0,
+      "rpd": 0,
+      "tentativi": 2,
+      "timeout_s": 300
+    }
+  ]
+}

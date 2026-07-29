@@ -90,11 +90,16 @@ func imposta_profilo_esterno(idx: int) -> void:
 		_client.configura(cfg, _leggi_chiave(cfg))
 
 ## La chiave API del profilo esterno selezionato è esportata nell'ambiente?
+## Un profilo che non dichiara api_key_env non ne ha bisogno (es. il Gateway locale, che
+## tiene lui le chiavi, o un endpoint senza autenticazione): in quel caso va sempre bene.
 func chiave_esterno_presente() -> bool:
 	if profili_esterni.is_empty():
 		return false
 	var idx := clampi(provider_esterno_idx, 0, profili_esterni.size() - 1)
-	return _leggi_chiave(profili_esterni[idx]) != ""
+	var cfg: Dictionary = profili_esterni[idx]
+	if String(cfg.get("api_key_env", "")) == "":
+		return true
+	return _leggi_chiave(cfg) != ""
 
 ## Modello atteso dal provider attivo (per messaggi/verifica).
 func modello_atteso() -> String:

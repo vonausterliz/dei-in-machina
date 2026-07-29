@@ -44,6 +44,9 @@ var prob_coalizione := _PROB_COALIZIONE_DEFAULT
 
 var stato: StatoPartita = null
 
+## Moduli estratti: la regola vive nel suo file, GameManager orchestra il turno.
+var _validazione: Validazione = null
+
 ## Ultima narrazione di Omero: la ripassiamo al turno dopo per la continuità del discorso.
 var _ultima_narrazione: String = ""
 
@@ -53,6 +56,7 @@ func _ready() -> void:
 func nuova_partita(seed_partita: int = 0) -> void:
 	var s := seed_partita if seed_partita != 0 else randi()
 	stato = StatoPartita.nuova(PantheonManager.pantheon, s)
+	_validazione = Validazione.new(stato)
 	_ultima_narrazione = ""
 	_rng.seed = s  # riproducibilita': stessa run, stessi scavalcamenti
 	prob_scavalcamento = _PROB_SCAVALCAMENTO_DEFAULT
@@ -168,6 +172,7 @@ func carica_partita(path: String = SALVATAGGIO_DEFAULT) -> bool:
 	if s == null:
 		return false
 	stato = s
+	_validazione = Validazione.new(stato)  # i moduli lavorano sullo stato caricato
 	return true
 
 func salva_partita(path: String = SALVATAGGIO_DEFAULT) -> bool:
@@ -522,100 +527,13 @@ func _arbitra(proposte: Array) -> Dictionary:
 		"dice": best.get("dice", ""),
 	}
 
-## Entita' del crollo d'animo per smarrimento e per follia (valori-seme).
-const _CALO_SMARRIMENTO := 8
-const _CALO_FOLLIA := 100
-
-## VALIDAZIONE / AMMONIZIONE (design sez. 6). Scala DOLCE: il falso positivo qui uccide.
-## in_mondo -> turno pulito (+1) e decadimento graduale dell'ammonizione.
-## fuori-mondo -> contatore +1; primo scivolone = solo richiamo (Omero ti riporta dentro);
-## se insisti = smarrimento (l'animo cala); alla soglia = follia (un dio colpisce: game over).
-## Ritorna {in_mondo, delta, esito, classe}. classe in "": nessuna / richiamo / smarrimento / follia.
-## Parole inequivocabilmente MODERNE: se compaiono, l'azione è fuori dal mondo dell'Odissea
-## anche se l'LLM l'ha classificata in_mondo. Lista mirata (alta precisione), non esaustiva:
-## il resto lo intercetta il prompt dell'Interprete. Backstop deterministico, testabile.
-const _MARCATORI_ANACRONISMO := [
-	# armi da fuoco ed esplosivi
-	"pistola", "pistole", "fucile", "fucili", "mitra", "mitraglia", "mitragliatrice",
-	"revolver", "sparo", "sparare", "spara", "sparano", "sparai", "sparammo", "sparato",
-	"sparargli", "sparerò", "sparero", "pallottola", "pallottole", "proiettile",
-	"proiettili", "bomba", "bombe", "bombardo", "granata", "granate", "esplosivo",
-	"esplosivi", "dinamite", "tritolo", "missile", "missili", "razzo", "bazooka",
-	"kalashnikov", "cannone", "cannoni", "artiglieria", "siluro",
-	# mezzi militari e motorizzati
-	"carro armato", "carri armati", "tank", "corazzata", "sottomarino", "portaerei",
-	"aereo", "aerei", "aeroplano", "elicottero", "drone", "droni", "motoscafo",
-	"automobile", "camion", "motore", "motori", "treno",
-	# tecnologia
-	"telefono", "telefonare", "telefono a", "cellulare", "smartphone", "computer",
-	"internet", "wifi", "email", "radio", "televisione", "televisore", "elettricità",
-	"elettricita", "batteria", "benzina", "gasolio", "fotografia", "orologio digitale",
-	# sostanze e gergo moderni
-	"droga", "droghe", "cocaina", "eroina", "marijuana", "spinello", "sballo",
-	"raga", "bro", "videogioco", "respawn", "resetta", "gameover", "game over", "prompt",
-]
-
-## Vero se l'input contiene un marcatore moderno come PAROLA INTERA (accenti/maiuscole ignorati).
-func _e_anacronistico(input_testo: String) -> bool:
-	var t := input_testo.to_lower()
-	var re := RegEx.new()
-	for m in _MARCATORI_ANACRONISMO:
-		re.compile("\\b" + m + "\\b")
-		if re.search(t) != null:
-			return true
-	return false
-
-## VAGLIO della plausibilita', a tre livelli (dal piu' economico al piu' capace):
-##  1. l'Interprete l'ha gia' detta fuori-mondo -> niente da fare;
-##  2. marcatore moderno evidente -> fuori-mondo per regola (gratis, deterministico);
-##  3. altrimenti SECONDO PARERE dell'LLM, una domanda secca dedicata: coglie gli
-##     anacronismi che nessuna lista puo' prevedere (GPS, penicillina, ascensore...).
-## In mock il livello 3 non fa nulla: i test restano deterministici.
+## Validazione/ammonizione e vaglio della plausibilita' vivono in Validazione (scripts/).
+## Qui restano solo i due punti di ingresso, per non spargere la regola in due posti.
 func _vaglia_plausibilita(envelope: Dictionary, input_testo: String) -> void:
-	if envelope.get("plausibilita", "") != "in_mondo":
-		return
-	if _e_anacronistico(input_testo):
-		envelope["plausibilita"] = "anacronistico"
-		return
-	var classe: String = await LLMManager.verifica_plausibilita(input_testo)
-	if classe != "" and classe != "in_mondo":
-		envelope["plausibilita"] = classe
-		envelope["tag"] = []  # regola 5 del contratto: fuori-mondo -> nessun tag
+	await _validazione.vaglia(envelope, input_testo)
 
 func _valida(envelope: Dictionary, input_testo: String) -> Dictionary:
-	var amm: Dictionary = stato.ammonizioni
-	# La plausibilita' e' gia' passata dal VAGLIO (regola + secondo parere LLM); qui si
-	# ripete il controllo deterministico perche' _valida e' usata anche da sola nei test.
-	var in_mondo: bool = envelope.get("plausibilita", "") == "in_mondo" and not _e_anacronistico(input_testo)
-	if not in_mondo and envelope.get("plausibilita", "") == "in_mondo":
-		envelope["plausibilita"] = "anacronistico"
-
-	if in_mondo:
-		amm["turni_puliti"] = int(amm.get("turni_puliti", 0)) + 1
-		var ogni: int = int(amm.get("decadimento_ogni", 3))
-		if int(amm.get("contatore", 0)) > 0 and ogni > 0 and amm["turni_puliti"] % ogni == 0:
-			amm["contatore"] = int(amm["contatore"]) - 1  # decadimento: torni sensato, si dimentica
-		return {"in_mondo": true, "delta": {}, "esito": "continua", "classe": ""}
-
-	# Fuori dal mondo: sale l'ammonizione, azzero i turni puliti.
-	amm["contatore"] = int(amm.get("contatore", 0)) + 1
-	amm["turni_puliti"] = 0
-	amm["ultimo_richiamo"] = {
-		"turno": stato.turno,
-		"input": input_testo,
-		"classe": envelope.get("plausibilita", ""),
-	}
-
-	var soglia: int = int(amm.get("soglia", 3))
-	var contatore: int = int(amm["contatore"])
-	if contatore >= soglia:
-		# FOLLIA: un dio colpisce l'empieta reiterata. Fine.
-		return {"in_mondo": false, "delta": {"ulisse.animo": -_CALO_FOLLIA}, "esito": "follia", "classe": "follia"}
-	if contatore >= 2:
-		# SMARRIMENTO: il mondo legge il nonsenso come sbandamento, l'animo cala.
-		return {"in_mondo": false, "delta": {"ulisse.animo": -_CALO_SMARRIMENTO}, "esito": "continua", "classe": "smarrimento"}
-	# Primo scivolone: solo richiamo, nessun danno.
-	return {"in_mondo": false, "delta": {}, "esito": "continua", "classe": "richiamo"}
+	return _validazione.valida(envelope, input_testo)
 
 ## SCAVALCAMENTO: se una proposta punitiva ha perso il verdetto, quel dio puo' (raro)
 ## fare di testa sua alle spalle di Zeus. Applica il suo delta e registra un pendente.
