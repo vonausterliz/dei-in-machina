@@ -8,6 +8,10 @@
 #   ./avvia.sh console    # gioco testuale nel terminale (headless)
 #   ./avvia.sh test       # esegue i test (dev)
 #   Aggiungi "-- ollama mistral-small3.2:latest" a 'console' per i dei reali.
+#
+# Scelta del modello Ollama (senza toccare il config):
+#   MODELLO=llama3.1:8b ./avvia.sh     # usa quel modello (preflight + gioco)
+#   In gioco puoi anche cambiarlo dal menu a tendina accanto a "Ollama (dei reali)".
 set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -77,11 +81,14 @@ _leggi_modello() {
 # e va in errore "unbound variable". Meglio tenerlo semplice e portabile.
 ollama_preflight() {
   local url="http://localhost:11434" model base
+  # Scelta del modello: MODELLO=... ha precedenza sul config. Lo propago all'app via
+  # DEI_MODELLO, cosi' preflight e gioco usano lo stesso. In gioco puoi cambiarlo dal menu.
+  model="${MODELLO:-$(_leggi_modello)}"; [ -z "${model}" ] && model="mistral-small3.2:latest"
+  export DEI_MODELLO="${model}"
   if ! command -v ollama >/dev/null 2>&1; then
     echo "[i] Ollama non installato: modalita' 'dei reali' non disponibile (si gioca coi dei simulati)."
     return 0
   fi
-  model="$(_leggi_modello)"; [ -z "${model}" ] && model="mistral-small3.2:latest"
   # 1) server attivo? altrimenti avvialo in background e attendi che risponda.
   if ! curl -fsS "${url}/api/tags" >/dev/null 2>&1; then
     echo "Avvio Ollama in background (ollama serve)..."

@@ -31,6 +31,7 @@ var _col_olimpo: Control
 var _btn_olimpo: Button
 var _btn_agisci: Button
 var _chk_ollama: CheckButton
+var _opt_modello: OptionButton
 var _stat_bars := {}
 var _stat_vals := {}
 var _busy := false
@@ -222,6 +223,15 @@ func _colonna_rapsodia() -> Control:
 	_chk_ollama.add_theme_color_override("font_color", C_BONE_DIM)
 	_chk_ollama.toggled.connect(_on_toggle_ollama)
 	opz.add_child(_chk_ollama)
+
+	# Selettore del modello: popolato quando Ollama e' attivo, coi modelli installati.
+	_opt_modello = OptionButton.new()
+	_opt_modello.disabled = true
+	_opt_modello.add_theme_color_override("font_color", C_BONE)
+	_opt_modello.add_theme_font_size_override("font_size", 13)
+	_opt_modello.tooltip_text = "Modello Ollama (attiva «Ollama» per popolarlo)"
+	_opt_modello.item_selected.connect(_on_modello_scelto)
+	opz.add_child(_opt_modello)
 
 	return pan
 
@@ -438,15 +448,34 @@ func _on_toggle_ollama(premuto: bool) -> void:
 	LLMManager.abilita_reale()
 	var v: Dictionary = await LLMManager.verifica_ollama()
 	_chk_ollama.disabled = false
-	if not v["ok"]:
-		# Non fingere: se Ollama non e' pronto, resta sui dèi simulati e spiega perche'.
+	if not v["attivo"]:
 		LLMManager.mock_mode = true
 		_chk_ollama.set_pressed_no_signal(false)
-		var msg: String
-		if not v["attivo"]:
-			msg = "Ollama non risponde. Avvialo con «ollama serve» (o rilancia ./avvia.sh, che lo fa da solo)."
-		else:
-			msg = "Il modello «%s» non è caricato su Ollama. Scaricalo con «ollama pull %s»." % [v["atteso"], v["atteso"]]
-		_narrazione.append_text("[color=%s]%s Resto sui dèi simulati (mock).[/color]\n" % [C_OXBLOOD.to_html(), msg])
+		_narrazione.append_text("[color=%s]Ollama non risponde. Avvialo con «ollama serve» (o rilancia ./avvia.sh). Resto sui dèi simulati (mock).[/color]\n" % C_OXBLOOD.to_html())
 		return
-	_narrazione.append_text("[color=%s][modalità Ollama: dèi e narratore reali (%s). Può essere lento; guarda il log a destra.][/color]\n" % [C_VERDIGRIS.to_html(), v["atteso"]])
+	if v["modelli"].is_empty():
+		LLMManager.mock_mode = true
+		_chk_ollama.set_pressed_no_signal(false)
+		_narrazione.append_text("[color=%s]Nessun modello installato su Ollama: scaricane uno con «ollama pull …». Resto sui dèi simulati (mock).[/color]\n" % C_OXBLOOD.to_html())
+		return
+	# Modello: quello di config se presente, altrimenti il primo disponibile (lo dico).
+	var scelto: String = v["atteso"]
+	if not v["modello_presente"]:
+		scelto = String(v["modelli"][0])
+		LLMManager.imposta_modello(scelto)
+		_narrazione.append_text("[color=%s]Il modello «%s» non è installato: uso «%s». Puoi cambiarlo dal menù accanto.[/color]\n" % [C_OXBLOOD.to_html(), v["atteso"], scelto])
+	_popola_modelli(v["modelli"], scelto)
+	_narrazione.append_text("[color=%s][modalità Ollama: dèi e narratore reali (%s). Può essere lento; guarda il log a destra.][/color]\n" % [C_VERDIGRIS.to_html(), scelto])
+
+func _popola_modelli(modelli: Array, selezionato: String) -> void:
+	_opt_modello.clear()
+	for i in modelli.size():
+		_opt_modello.add_item(String(modelli[i]))
+		if String(modelli[i]) == selezionato:
+			_opt_modello.select(i)
+	_opt_modello.disabled = modelli.is_empty()
+
+func _on_modello_scelto(idx: int) -> void:
+	var nome := _opt_modello.get_item_text(idx)
+	LLMManager.imposta_modello(nome)
+	_narrazione.append_text("[color=%s][modello impostato: %s — vale dal prossimo turno][/color]\n" % [C_VERDIGRIS.to_html(), nome])

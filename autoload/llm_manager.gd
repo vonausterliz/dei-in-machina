@@ -23,9 +23,27 @@ var _arbitro: Arbitro = null
 
 func _ready() -> void:
 	config = _carica_config()
+	_applica_override_env()
 	mock_mode = config.get("mock", true)
 	if not mock_mode:
 		_inizializza_reale()
+
+## Il modello puo' essere scelto senza toccare il JSON: variabile d'ambiente DEI_MODELLO
+## (impostata da ./avvia.sh con MODELLO=...). Comodo per provare modelli diversi su M1.
+func _applica_override_env() -> void:
+	if OS.has_environment("DEI_MODELLO"):
+		var m := OS.get_environment("DEI_MODELLO").strip_edges()
+		if m != "":
+			config["model"] = m
+
+## Cambia il modello a runtime (usato dal menu a tendina della GUI). Effetto dal turno dopo.
+func imposta_modello(nome: String) -> void:
+	if nome.strip_edges() == "":
+		return
+	config["model"] = nome
+	if _client:
+		_client.model = nome
+	_reg("modello impostato: %s" % nome)
 
 ## Abilita il percorso LLM reale a runtime (usato dalla console con Ollama), anche se
 ## la config parte in mock. Idempotente.
