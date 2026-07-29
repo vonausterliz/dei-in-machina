@@ -6,7 +6,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "1.6"
+const VERSIONE := "1.7"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -41,6 +41,7 @@ var _episodio: Label
 var _fin_olimpo: FinestraTesto   # finestra separata: traccia dell'ultimo turno
 var _fin_log: FinestraTesto      # finestra separata: log delle chiamate LLM
 var _menu_view: PopupMenu
+var _lbl_motore: Label
 var _fin_impostazioni: FinestraImpostazioni
 var _btn_olimpo: Button
 var _btn_log: Button
@@ -146,7 +147,12 @@ func _costruisci_ui() -> void:
 	header.add_child(ver)
 	# Barra dei menu: le viste di servizio e le impostazioni stanno qui, non sparse
 	# tra i controlli di gioco.
-	header.add_child(_barra_menu())
+	var stacco := Control.new()
+	stacco.custom_minimum_size = Vector2(28, 0)
+	header.add_child(stacco)
+	var menu := _barra_menu()
+	menu.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	header.add_child(menu)
 	var spazio := Control.new()
 	spazio.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(spazio)
@@ -180,6 +186,7 @@ func _crea_finestre_servizio() -> void:
 		_spunta_view(VOCE_LOG, false))
 	add_child(_fin_log)
 	_fin_impostazioni = FinestraImpostazioni.new()
+	_fin_impostazioni.motore_scelto.connect(_on_motore_scelto)
 	add_child(_fin_impostazioni)
 	_fin_olimpo = FinestraTesto.new("Vista Olimpo · le voci degli dèi", false, Vector2i(820, 640), basso)
 	_fin_olimpo.chiusa.connect(func():
@@ -191,7 +198,8 @@ func _crea_finestre_servizio() -> void:
 ## finestra è aperta.
 func _barra_menu() -> Control:
 	var barra := MenuBar.new()
-	barra.add_theme_font_size_override("font_size", 14)
+	barra.add_theme_font_size_override("font_size", 16)
+	barra.custom_minimum_size = Vector2(190, 30)
 	barra.add_theme_color_override("font_color", C_BONE_DIM)
 	barra.add_theme_color_override("font_hover_color", C_GOLD)
 
@@ -208,6 +216,34 @@ func _barra_menu() -> Control:
 	menu_set.id_pressed.connect(func(id): if id == VOCE_IMPOSTAZIONI: _apri_impostazioni())
 	barra.add_child(menu_set)
 	return barra
+
+## Scelta del motore dal menu Settings: mock / Ollama locale / provider esterno.
+func _on_motore_scelto(modo: int) -> void:
+	match modo:
+		FinestraImpostazioni.MOTORE_MOCK:
+			_chk_ollama.set_pressed_no_signal(false)
+			_chk_esterno.set_pressed_no_signal(false)
+			LLMManager.mock_mode = true
+			_narrazione.append_text("[color=%s][dèi simulati: nessuna chiamata al modello][/color]\n" % C_VERDIGRIS.to_html())
+		FinestraImpostazioni.MOTORE_OLLAMA:
+			_chk_esterno.set_pressed_no_signal(false)
+			_chk_ollama.set_pressed_no_signal(true)
+			await _attiva_reale(false)
+		FinestraImpostazioni.MOTORE_ESTERNO:
+			_chk_ollama.set_pressed_no_signal(false)
+			_chk_esterno.set_pressed_no_signal(true)
+			await _attiva_reale(true)
+	_aggiorna_indicatore_motore()
+
+## Riga discreta sotto l'input: quale motore sta dando voce agli dèi.
+func _aggiorna_indicatore_motore() -> void:
+	if _lbl_motore == null:
+		return
+	if LLMManager.mock_mode:
+		_lbl_motore.text = "motore: dèi simulati  ·  cambia da Settings"
+	else:
+		var dove := "API esterna" if LLMManager.provider_esterno else "Ollama"
+		_lbl_motore.text = "motore: %s · %s" % [dove, LLMManager.modello_atteso()]
 
 func _apri_impostazioni() -> void:
 	_fin_impostazioni.popup_centered()
@@ -297,10 +333,15 @@ func _colonna_rapsodia() -> Control:
 
 	var hint := _titolo("Puoi scrivere qualunque cosa. Gli dèi ascoltano le parole, non i comandi.", 12, C_BONE_DIM, _serif_italic)
 	v.add_child(hint)
+	_lbl_motore = _titolo("", 12, C_VERDIGRIS, _serif)
+	v.add_child(_lbl_motore)
 
 	# opzioni
+	# I comandi del motore LLM sono nel menu Settings: qui restano solo come attuatori
+	# (invisibili), così la schermata di gioco non si riempie di interruttori.
 	var opz := HBoxContainer.new()
 	opz.add_theme_constant_override("separation", 14)
+	opz.visible = false
 	v.add_child(opz)
 	_btn_olimpo = Button.new()
 	_btn_olimpo.text = "Vista Olimpo"
@@ -454,6 +495,7 @@ func _apri_scena() -> void:
 	_narrazione.append_text("[i]Omero:[/i] %s\n\n" % _ultima_narrazione)
 	_aggiorna_stats()
 	_aggiorna_mappa()
+	_aggiorna_indicatore_motore()
 	_input.grab_focus()
 	await _rigenera_spunti()
 

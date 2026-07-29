@@ -16,8 +16,16 @@ const C_GOLD := Color("cba24b")
 const C_VERDIGRIS := Color("4e9a8e")
 
 signal applicate
+## Il motore scelto: chi dà voce agli dèi. La GUI principale reagisce attivando il
+## percorso giusto (mock / Ollama / API esterna) e mostrandone l'esito.
+signal motore_scelto(modo: int)
+
+const MOTORE_MOCK := 0
+const MOTORE_OLLAMA := 1
+const MOTORE_ESTERNO := 2
 
 var _campi_chiave: Dictionary = {}   # nome_variabile_env -> LineEdit
+var _opt_motore: OptionButton
 var _opt_provider: OptionButton
 var _opt_modello: OptionButton
 var _chk_gateway: CheckBox
@@ -43,6 +51,19 @@ func _ready() -> void:
 	v.add_theme_constant_override("separation", 14)
 	margine.add_child(v)
 
+	v.add_child(_etichetta("MOTORE", 14, C_GOLD))
+	var riga_motore := HBoxContainer.new()
+	riga_motore.add_theme_constant_override("separation", 10)
+	v.add_child(riga_motore)
+	riga_motore.add_child(_etichetta("Chi dà voce agli dèi:", 13, C_BONE_DIM))
+	_opt_motore = OptionButton.new()
+	_opt_motore.add_item("Simulato (senza LLM, istantaneo)", MOTORE_MOCK)
+	_opt_motore.add_item("Ollama locale", MOTORE_OLLAMA)
+	_opt_motore.add_item("Provider esterno (API)", MOTORE_ESTERNO)
+	_opt_motore.item_selected.connect(func(i): motore_scelto.emit(_opt_motore.get_item_id(i)))
+	riga_motore.add_child(_opt_motore)
+
+	v.add_child(_separatore())
 	v.add_child(_etichetta("PROVIDER E MODELLO", 14, C_GOLD))
 	var riga := HBoxContainer.new()
 	riga.add_theme_constant_override("separation", 10)
