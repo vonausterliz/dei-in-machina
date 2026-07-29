@@ -6,7 +6,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "1.7"
+const VERSIONE := "1.8"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -198,10 +198,18 @@ func _crea_finestre_servizio() -> void:
 ## finestra è aperta.
 func _barra_menu() -> Control:
 	var barra := MenuBar.new()
+	# IMPORTANTE su macOS: di default Godot sposta i menu nella barra di sistema in cima
+	# allo schermo, e nella finestra non si vede nulla. Li vogliamo DENTRO la finestra,
+	# uguali su tutti i sistemi.
+	barra.prefer_global_menu = false
 	barra.add_theme_font_size_override("font_size", 16)
-	barra.custom_minimum_size = Vector2(190, 30)
-	barra.add_theme_color_override("font_color", C_BONE_DIM)
+	barra.custom_minimum_size = Vector2(210, 34)
+	barra.add_theme_color_override("font_color", C_BONE)
 	barra.add_theme_color_override("font_hover_color", C_GOLD)
+	# Riquadro visibile: dev'essere chiaro che sono comandi, non decorazione del titolo.
+	barra.add_theme_stylebox_override("normal", _sfondo(7, C_SEA2, Color(C_GOLD, 0.45)))
+	barra.add_theme_stylebox_override("hover", _sfondo(7, C_SEA2, C_GOLD))
+	barra.add_theme_stylebox_override("pressed", _sfondo(7, C_GOLD_DEEP, C_GOLD))
 
 	_menu_view = PopupMenu.new()
 	_menu_view.name = "View"
