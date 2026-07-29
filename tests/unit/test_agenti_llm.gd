@@ -86,6 +86,20 @@ func test_narratore_include_storia_e_orientamento():
 	assert_string_contains(testo, "Il mare si gonfiò")     # continuita' immediata
 	assert_string_contains(testo, "L'isola di Eolo")       # orientamento (luogo)
 
+func test_narratore_usa_azione_grezza():
+	# Omero deve ricevere le parole esatte di Ulisse, per rispondere proprio a quelle.
+	var nar := Narratore.new(_nomi())
+	var m := nar.costruisci_messaggi({"azione": "chiedo udienza al re", "sintesi": "richiesta"})
+	assert_string_contains(m[1]["content"], "chiedo udienza al re")
+
+func test_narratore_passaggio_tra_tappe():
+	# Il passaggio genera un messaggio dedicato (traversata), non la narrazione normale.
+	var nar := Narratore.new(_nomi())
+	var m := nar.costruisci_messaggi({"passaggio": {"da": "Ismaro", "a": "la terra dei Lotofagi"}})
+	assert_string_contains(m[1]["content"], "PASSAGGIO")
+	assert_string_contains(m[1]["content"], "Ismaro")
+	assert_string_contains(m[1]["content"], "Lotofagi")
+
 func test_narrazione_pulita_passa():
 	var nar := Narratore.new(_nomi())
 	var fake := FakeChat.new()

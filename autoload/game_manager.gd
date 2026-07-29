@@ -242,6 +242,7 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 			impronta = attore.impronta
 	var narrazione: String = await LLMManager.narrazione_omero({
 		"sintesi": envelope.get("sintesi", ""),
+		"azione": input_testo,      # le parole/gesto esatti: Omero deve rispondere a QUESTO
 		"scena": scena_corrente(),  # ancora: dove si trova Ulisse e chi c'e' (coerenza)
 		"storia": _storia_recente(),           # i beat precedenti (continuita' del discorso)
 		"ultima_narrazione": _ultima_narrazione, # l'ultima voce di Omero (continuita' immediata)
@@ -293,7 +294,7 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	percorso.append(Fase.keys()[Fase.AVANZAMENTO])
 	var avanzamento := {"avanzato": false, "intro": "", "episodio": _episodio_corrente()}
 	if esito == "continua" and in_mondo:
-		avanzamento = _avanza_episodio(envelope)
+		avanzamento = await _avanza_episodio(envelope)
 		esito = avanzamento["esito"]
 
 	if esito != "continua":
@@ -308,6 +309,7 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 		"episodio": avanzamento["episodio"],
 		"avanzato": avanzamento["avanzato"],
 		"intro": avanzamento["intro"],
+		"transizione": avanzamento.get("transizione", ""),  # traversata verso la nuova tappa
 		"fsm_path": percorso,
 	}
 
@@ -605,11 +607,18 @@ func _avanza_episodio(envelope: Dictionary) -> Dictionary:
 		return fermo
 
 	v["completati"].append(v["corrente"])
+	var da_nome := ep.nome
 	var prossimo := episodi.successivo(String(v["corrente"]))
 	if prossimo == "" or prossimo == "itaca":
-		return {"esito": "itaca", "avanzato": true, "intro": intro_corrente(), "episodio": "itaca"}
+		var t_it := await _passaggio(da_nome, "Itaca")
+		return {"esito": "itaca", "avanzato": true, "intro": intro_corrente(), "episodio": "itaca", "transizione": t_it}
 	var intro := _entra_in_episodio(prossimo)
-	return {"esito": "continua", "avanzato": true, "intro": intro, "episodio": prossimo}
+	var trans := await _passaggio(da_nome, _nome_tappa_corrente())
+	return {"esito": "continua", "avanzato": true, "intro": intro, "episodio": prossimo, "transizione": trans}
+
+## Breve narrazione di Omero per la traversata tra due tappe (come ci si arriva).
+func _passaggio(da: String, a: String) -> String:
+	return await LLMManager.narrazione_omero({"passaggio": {"da": da, "a": a}})
 
 ## Riferimento allusivo a un dio: se Ulisse invoca/supplica (anche per epiteto:
 ## "il capo dell'olimpo") senza che l'envelope abbia gia' un dio_invocato valido,

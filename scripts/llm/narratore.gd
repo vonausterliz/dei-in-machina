@@ -28,6 +28,15 @@ func _leggi(path: String) -> String:
 	return FileAccess.get_file_as_string(path)
 
 func costruisci_messaggi(contesto: Dictionary) -> Array:
+	# Passaggio tra tappe: una breve traversata da un luogo all'altro (per non far
+	# "teletrasportare" Ulisse). Ha un formato suo, ignora i campi dell'azione.
+	var passaggio: Dictionary = contesto.get("passaggio", {})
+	if not passaggio.is_empty():
+		return [
+			{"role": "system", "content": _system_prompt},
+			{"role": "user", "content": "PASSAGGIO: Ulisse lascia «%s» e per mare giunge a «%s». Rendi in 2-3 righe il distacco dalla terra che si allontana e la traversata fino alla nuova sponda: così il lettore capisce come ci è arrivato. Tono epico e asciutto. Non nominare un dio." % [passaggio.get("da", "questa terra"), passaggio.get("a", "una nuova terra")]},
+		]
+
 	var pezzi: Array[String] = []
 	var scena: String = contesto.get("scena", "")
 	if scena != "":
@@ -44,7 +53,13 @@ func costruisci_messaggi(contesto: Dictionary) -> Array:
 		var progresso: String = {"inizio": "il ritorno è ancora lontano", "mezzo": "sei a metà del cammino verso Itaca", "vicino": "Itaca non è più tanto lontana"}.get(contesto.get("progresso", ""), "")
 		var morale: String = {"duro": "le ultime vicende sono state dure", "bene": "le cose sembrano volgere al meglio", "incerto": ""}.get(contesto.get("morale", ""), "")
 		pezzi.append("ORIENTAMENTO (fallo SENTIRE con naturalezza, non ogni volta e mai come un elenco): siamo a «%s»; %s; %s." % [luogo, progresso, morale])
-	pezzi.append("Ulisse ha appena: %s" % contesto.get("sintesi", "qualcosa"))
+	# L'azione GREZZA di Ulisse (parole/gesto esatti) + la sintesi: Omero deve rispondere
+	# proprio a QUESTO, non andare per la sua strada.
+	var azione: String = contesto.get("azione", "")
+	if azione != "":
+		pezzi.append("ULISSE HA APPENA, con queste parole o questo gesto: «%s» (in sintesi: %s). Rendi la scena e la sua RISPOSTA CONCRETA nel mondo — cosa accade come diretta conseguenza di ciò che Ulisse ha fatto o detto (se chiede udienza, mostra la risposta; se offre qualcosa, mostra chi lo accoglie o lo rifiuta) — e solo dopo, con misura, l'impronta del divino." % [azione, contesto.get("sintesi", "qualcosa")])
+	else:
+		pezzi.append("Ulisse ha appena: %s" % contesto.get("sintesi", "qualcosa"))
 	match contesto.get("ammonizione", ""):
 		"richiamo":
 			pezzi.append("(Gesto fuori dal mondo dell'Odissea: NON narrarlo come reale. Rifiutati con dolcezza e riportalo dentro la scena, senza spezzare l'incanto.)")

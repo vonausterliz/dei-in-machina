@@ -443,6 +443,11 @@ func _on_agisci() -> void:
 	if _col_olimpo.visible:
 		_aggiorna_olimpo(esito["voce"])
 
+	# Traversata verso la nuova tappa: il beat di partenza/viaggio, così non ci si
+	# "teletrasporta" da un luogo all'altro.
+	var trans := String(esito.get("transizione", ""))
+	if esito.get("avanzato", false) and trans != "":
+		_narrazione.append_text("[i]Omero:[/i] %s\n\n" % trans)
 	if esito.get("avanzato", false) and esito["esito"] == "continua":
 		_episodio.text = "· %s ·" % _nome_tappa()
 		_ultima_narrazione = String(esito.get("intro", ""))
