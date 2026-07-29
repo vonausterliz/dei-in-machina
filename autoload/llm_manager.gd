@@ -131,6 +131,18 @@ func interpreta(testo_libero: String, seed: int = 0) -> Dictionary:
 	_reg("← Interprete: tag %s · %s · %d ms" % [str(env.get("tag", [])), env.get("plausibilita", "?"), Time.get_ticks_msec() - t0])
 	return env
 
+## Ibrido: riconoscimento LLM del dio invocato quando il deterministico non trova nulla.
+## In mock ritorna "" (i test restano deterministici: il risveglio nei test non dipende
+## dall'LLM). In reale delega all'Interprete con output vincolato agli id del pantheon.
+func identifica_dio(testo_libero: String, seed: int = 0) -> String:
+	if mock_mode:
+		return ""
+	_reg("→ Ricognizione LLM del dio invocato (anche parafrasi)…")
+	var t0 := Time.get_ticks_msec()
+	var id := await _interprete.identifica_dio(testo_libero, _client.chat, seed)
+	_reg("← dio riconosciuto: %s · %d ms" % [id if id != "" else "(nessuno)", Time.get_ticks_msec() - t0])
+	return id
+
 func proposta_dio(dio: Dio, contesto: Dictionary, seed: int = 0) -> Dictionary:
 	if mock_mode:
 		await get_tree().process_frame

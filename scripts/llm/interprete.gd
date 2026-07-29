@@ -94,6 +94,30 @@ func interpreta_tracciato(testo_libero: String, chat_fn: Callable, seed: int = 0
 	var fallback := Contratto.envelope_fallback("Ulisse: \"%s\"" % testo_libero)
 	return {"envelope": fallback, "valido": false, "fallback_usato": true, "tentativi": tentativi}
 
+## Arricchimento IBRIDO del risveglio: quando il risolutore deterministico non trova
+## alcun dio nel testo, l'LLM prova a mappare un riferimento anche PARAFRASATO o indiretto
+## ("colei che nacque dalla testa del padre") su un id del pantheon. Output VINCOLATO:
+## deve essere uno degli id validi o "nessuno" — non puo' inventare dei. Ritorna l'id o "".
+## Riusa il system prompt (roster + guardrail), quindi resta conforme all'invariante.
+func identifica_dio(testo_libero: String, chat_fn: Callable, seed: int = 0) -> String:
+	var opzioni := {"temperature": 0.0, "json_mode": true}
+	if seed != 0:
+		opzioni["seed"] = seed
+	var messaggi := [
+		{"role": "system", "content": _system_prompt},
+		{"role": "user", "content": "A quale dio si rivolge, prega, invoca o allude Ulisse in questa frase — anche per parafrasi o descrizione indiretta, non solo per nome o epiteto noto? Frase: \"%s\"\nRispondi SOLO con {\"dio\":\"<id>\"} usando uno degli id dei dei elencati sopra, oppure {\"dio\":\"nessuno\"} se non si rivolge ad alcun dio." % testo_libero},
+	]
+	var risposta = await chat_fn.call(messaggi, opzioni)
+	if typeof(risposta) != TYPE_DICTIONARY or not risposta.get("ok", false):
+		return ""
+	var grezzo := Contratto.estrai_json(risposta.get("content", ""))
+	if grezzo.is_empty():
+		return ""
+	var id := String(grezzo.get("dio", "")).strip_edges().to_lower()
+	if id == "" or id == "nessuno":
+		return ""
+	return id if id_dei_validi.has(id) else ""  # vincolo: solo id del pantheon
+
 ## Ritorna {ok: bool, envelope: Dictionary, log: {content, errori}}
 func _tenta(testo_libero: String, messaggi: Array, chat_fn: Callable, opzioni: Dictionary) -> Dictionary:
 	var risposta = await chat_fn.call(messaggi, opzioni)

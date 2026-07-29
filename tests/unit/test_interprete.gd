@@ -97,3 +97,30 @@ func test_interpreta_errore_client_va_in_fallback():
 	fake.risposte = [{"ok": false, "content": "", "error": "connessione rifiutata"}]
 	var t := await _interprete.interpreta_tracciato("qualcosa", fake.chat)
 	assert_true(t["fallback_usato"])
+
+# --- riconoscimento ibrido del dio (parafrasi) ---
+
+func test_identifica_dio_da_parafrasi():
+	var fake := FakeChat.new()
+	fake.risposte = [_ok('{"dio":"atena"}')]
+	var id := await _interprete.identifica_dio("colei che nacque dalla testa del padre, aiutami", fake.chat)
+	assert_eq(id, "atena")
+
+func test_identifica_dio_nessuno():
+	var fake := FakeChat.new()
+	fake.risposte = [_ok('{"dio":"nessuno"}')]
+	var id := await _interprete.identifica_dio("riempio gli otri d'acqua", fake.chat)
+	assert_eq(id, "")
+
+func test_identifica_dio_id_inventato_rifiutato():
+	# Vincolo: un id fuori dal pantheon non deve passare (niente dei inventati).
+	var fake := FakeChat.new()
+	fake.risposte = [_ok('{"dio":"afrodite"}')]
+	var id := await _interprete.identifica_dio("invoco la dea dell'amore", fake.chat)
+	assert_eq(id, "", "un id non valido viene scartato")
+
+func test_identifica_dio_errore_client():
+	var fake := FakeChat.new()
+	fake.risposte = [{"ok": false, "content": "", "error": "giu'"}]
+	var id := await _interprete.identifica_dio("qualcosa", fake.chat)
+	assert_eq(id, "")

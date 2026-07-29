@@ -137,7 +137,7 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	var eventi_turno := _eventi_del_turno(eventi)
 	if in_mondo:
 		percorso.append(Fase.keys()[Fase.RISVEGLIO])
-		_risolvi_invocazione(envelope, input_testo)
+		await _risolvi_invocazione(envelope, input_testo)
 		svegli = PantheonManager.risveglio(envelope, eventi_turno, _episodio_corrente())
 		_segna_in_gioco(svegli)
 
@@ -560,15 +560,42 @@ func _risolvi_invocazione(envelope: Dictionary, input_testo: String) -> void:
 		return  # l'Interprete/LLM ha gia' fornito un id valido
 	var dett := PantheonManager.risolvi_invocato_dett(input_testo)
 	var id: String = dett["id"]
-	if id == "":
+	if id != "":
+		# Nominare un dio per NOME PROPRIO ("Atena, portami a casa") e' invocazione diretta:
+		# sveglia comunque, anche se l'LLM ha classificato l'input come semplice azione.
+		# L'epiteto ALLUSIVO ("il capo dell'olimpo"), piu' ambiguo, richiede invece l'intento
+		# di preghiera/supplica, per non svegliare un dio a ogni menzione di passaggio.
+		if dett["per_nome"] or _ha_intento_invocazione(envelope):
+			envelope["dio_invocato"] = id
 		return
-	# Nominare un dio per NOME PROPRIO ("Atena, portami a casa") e' invocazione diretta:
-	# sveglia comunque, anche se l'LLM ha classificato l'input come semplice azione.
-	# L'epiteto ALLUSIVO ("il capo dell'olimpo"), piu' ambiguo, richiede invece l'intento
-	# di preghiera/supplica, per non svegliare un dio a ogni menzione di passaggio.
-	if not dett["per_nome"] and not _ha_intento_invocazione(envelope):
-		return
-	envelope["dio_invocato"] = id
+	# IBRIDO: il deterministico non ha trovato nulla. Se c'e' un indizio di invocazione,
+	# chiedo all'LLM di riconoscere un riferimento anche PARAFRASATO (output vincolato agli
+	# id del pantheon). In mock ritorna "": i test restano deterministici.
+	if _indizio_invocazione(envelope, input_testo):
+		var llm_id: String = await LLMManager.identifica_dio(input_testo)
+		if llm_id != "" and PantheonManager.pantheon.ha(llm_id):
+			envelope["dio_invocato"] = llm_id
+
+## Parole che segnalano un'invocazione/preghiera: delimitano quando vale la pena spendere
+## una chiamata LLM in piu' per il riconoscimento parafrasato (evita di chiamarla ogni turno).
+const _CUE_INVOCAZIONE := [
+	"prego", "supplico", "invoco", "imploro", "aiutami", "aiutatemi", "aiutateci",
+	"salvami", "salvateci", "salvatemi", "ascoltami", "ascoltatemi", "proteggimi",
+	"proteggici", "guidami", "abbi pietà", "abbi pieta", "o dio", "o dea", "o numi",
+	"o signore", "numi", "ti prego", "vi prego", "preghiera", "prega", "imploro",
+]
+
+## Vero se c'e' motivo di sospettare un'invocazione (per gate della chiamata LLM ibrida).
+func _indizio_invocazione(envelope: Dictionary, input_testo: String) -> bool:
+	if _ha_intento_invocazione(envelope):
+		return true
+	if envelope.get("tipo", "") == "rituale":
+		return true
+	var t := input_testo.to_lower()
+	for cue in _CUE_INVOCAZIONE:
+		if t.find(cue) != -1:
+			return true
+	return false
 
 func _ha_intento_invocazione(envelope: Dictionary) -> bool:
 	if envelope.get("tipo", "") == "preghiera":
