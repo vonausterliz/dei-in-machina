@@ -120,21 +120,44 @@ func _combacia(triggers: Array, presenti: Array) -> bool:
 ## Longest-match: se piu' epiteti combaciano, vince il piu' lungo (piu' specifico),
 ## cosi' "figlia di zeus" -> atena batte "zeus" -> zeus.
 func risolvi_invocato(testo: String) -> String:
+	return risolvi_invocato_dett(testo)["id"]
+
+## Come risolvi_invocato, ma dice anche COME ha combaciato:
+##  {id: String, per_nome: bool}. per_nome=true se il match e' un nome proprio /
+##  appellativo di una sola parola (es. "atena", "pallade", "poseidone") — segnale
+##  forte di invocazione diretta; false se e' un epiteto allusivo multi-parola
+##  (es. "capo dell'olimpo", "signore dei mari"). Il GameManager usa la distinzione:
+##  il nome proprio sveglia comunque, l'epiteto allusivo solo con intento di preghiera.
+func risolvi_invocato_dett(testo: String) -> Dictionary:
 	var t := _normalizza_testo(testo)
 	if t == "":
-		return ""
+		return {"id": "", "per_nome": false}
 	var best_id := ""
 	var best_len := 0
+	var best_per_nome := false
 	for dio in tutti():
 		var alias_list: Array[String] = dio.epiteti.duplicate()
 		if not alias_list.has(dio.nome):
 			alias_list.append(dio.nome)
 		for alias in alias_list:
 			var a := _normalizza_testo(alias)
-			if a.length() > best_len and a != "" and t.find(a) != -1:
+			if a == "" or a.length() <= best_len:
+				continue
+			var e_nome := (a.find(" ") == -1)  # una sola parola = nome proprio
+			# Nome proprio: match a PAROLA INTERA (cosi' "atena" non scatta dentro "catena").
+			# Epiteto allusivo multi-parola: sottostringa (e' una locuzione distintiva).
+			var trovato := _parola_intera(t, a) if e_nome else (t.find(a) != -1)
+			if trovato:
 				best_len = a.length()
 				best_id = dio.id
-	return best_id
+				best_per_nome = e_nome
+	return {"id": best_id, "per_nome": best_per_nome}
+
+## Vero se `parola` compare in `testo` come parola intera (confini non alfanumerici).
+func _parola_intera(testo: String, parola: String) -> bool:
+	var re := RegEx.new()
+	re.compile("\\b" + parola + "\\b")
+	return re.search(testo) != null
 
 ## Minuscolo + accenti rimossi, per un confronto robusto sull'input del giocatore.
 func _normalizza_testo(s: String) -> String:

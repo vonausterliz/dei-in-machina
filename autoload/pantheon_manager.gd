@@ -30,3 +30,6 @@ func eleggibili(episodio_corrente: String) -> Array[String]:
 ## Risolve un riferimento (anche allusivo) a un dio nel testo -> id, o "".
 func risolvi_invocato(testo: String) -> String:
 	return pantheon.risolvi_invocato(testo) if pantheon else ""
+
+func risolvi_invocato_dett(testo: String) -> Dictionary:
+	return pantheon.risolvi_invocato_dett(testo) if pantheon else {"id": "", "per_nome": false}

@@ -133,6 +133,14 @@ func test_menzione_non_invocativa_non_sveglia():
 	assert_eq(esito["voce"]["envelope"].get("dio_invocato"), null)
 	assert_eq(esito["svegli"], [])
 
+func test_invocazione_per_nome_sveglia_anche_se_llm_classifica_azione():
+	# "Atena, portami a casa": col mock e' envelope di default (tipo azione, tag [],
+	# dio_invocato null) — come sbagliava l'LLM reale. Il nome PROPRIO deve svegliarla
+	# comunque, senza bisogno che l'input sia taggato preghiera. Anche grafia "athena".
+	var esito := await GameManager.esegui_turno("athena portami a casa")
+	assert_eq(esito["voce"]["envelope"]["dio_invocato"], "atena")
+	assert_has(esito["svegli"], "atena")
+
 func test_registro_persistenti_in_gioco_da_subito():
 	# Re-eval Fase 0: i persistenti attivi nascono "risvegliato:true".
 	var reg: Dictionary = GameManager.stato.registro_divino

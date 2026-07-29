@@ -31,3 +31,20 @@ func test_nessun_riferimento():
 func test_menzione_di_passaggio_risolve_comunque_il_testo():
 	# risolvi_invocato guarda solo il testo; il GATING sull'intento e' in GameManager.
 	assert_eq(_p.risolvi_invocato("racconto la furia del signore dei mari"), "poseidone")
+
+func test_grafia_inglese_athena():
+	# Il giocatore puo' scrivere "athena" (con h): deve risolversi comunque ad atena.
+	assert_eq(_p.risolvi_invocato("athena portami a casa"), "atena")
+
+func test_nome_dentro_altra_parola_non_scatta():
+	# "atena" e' dentro "catena": NON deve svegliare Atena (match a parola intera).
+	assert_eq(_p.risolvi_invocato("spezzo la catena dell'ancora"), "")
+
+func test_dett_distingue_nome_proprio_da_epiteto():
+	# Nome proprio (una parola) -> per_nome true; epiteto allusivo (piu' parole) -> false.
+	var d1 := _p.risolvi_invocato_dett("Atena, guidami")
+	assert_eq(d1["id"], "atena")
+	assert_true(d1["per_nome"], "il nome proprio e' invocazione diretta")
+	var d2 := _p.risolvi_invocato_dett("invoco il capo dell'olimpo")
+	assert_eq(d2["id"], "zeus")
+	assert_false(d2["per_nome"], "l'epiteto multi-parola e' allusivo")

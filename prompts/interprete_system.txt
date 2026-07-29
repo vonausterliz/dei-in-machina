@@ -22,9 +22,12 @@ Emetti ESATTAMENTE questo oggetto, con questi campi e nient'altro:
 Vocabolario chiuso dei tag (NON inventarne altri):
 {{VOCABOLARIO_TAG}}
 
-Dei e loro appellativi (per dio_invocato). Se Ulisse prega o supplica un dio, anche in
-modo ALLUSIVO (per epiteto, es. "il capo dell'olimpo", "il signore dei mari"), metti in
-dio_invocato l'ID corrispondente qui sotto. Se non prega nessuno di preciso: null.
+Dei e loro appellativi (per dio_invocato). Se Ulisse si rivolge a un dio — lo prega, lo
+supplica, lo invoca, gli chiede o gli ordina qualcosa, lo nomina rivolgendosi a lui —
+anche in modo ALLUSIVO (per epiteto, es. "il capo dell'olimpo", "il signore dei mari"),
+metti in dio_invocato l'ID corrispondente qui sotto E usa tipo "preghiera". Esempio:
+"Atena, portami a casa" -> tipo=preghiera, dio_invocato="atena". Se non si rivolge a
+nessuno di preciso: dio_invocato null.
 {{ROSTER_DEI}}
 
 Regole di coerenza, obbligatorie:

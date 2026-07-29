@@ -555,14 +555,20 @@ func _avanza_episodio(envelope: Dictionary) -> Dictionary:
 ## lo risolviamo deterministicamente dal testo. Gated sull'INTENTO di invocazione
 ## (preghiera/supplica): una menzione di passaggio non deve svegliare un dio.
 func _risolvi_invocazione(envelope: Dictionary, input_testo: String) -> void:
-	if not _ha_intento_invocazione(envelope):
-		return
 	var attuale: Variant = envelope.get("dio_invocato", null)
 	if attuale != null and PantheonManager.pantheon.ha(String(attuale)):
 		return  # l'Interprete/LLM ha gia' fornito un id valido
-	var id := PantheonManager.risolvi_invocato(input_testo)
-	if id != "":
-		envelope["dio_invocato"] = id
+	var dett := PantheonManager.risolvi_invocato_dett(input_testo)
+	var id: String = dett["id"]
+	if id == "":
+		return
+	# Nominare un dio per NOME PROPRIO ("Atena, portami a casa") e' invocazione diretta:
+	# sveglia comunque, anche se l'LLM ha classificato l'input come semplice azione.
+	# L'epiteto ALLUSIVO ("il capo dell'olimpo"), piu' ambiguo, richiede invece l'intento
+	# di preghiera/supplica, per non svegliare un dio a ogni menzione di passaggio.
+	if not dett["per_nome"] and not _ha_intento_invocazione(envelope):
+		return
+	envelope["dio_invocato"] = id
 
 func _ha_intento_invocazione(envelope: Dictionary) -> bool:
 	if envelope.get("tipo", "") == "preghiera":

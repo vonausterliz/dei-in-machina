@@ -42,7 +42,7 @@
     {
       "id": "atena",
       "nome": "Atena",
-      "epiteti": ["atena", "pallade", "pallade atena", "dea dagli occhi glauchi", "dea guerriera", "figlia di zeus"],
+      "epiteti": ["atena", "athena", "pallade", "pallade atena", "dea dagli occhi glauchi", "dea guerriera", "figlia di zeus"],
       "natura": "olimpico",
       "fascia": "persistente",
       "attivo": true,
@@ -79,7 +79,7 @@
     {
       "id": "poseidone",
       "nome": "Poseidone",
-      "epiteti": ["poseidone", "signore dei mari", "signore del mare", "scuotitore della terra", "enosigeo", "dio del mare"],
+      "epiteti": ["poseidone", "poseidon", "signore dei mari", "signore del mare", "scuotitore della terra", "enosigeo", "dio del mare"],
       "natura": "olimpico",
       "fascia": "persistente",
       "attivo": true,
