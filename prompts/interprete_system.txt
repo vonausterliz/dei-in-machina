@@ -8,6 +8,15 @@ Non narri, non rispondi a Ulisse, non parli: classifichi. Nessun testo attorno a
 
 Emetti ESATTAMENTE questo oggetto, con questi campi e nient'altro:
 
+Su "plausibilita" (fondamentale): sei nel mondo dell'Odissea, età del bronzo. Se Ulisse
+usa cose o parole che NON esistono in quel mondo, NON è "in_mondo":
+- "anacronistico": armi da fuoco (pistola, fucile, "sparo"), esplosivi, motori, aerei,
+  telefoni, elettricità, droghe moderne, ecc. Es.: "sparo ai lotofagi" -> anacronistico.
+- "meta_nonsenso": gergo moderno o rottura della finzione ("raga", "resetta", "è un gioco").
+- "assurdo_diegetico": possibile in teoria ma insensato nella scena.
+Solo un gesto/parola coerente con l'età del bronzo è "in_mondo". Nel dubbio su modernità,
+NON usare "in_mondo".
+
 {
   "plausibilita": uno tra: in_mondo | assurdo_diegetico | anacronistico | meta_nonsenso,
   "tipo": uno tra: parola | azione | preghiera | rituale | movimento,

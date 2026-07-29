@@ -10,6 +10,19 @@ func before_each():
 	LLMManager.mock_mode = true
 	GameManager.nuova_partita(2024)
 
+func test_backstop_anacronismo_anche_se_llm_dice_in_mondo():
+	# Il mock classifica un input sconosciuto come in_mondo; ma "sparo" è inequivocabilmente
+	# moderno: il backstop deterministico lo intercetta lo stesso -> richiamo, niente narrazione reale.
+	var esito := await GameManager.esegui_turno("sparo a tutti i lotofagi, raga")
+	assert_false(esito["in_mondo"], "l'anacronismo evidente non passa come in_mondo")
+	assert_eq(esito["voce"]["ammonizione"], "richiamo")
+	assert_eq(esito["svegli"], [], "fuori-mondo: nessun dio reagisce")
+
+func test_azione_valida_resta_in_mondo():
+	# Nessun marcatore moderno: un'azione lecita non deve essere scambiata per anacronismo.
+	var esito := await GameManager.esegui_turno("Offro vino allo straniero sulla spiaggia.")
+	assert_true(esito["in_mondo"])
+
 func test_primo_scivolone_solo_richiamo():
 	var esito := await GameManager.esegui_turno(FUORI)
 	assert_false(esito["in_mondo"])

@@ -492,9 +492,36 @@ const _CALO_FOLLIA := 100
 ## fuori-mondo -> contatore +1; primo scivolone = solo richiamo (Omero ti riporta dentro);
 ## se insisti = smarrimento (l'animo cala); alla soglia = follia (un dio colpisce: game over).
 ## Ritorna {in_mondo, delta, esito, classe}. classe in "": nessuna / richiamo / smarrimento / follia.
+## Parole inequivocabilmente MODERNE: se compaiono, l'azione è fuori dal mondo dell'Odissea
+## anche se l'LLM l'ha classificata in_mondo. Lista mirata (alta precisione), non esaustiva:
+## il resto lo intercetta il prompt dell'Interprete. Backstop deterministico, testabile.
+const _MARCATORI_ANACRONISMO := [
+	"pistola", "pistole", "fucile", "fucili", "mitra", "mitraglia", "mitragliatrice",
+	"revolver", "sparo", "sparare", "spara", "sparano", "sparai", "sparammo", "sparato",
+	"proiettile", "proiettili", "bomba", "bombe", "granata", "esplosivo", "dinamite",
+	"missile", "razzo", "bazooka", "kalashnikov", "aereo", "aeroplano", "elicottero",
+	"automobile", "telefono", "cellulare", "smartphone", "computer", "internet", "wifi",
+	"televisione", "televisore", "benzina", "droga", "droghe", "cocaina", "eroina",
+	"marijuana", "spinello", "raga", "bro", "videogioco", "respawn",
+]
+
+## Vero se l'input contiene un marcatore moderno come PAROLA INTERA (accenti/maiuscole ignorati).
+func _e_anacronistico(input_testo: String) -> bool:
+	var t := input_testo.to_lower()
+	var re := RegEx.new()
+	for m in _MARCATORI_ANACRONISMO:
+		re.compile("\\b" + m + "\\b")
+		if re.search(t) != null:
+			return true
+	return false
+
 func _valida(envelope: Dictionary, input_testo: String) -> Dictionary:
 	var amm: Dictionary = stato.ammonizioni
 	var in_mondo: bool = envelope.get("plausibilita", "") == "in_mondo"
+	# Backstop: se l'LLM ha lasciato passare un anacronismo evidente, lo correggiamo qui.
+	if in_mondo and _e_anacronistico(input_testo):
+		in_mondo = false
+		envelope["plausibilita"] = "anacronistico"
 
 	if in_mondo:
 		amm["turni_puliti"] = int(amm.get("turni_puliti", 0)) + 1

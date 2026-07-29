@@ -53,14 +53,18 @@ func costruisci_messaggi(contesto: Dictionary) -> Array:
 		var progresso: String = {"inizio": "il ritorno è ancora lontano", "mezzo": "sei a metà del cammino verso Itaca", "vicino": "Itaca non è più tanto lontana"}.get(contesto.get("progresso", ""), "")
 		var morale: String = {"duro": "le ultime vicende sono state dure", "bene": "le cose sembrano volgere al meglio", "incerto": ""}.get(contesto.get("morale", ""), "")
 		pezzi.append("ORIENTAMENTO (fallo SENTIRE con naturalezza, non ogni volta e mai come un elenco): siamo a «%s»; %s; %s." % [luogo, progresso, morale])
-	# L'azione GREZZA di Ulisse (parole/gesto esatti) + la sintesi: Omero deve rispondere
-	# proprio a QUESTO, non andare per la sua strada.
+	# L'azione GREZZA di Ulisse (parole/gesto esatti) + la sintesi. Se e' un gesto valido
+	# (nessuna ammonizione), Omero deve rispondere proprio a QUELLO; se e' fuori-mondo,
+	# NON va reso concreto — se ne occupa l'istruzione di ammonizione qui sotto.
 	var azione: String = contesto.get("azione", "")
-	if azione != "":
+	var ammon: String = contesto.get("ammonizione", "")
+	if azione != "" and ammon == "":
 		pezzi.append("ULISSE HA APPENA, con queste parole o questo gesto: «%s» (in sintesi: %s). Rendi la scena e la sua RISPOSTA CONCRETA nel mondo — cosa accade come diretta conseguenza di ciò che Ulisse ha fatto o detto (se chiede udienza, mostra la risposta; se offre qualcosa, mostra chi lo accoglie o lo rifiuta) — e solo dopo, con misura, l'impronta del divino." % [azione, contesto.get("sintesi", "qualcosa")])
+	elif azione != "":
+		pezzi.append("Ulisse ha tentato, con queste parole o questo gesto: «%s»." % azione)
 	else:
 		pezzi.append("Ulisse ha appena: %s" % contesto.get("sintesi", "qualcosa"))
-	match contesto.get("ammonizione", ""):
+	match ammon:
 		"richiamo":
 			pezzi.append("(Gesto fuori dal mondo dell'Odissea: NON narrarlo come reale. Rifiutati con dolcezza e riportalo dentro la scena, senza spezzare l'incanto.)")
 		"smarrimento":
