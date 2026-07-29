@@ -4,6 +4,10 @@ extends Control
 ## mare profondo, osso, oro, rosso-sangue; serif classico (Cardo) per la voce del poeta.
 ## Schermata giocatore + Vista Olimpo (toggle, debug). Autoload GameManager/LLMManager.
 
+## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
+## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
+const VERSIONE := "0.9"
+
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
 const C_SEA := Color("1a1630")
@@ -127,8 +131,14 @@ func _costruisci_ui() -> void:
 	var header := HBoxContainer.new()
 	root.add_child(header)
 	var titolo := _titolo("DEI  IN  MACHINA", 30, C_GOLD, _serif_bold)
-	titolo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(titolo)
+	# Numero di versione accanto al nome: per capire a colpo d'occhio se l'app è aggiornata.
+	var ver := _titolo("v%s" % VERSIONE, 13, C_VERDIGRIS, _serif)
+	ver.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	header.add_child(ver)
+	var spazio := Control.new()
+	spazio.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(spazio)
 	var tag := _titolo("l'Odissea · gli dèi ti ascoltano", 13, C_BONE_DIM, _serif_italic)
 	tag.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	header.add_child(tag)
@@ -438,6 +448,12 @@ func _on_agisci() -> void:
 
 	_ultima_narrazione = String(esito["voce"].get("narrazione_omero", ""))
 	_narrazione.append_text("[i]Omero:[/i] %s\n\n" % _ultima_narrazione)
+	# Segnale chiaro (non è la voce di Omero) quando l'azione è fuori dal mondo dell'Odissea.
+	match String(esito["voce"].get("ammonizione", "")):
+		"richiamo":
+			_narrazione.append_text("[color=%s][i]— quel gesto non appartiene a questo mondo: si dissolve —[/i][/color]\n\n" % C_OXBLOOD.to_html())
+		"smarrimento":
+			_narrazione.append_text("[color=%s][i]— insisti con gesti senza senso: lo smarrimento ti prende —[/i][/color]\n\n" % C_OXBLOOD.to_html())
 	_aggiungi_diario()
 	_aggiorna_stats()
 	if _col_olimpo.visible:
