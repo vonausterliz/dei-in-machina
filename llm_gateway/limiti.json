@@ -4,6 +4,13 @@
   "throttling_attivo": true,
   "provider_predefinito": "mistral",
 
+  "_nota_modelli": "I limiti valgono per PROVIDER (l'account, non il singolo modello). Qui elenchiamo i modelli che rientrano nel piano gratuito: se ne viene chiesto uno fuori elenco il gateway lo segnala nel log, perche' potrebbe essere a pagamento.",
+  "modelli_gratuiti": {
+    "mistral": ["mistral-small-latest", "mistral-small-2506", "open-mistral-nemo", "mistral-small3.2"],
+    "google": ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-flash", "gemini-1.5-flash"]
+  },
+
+
   "cache": {
     "_nota": "Cache aggressiva: stessa richiesta identica -> risposta immediata, zero quota. ttl_s 0 la disattiva.",
     "ttl_s": 3600,

@@ -88,6 +88,15 @@ func _bottone(etichetta: String, azione: Callable) -> Button:
 	b.pressed.connect(azione)
 	return b
 
+## Mostra la finestra tenendola davanti. Alcuni window manager perdono il flag quando la
+## finestra viene nascosta e riaperta: lo riaffermiamo a ogni apertura.
+func mostra() -> void:
+	if DisplayServer.get_name() != "headless":
+		always_on_top = true
+	show()
+	if DisplayServer.get_name() != "headless":
+		grab_focus()
+
 ## Accoda una riga (finestre-log).
 func aggiungi(riga: String) -> void:
 	if testo:

@@ -258,6 +258,23 @@ class Gateway:
         for p in cfg["providers"]:
             self.providers[p["nome"]] = Provider(p, self.cache, self.throttling)
         self.predefinito = cfg.get("provider_predefinito", cfg["providers"][0]["nome"])
+        # Modelli che rientrano nel piano gratuito: serve solo ad AVVISARE, non blocca.
+        self.gratuiti: dict = cfg.get("modelli_gratuiti", {})
+        self._gia_avvisati: set = set()
+
+    def avvisa_se_a_pagamento(self, provider: str, modello: str) -> None:
+        elenco = self.gratuiti.get(provider)
+        if not elenco:
+            return
+        base = modello.split(":")[0]
+        if any(base == m or base.startswith(m) for m in elenco):
+            return
+        chiave = f"{provider}/{base}"
+        if chiave in self._gia_avvisati:
+            return
+        self._gia_avvisati.add(chiave)
+        log(f"  ⚠ ATTENZIONE: «{modello}» non e' tra i modelli del piano gratuito di "
+            f"{provider} ({', '.join(elenco)}). Potrebbe essere a pagamento.")
 
     def scegli(self, modello: str) -> tuple[Provider, str]:
         """«mistral/mistral-small-latest» -> (provider mistral, «mistral-small-latest»).
@@ -315,6 +332,7 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         provider, modello = self.gateway.scegli(str(payload.get("model", "")))
+        self.gateway.avvisa_se_a_pagamento(provider.nome, modello)
         payload["model"] = modello
         t0 = time.time()
         stato, corpo, da_cache = provider.chat(payload)

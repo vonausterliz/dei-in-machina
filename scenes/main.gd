@@ -6,7 +6,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "2.0"
+const VERSIONE := "2.1"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -792,16 +792,18 @@ func _nome_tappa() -> String:
 func _on_toggle_olimpo(premuto: bool) -> void:
 	# NIENTE move_to_center: sovrascriverebbe la posizione scelta e le due finestre
 	# finirebbero una sopra l'altra (era proprio il difetto segnalato).
-	_fin_olimpo.visible = premuto
 	if premuto:
-		_fin_olimpo.grab_focus()
+		_fin_olimpo.mostra()
 		if not GameManager.stato.storico_olimpo.is_empty():
 			_aggiorna_olimpo(GameManager.stato.storico_olimpo[-1])
+	else:
+		_fin_olimpo.hide()
 
 func _on_toggle_log(premuto: bool) -> void:
-	_fin_log.visible = premuto
 	if premuto:
-		_fin_log.grab_focus()
+		_fin_log.mostra()
+	else:
+		_fin_log.hide()
 
 func _on_toggle_ollama(premuto: bool) -> void:
 	if not premuto:
@@ -859,12 +861,12 @@ func _attiva_reale(esterno: bool) -> void:
 		chk.set_pressed_no_signal(false)
 		_narrazione.append_text("[color=%s]%s non elenca modelli disponibili. Resto sui dèi simulati (mock).[/color]\n" % [C_OXBLOOD.to_html(), dove])
 		return
-	# Modello: quello di config se presente, altrimenti il primo disponibile (lo dico).
+	# Modello: si TIENE quello richiesto anche se non compare nell'elenco. Sostituirlo
+	# d'ufficio col primo disponibile poteva dirottare su un modello piu' costoso (e fuori
+	# dal piano gratuito) senza che il giocatore se ne accorgesse: meglio avvisare.
 	var scelto: String = v["atteso"]
 	if not v["modello_presente"]:
-		scelto = String(v["modelli"][0])
-		LLMManager.imposta_modello(scelto)
-		_narrazione.append_text("[color=%s]Il modello «%s» non è disponibile: uso «%s». Puoi cambiarlo dal menù accanto.[/color]\n" % [C_OXBLOOD.to_html(), v["atteso"], scelto])
+		_narrazione.append_text("[color=%s]Attenzione: «%s» non compare tra i modelli offerti dal provider. Lo uso lo stesso; se le chiamate falliscono, scegline un altro da Settings.[/color]\n" % [C_OXBLOOD.to_html(), scelto])
 	_popola_modelli(v["modelli"], scelto)
 	_narrazione.append_text("[color=%s][modalità %s: dèi e narratore reali (%s). Guarda il log a destra.][/color]\n" % [C_VERDIGRIS.to_html(), dove, scelto])
 	if not _busy and not _finita:

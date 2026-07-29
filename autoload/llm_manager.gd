@@ -195,15 +195,26 @@ func verifica_ollama() -> Dictionary:
 		_reg("✗ modello «%s» non caricato. Disponibili: %s" % [atteso, ", ".join(modelli) if not modelli.is_empty() else "(nessuno)"])
 	return {"ok": presente, "attivo": true, "modello_presente": presente, "modelli": modelli, "atteso": atteso, "errore": ""}
 
-## Confronto tollerante: "mistral-small3.2:latest" combacia con "mistral-small3.2" e viceversa.
+## Confronto tollerante: ignora il tag (":latest") E il prefisso di provider usato dal
+## Gateway ("mistral/mistral-small-latest" == "mistral-small-latest"). Senza questo, col
+## Gateway attivo il modello richiesto risultava assente e ne veniva scelto un altro.
 func _modello_presente(atteso: String, modelli: Array) -> bool:
+	var norm_atteso := _senza_prefisso(atteso)
+	for m in modelli:
+		if _senza_prefisso(String(m)) == norm_atteso:
+			return true
 	if atteso in modelli:
 		return true
-	var base := atteso.get_slice(":", 0)
+	var base := norm_atteso.get_slice(":", 0)
 	for m in modelli:
-		if String(m).get_slice(":", 0) == base:
+		if _senza_prefisso(String(m)).get_slice(":", 0) == base:
 			return true
 	return false
+
+## "mistral/mistral-small-latest" -> "mistral-small-latest" (il prefisso e' l'instradamento
+## del Gateway, non fa parte del nome del modello presso il provider).
+func _senza_prefisso(nome: String) -> String:
+	return nome.get_slice("/", 1) if nome.find("/") != -1 else nome
 
 func interpreta(testo_libero: String, seed: int = 0) -> Dictionary:
 	if mock_mode:
