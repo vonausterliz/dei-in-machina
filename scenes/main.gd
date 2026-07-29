@@ -25,6 +25,7 @@ var _narrazione: RichTextLabel
 var _spunti_box: VBoxContainer
 var _ultima_narrazione: String = ""
 var _diario_box: VBoxContainer
+var _diario_scroll: ScrollContainer
 var _mappa: MappaViaggio
 var _input: LineEdit
 var _episodio: Label
@@ -272,16 +273,24 @@ func _colonna_aside() -> Control:
 	_mappa.custom_minimum_size = Vector2(0, 200)
 	vm.add_child(_mappa)
 
-	# Carta Diario di bordo
+	# Carta Diario di bordo (scorrevole: cresce di una voce a turno e non deve gonfiare il
+	# layout, altrimenti spinge l'input fuori schermo). Si espande per riempire lo spazio.
 	var carta_d := _pannello(Color(1, 1, 1, 0.012), _line())
+	carta_d.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(carta_d)
 	var vd := VBoxContainer.new()
 	vd.add_theme_constant_override("separation", 12)
 	carta_d.add_child(vd)
 	vd.add_child(_titolo("DIARIO DI BORDO", 13, C_GOLD, _serif_bold))
+	_diario_scroll = ScrollContainer.new()
+	_diario_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_diario_scroll.custom_minimum_size = Vector2(0, 140)
+	_diario_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	vd.add_child(_diario_scroll)
 	_diario_box = VBoxContainer.new()
+	_diario_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_diario_box.add_theme_constant_override("separation", 8)
-	vd.add_child(_diario_box)
+	_diario_scroll.add_child(_diario_box)
 	_episodio = _titolo("", 13, C_BONE_DIM, _serif_italic)
 	vd.add_child(_episodio)
 
@@ -522,6 +531,9 @@ func _aggiungi_diario() -> void:
 	testo.custom_minimum_size = Vector2(240, 0)
 	riga.add_child(testo)
 	_diario_box.add_child(riga)
+	# scorri all'ultima voce (dopo che il layout ha calcolato l'altezza)
+	if _diario_scroll:
+		_diario_scroll.set_deferred("scroll_vertical", 1_000_000)
 
 func _aggiorna_olimpo(voce: Dictionary) -> void:
 	_olimpo.text = TraceFormatter.intestazione(GameManager.stato) + "\n\n" + TraceFormatter.turno(voce)
