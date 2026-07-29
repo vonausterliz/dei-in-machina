@@ -6,7 +6,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "1.2"
+const VERSIONE := "1.3"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -33,10 +33,10 @@ var _diario_scroll: ScrollContainer
 var _mappa: MappaViaggio
 var _input: LineEdit
 var _episodio: Label
-var _olimpo: RichTextLabel
-var _log_llm: RichTextLabel
-var _col_olimpo: Control
+var _fin_olimpo: FinestraTesto   # finestra separata: traccia dell'ultimo turno
+var _fin_log: FinestraTesto      # finestra separata: log delle chiamate LLM
 var _btn_olimpo: Button
+var _btn_log: Button
 var _btn_agisci: Button
 var _chk_ollama: CheckButton
 var _chk_esterno: CheckButton
@@ -152,8 +152,18 @@ func _costruisci_ui() -> void:
 
 	colonne.add_child(_colonna_rapsodia())
 	colonne.add_child(_colonna_aside())
-	_col_olimpo = _colonna_olimpo()
-	colonne.add_child(_col_olimpo)
+	_crea_finestre_servizio()
+
+## Log LLM e Vista Olimpo vivono in finestre NATIVE separate: si aprono solo quando
+## servono, si spostano su un altro schermo e lasciano tutto lo spazio alla narrazione.
+func _crea_finestre_servizio() -> void:
+	get_tree().root.gui_embed_subwindows = false  # finestre vere del sistema, non incorporate
+	_fin_log = FinestraTesto.new("Log LLM · elaborazione", true, Vector2i(820, 620))
+	_fin_log.chiusa.connect(func(): _btn_log.button_pressed = false)
+	add_child(_fin_log)
+	_fin_olimpo = FinestraTesto.new("Vista Olimpo · dietro le quinte", false, Vector2i(760, 620))
+	_fin_olimpo.chiusa.connect(func(): _btn_olimpo.button_pressed = false)
+	add_child(_fin_olimpo)
 
 func _riga_oro() -> Control:
 	var r := ColorRect.new()
@@ -242,6 +252,16 @@ func _colonna_rapsodia() -> Control:
 	_btn_olimpo.add_theme_stylebox_override("pressed", _sfondo(8, C_GOLD_DEEP, C_GOLD))
 	_btn_olimpo.toggled.connect(_on_toggle_olimpo)
 	opz.add_child(_btn_olimpo)
+	# Log LLM: finestra separata col traffico verso il modello.
+	_btn_log = Button.new()
+	_btn_log.text = "Log LLM"
+	_btn_log.toggle_mode = true
+	_btn_log.add_theme_color_override("font_color", C_BONE_DIM)
+	_btn_log.add_theme_stylebox_override("normal", _sfondo(8, C_SEA2, _line()))
+	_btn_log.add_theme_stylebox_override("hover", _sfondo(8, C_SEA2, C_GOLD))
+	_btn_log.add_theme_stylebox_override("pressed", _sfondo(8, C_GOLD_DEEP, C_GOLD))
+	_btn_log.toggled.connect(_on_toggle_log)
+	opz.add_child(_btn_log)
 	_chk_ollama = CheckButton.new()
 	_chk_ollama.text = "Ollama (locale)"
 	_chk_ollama.add_theme_color_override("font_color", C_BONE_DIM)
@@ -363,45 +383,9 @@ func _meter(etichetta: String, chiave: String) -> Control:
 	box.add_child(bar)
 	return box
 
-func _colonna_olimpo() -> Control:
-	var pan := _pannello(Color("0e0b16"), _line(), false, 16)
-	pan.custom_minimum_size = Vector2(420, 0)
-	pan.visible = false
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10)
-	pan.add_child(v)
-
-	# Log Ollama (live): che cosa sta facendo il modello, turno per turno.
-	v.add_child(_titolo("LOG OLLAMA · elaborazione", 14, C_VERDIGRIS, _serif_bold))
-	_log_llm = RichTextLabel.new()
-	_log_llm.bbcode_enabled = true
-	_log_llm.scroll_following = true
-	_log_llm.selection_enabled = true
-	_log_llm.context_menu_enabled = true
-	_log_llm.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_log_llm.custom_minimum_size = Vector2(0, 220)
-	_log_llm.add_theme_color_override("default_color", C_BONE_DIM)
-	_log_llm.add_theme_font_size_override("normal_font_size", 12)
-	v.add_child(_log_llm)
-
-	v.add_child(_riga_oro())
-
-	# Vista Olimpo: la traccia completa dell'ultimo turno.
-	v.add_child(_titolo("ULTIMO TURNO · dietro le quinte", 14, C_VERDIGRIS, _serif_bold))
-	_olimpo = RichTextLabel.new()
-	_olimpo.bbcode_enabled = false
-	_olimpo.scroll_following = true
-	_olimpo.selection_enabled = true
-	_olimpo.context_menu_enabled = true
-	_olimpo.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_olimpo.add_theme_color_override("default_color", C_BONE_DIM)
-	_olimpo.add_theme_font_size_override("normal_font_size", 13)
-	v.add_child(_olimpo)
-	return pan
-
 func _on_llm_log(riga: String) -> void:
-	if _log_llm:
-		_log_llm.append_text("%s\n" % riga)
+	if _fin_log:
+		_fin_log.aggiungi(riga)
 
 # --- gioco ---
 
@@ -455,7 +439,7 @@ func _on_agisci() -> void:
 		_narrazione.append_text(_avviso(ammon))
 	_aggiungi_diario()
 	_aggiorna_stats()
-	if _col_olimpo.visible:
+	if _fin_olimpo.visible:
 		_aggiorna_olimpo(esito["voce"])
 
 	# Traversata verso la nuova tappa: il beat di partenza/viaggio, così non ci si
@@ -587,7 +571,7 @@ func _aggiungi_diario() -> void:
 		_diario_scroll.set_deferred("scroll_vertical", 1_000_000)
 
 func _aggiorna_olimpo(voce: Dictionary) -> void:
-	_olimpo.text = TraceFormatter.intestazione(GameManager.stato) + "\n\n" + TraceFormatter.turno(voce)
+	_fin_olimpo.imposta(TraceFormatter.intestazione(GameManager.stato) + "\n\n" + TraceFormatter.turno(voce))
 
 func _nome_tappa() -> String:
 	var ep := GameManager.episodi.get_episodio(GameManager.stato.viaggio["corrente"])
@@ -596,9 +580,16 @@ func _nome_tappa() -> String:
 # --- toggle ---
 
 func _on_toggle_olimpo(premuto: bool) -> void:
-	_col_olimpo.visible = premuto
-	if premuto and not GameManager.stato.storico_olimpo.is_empty():
-		_aggiorna_olimpo(GameManager.stato.storico_olimpo[-1])
+	_fin_olimpo.visible = premuto
+	if premuto:
+		_fin_olimpo.move_to_center()
+		if not GameManager.stato.storico_olimpo.is_empty():
+			_aggiorna_olimpo(GameManager.stato.storico_olimpo[-1])
+
+func _on_toggle_log(premuto: bool) -> void:
+	_fin_log.visible = premuto
+	if premuto:
+		_fin_log.move_to_center()
 
 func _on_toggle_ollama(premuto: bool) -> void:
 	if not premuto:
@@ -636,9 +627,8 @@ func _on_provider_scelto(idx: int) -> void:
 func _attiva_reale(esterno: bool) -> void:
 	var chk := _chk_esterno if esterno else _chk_ollama
 	var dove := "API esterna" if esterno else "Ollama"
-	# Apri la colonna di debug col log, cosi' si vede subito la verifica e il traffico.
-	_btn_olimpo.button_pressed = true
-	_col_olimpo.visible = true
+	# Apri la finestra del log, cosi' si vede subito la verifica e il traffico.
+	_btn_log.button_pressed = true
 	_chk_ollama.disabled = true
 	_chk_esterno.disabled = true
 	LLMManager.abilita_reale(esterno)
