@@ -120,6 +120,28 @@ func identifica_dio(testo_libero: String, chat_fn: Callable, seed: int = 0) -> S
 		return ""
 	return id if id_dei_validi.has(id) else ""  # vincolo: solo id del pantheon
 
+## SECONDO PARERE sulla plausibilità: una sola domanda secca, temperatura 0. L'envelope
+## completo chiede 8 campi in un colpo e la plausibilità ci si perde; qui il modello ha un
+## unico compito, quindi è molto più affidabile. Serve a cogliere gli anacronismi che la
+## lista deterministica non prevede (GPS, penicillina, ascensore…).
+## Ritorna una delle classi del contratto, o "" se non ha deciso / errore (nessun cambiamento).
+func verifica_plausibilita(testo_libero: String, chat_fn: Callable, seed: int = 0) -> String:
+	var opzioni := {"temperature": 0.0, "json_mode": true}
+	if seed != 0:
+		opzioni["seed"] = seed
+	var messaggi := [
+		{"role": "system", "content": _system_prompt},
+		{"role": "user", "content": "Valuta SOLO la plausibilità di questa mossa nel mondo dell'Odissea (età del bronzo): «%s»\nUsa \"anacronistico\" se cita cose o pratiche che quel mondo non conosce (armi da fuoco, mezzi a motore, elettricità, medicina o tecnologia moderne...), \"meta_nonsenso\" per gergo moderno o rottura della finzione, \"assurdo_diegetico\" se è impossibile nella scena, \"in_mondo\" solo se un uomo dell'età del bronzo potrebbe davvero farlo.\nRispondi SOLO con {\"plausibilita\":\"...\"}" % testo_libero},
+	]
+	var risposta = await chat_fn.call(messaggi, opzioni)
+	if typeof(risposta) != TYPE_DICTIONARY or not risposta.get("ok", false):
+		return ""
+	var grezzo := Contratto.estrai_json(risposta.get("content", ""))
+	if grezzo.is_empty():
+		return ""
+	var classe := String(grezzo.get("plausibilita", "")).strip_edges().to_lower()
+	return classe if Contratto.PLAUSIBILITA_ENUM.has(classe) else ""
+
 ## Ritorna {ok: bool, envelope: Dictionary, log: {content, errori}}
 func _tenta(testo_libero: String, messaggi: Array, chat_fn: Callable, opzioni: Dictionary) -> Dictionary:
 	var risposta = await chat_fn.call(messaggi, opzioni)

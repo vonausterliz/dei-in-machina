@@ -98,6 +98,33 @@ func test_interpreta_errore_client_va_in_fallback():
 	var t := await _interprete.interpreta_tracciato("qualcosa", fake.chat)
 	assert_true(t["fallback_usato"])
 
+# --- vaglio della plausibilità (secondo parere dedicato) ---
+
+func test_vaglio_riconosce_anacronismo():
+	var fake := FakeChat.new()
+	fake.risposte = [_ok('{"plausibilita":"anacronistico"}')]
+	var c := await _interprete.verifica_plausibilita("uso il GPS per trovare Itaca", fake.chat)
+	assert_eq(c, "anacronistico")
+
+func test_vaglio_conferma_in_mondo():
+	var fake := FakeChat.new()
+	fake.risposte = [_ok('{"plausibilita":"in_mondo"}')]
+	var c := await _interprete.verifica_plausibilita("offro vino allo straniero", fake.chat)
+	assert_eq(c, "in_mondo")
+
+func test_vaglio_classe_inventata_scartata():
+	# Solo le classi del contratto: un valore inventato non deve passare.
+	var fake := FakeChat.new()
+	fake.risposte = [_ok('{"plausibilita":"strano"}')]
+	var c := await _interprete.verifica_plausibilita("qualcosa", fake.chat)
+	assert_eq(c, "", "classe fuori contratto -> nessun cambiamento")
+
+func test_vaglio_errore_non_cambia_nulla():
+	var fake := FakeChat.new()
+	fake.risposte = [{"ok": false, "content": "", "error": "giu'"}]
+	var c := await _interprete.verifica_plausibilita("qualcosa", fake.chat)
+	assert_eq(c, "")
+
 # --- riconoscimento ibrido del dio (parafrasi) ---
 
 func test_identifica_dio_da_parafrasi():

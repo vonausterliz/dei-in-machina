@@ -208,6 +208,17 @@ func interpreta(testo_libero: String, seed: int = 0) -> Dictionary:
 	_reg("← Interprete: tag %s · %s · %d ms" % [str(env.get("tag", [])), env.get("plausibilita", "?"), Time.get_ticks_msec() - t0])
 	return env
 
+## Secondo parere dedicato sulla plausibilità (anacronismi che la lista non prevede).
+## In mock ritorna "" (i test restano deterministici). "" = nessun cambiamento.
+func verifica_plausibilita(testo_libero: String, seed: int = 0) -> String:
+	if mock_mode:
+		return ""
+	_reg("→ Vaglio: questa mossa appartiene al mondo dell'Odissea?")
+	var t0 := Time.get_ticks_msec()
+	var classe := await _interprete.verifica_plausibilita(testo_libero, _client.chat, seed)
+	_reg("← Vaglio: %s · %d ms" % [classe if classe != "" else "(incerto)", Time.get_ticks_msec() - t0])
+	return classe
+
 ## Ibrido: riconoscimento LLM del dio invocato quando il deterministico non trova nulla.
 ## In mock ritorna "" (i test restano deterministici: il risveglio nei test non dipende
 ## dall'LLM). In reale delega all'Interprete con output vincolato agli id del pantheon.

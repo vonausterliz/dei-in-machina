@@ -173,6 +173,9 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	percorso.append(Fase.keys()[Fase.INTERPRETAZIONE])
 	var envelope: Dictionary = await LLMManager.interpreta(input_testo)
 
+	# VAGLIO — secondo parere dedicato sulla plausibilita' (vedi _vaglia_plausibilita).
+	await _vaglia_plausibilita(envelope, input_testo)
+
 	# VALIDAZIONE — scala diegetica dell'ammonizione (design sez. 6). Un input
 	# fuori dal mondo non e' un errore: e' richiamo, poi smarrimento, poi follia.
 	percorso.append(Fase.keys()[Fase.VALIDAZIONE])
@@ -529,12 +532,29 @@ func _e_anacronistico(input_testo: String) -> bool:
 			return true
 	return false
 
+## VAGLIO della plausibilita', a tre livelli (dal piu' economico al piu' capace):
+##  1. l'Interprete l'ha gia' detta fuori-mondo -> niente da fare;
+##  2. marcatore moderno evidente -> fuori-mondo per regola (gratis, deterministico);
+##  3. altrimenti SECONDO PARERE dell'LLM, una domanda secca dedicata: coglie gli
+##     anacronismi che nessuna lista puo' prevedere (GPS, penicillina, ascensore...).
+## In mock il livello 3 non fa nulla: i test restano deterministici.
+func _vaglia_plausibilita(envelope: Dictionary, input_testo: String) -> void:
+	if envelope.get("plausibilita", "") != "in_mondo":
+		return
+	if _e_anacronistico(input_testo):
+		envelope["plausibilita"] = "anacronistico"
+		return
+	var classe: String = await LLMManager.verifica_plausibilita(input_testo)
+	if classe != "" and classe != "in_mondo":
+		envelope["plausibilita"] = classe
+		envelope["tag"] = []  # regola 5 del contratto: fuori-mondo -> nessun tag
+
 func _valida(envelope: Dictionary, input_testo: String) -> Dictionary:
 	var amm: Dictionary = stato.ammonizioni
-	var in_mondo: bool = envelope.get("plausibilita", "") == "in_mondo"
-	# Backstop: se l'LLM ha lasciato passare un anacronismo evidente, lo correggiamo qui.
-	if in_mondo and _e_anacronistico(input_testo):
-		in_mondo = false
+	# La plausibilita' e' gia' passata dal VAGLIO (regola + secondo parere LLM); qui si
+	# ripete il controllo deterministico perche' _valida e' usata anche da sola nei test.
+	var in_mondo: bool = envelope.get("plausibilita", "") == "in_mondo" and not _e_anacronistico(input_testo)
+	if not in_mondo and envelope.get("plausibilita", "") == "in_mondo":
 		envelope["plausibilita"] = "anacronistico"
 
 	if in_mondo:
