@@ -51,6 +51,8 @@ func nuova_partita(seed_partita: int = 0) -> void:
 	var s := seed_partita if seed_partita != 0 else randi()
 	stato = StatoPartita.nuova(PantheonManager.pantheon, s)
 	_rng.seed = s  # riproducibilita': stessa run, stessi scavalcamenti
+	prob_scavalcamento = _PROB_SCAVALCAMENTO_DEFAULT
+	prob_coalizione = _PROB_COALIZIONE_DEFAULT
 	# Viaggio: i locali ripartono spenti; si entra nella prima tappa (accende i suoi locali).
 	PantheonManager.pantheon.spegni_locali()
 	stato.viaggio["ordine_episodi"] = episodi.ordine()
@@ -73,6 +75,10 @@ func _entra_in_episodio(id: String) -> String:
 func intro_corrente() -> String:
 	var ep := episodi.get_episodio(_episodio_corrente())
 	return ep.intro if ep else ""
+
+## Salta direttamente a una tappa (test/strumenti/debug). Accende i suoi locali.
+func vai_a_tappa(id: String) -> void:
+	_entra_in_episodio(id)
 
 func carica_partita(path: String = SALVATAGGIO_DEFAULT) -> bool:
 	var s := StatoPartita.carica(path)

@@ -26,8 +26,10 @@ var _diario_box: VBoxContainer
 var _input: LineEdit
 var _episodio: Label
 var _olimpo: RichTextLabel
+var _log_llm: RichTextLabel
 var _col_olimpo: Control
 var _btn_olimpo: Button
+var _btn_agisci: Button
 var _chk_ollama: CheckButton
 var _stat_bars := {}
 var _stat_vals := {}
@@ -46,6 +48,7 @@ func _ready() -> void:
 	_prepara_finestra()
 	_costruisci_ui()
 	LLMManager.mock_mode = true
+	LLMManager.llm_log.connect(_on_llm_log)
 	GameManager.nuova_partita(0)
 	_apri_scena()
 
@@ -196,6 +199,7 @@ func _colonna_rapsodia() -> Control:
 	btn.add_theme_stylebox_override("pressed", _sfondo(12, C_GOLD_DEEP, C_GOLD_DEEP))
 	btn.pressed.connect(_on_agisci)
 	campo.add_child(btn)
+	_btn_agisci = btn
 
 	var hint := _titolo("Puoi scrivere qualunque cosa. Gli dèi ascoltano le parole, non i comandi.", 12, C_BONE_DIM, _serif_italic)
 	v.add_child(hint)
@@ -289,12 +293,27 @@ func _meter(etichetta: String, chiave: String) -> Control:
 
 func _colonna_olimpo() -> Control:
 	var pan := _pannello(Color("0e0b16"), _line(), false, 16)
-	pan.custom_minimum_size = Vector2(400, 0)
+	pan.custom_minimum_size = Vector2(420, 0)
 	pan.visible = false
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)
 	pan.add_child(v)
-	v.add_child(_titolo("VISTA OLIMPO · debug", 14, C_VERDIGRIS, _serif_bold))
+
+	# Log Ollama (live): che cosa sta facendo il modello, turno per turno.
+	v.add_child(_titolo("LOG OLLAMA · elaborazione", 14, C_VERDIGRIS, _serif_bold))
+	_log_llm = RichTextLabel.new()
+	_log_llm.bbcode_enabled = true
+	_log_llm.scroll_following = true
+	_log_llm.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_log_llm.custom_minimum_size = Vector2(0, 220)
+	_log_llm.add_theme_color_override("default_color", C_BONE_DIM)
+	_log_llm.add_theme_font_size_override("normal_font_size", 12)
+	v.add_child(_log_llm)
+
+	v.add_child(_riga_oro())
+
+	# Vista Olimpo: la traccia completa dell'ultimo turno.
+	v.add_child(_titolo("ULTIMO TURNO · dietro le quinte", 14, C_VERDIGRIS, _serif_bold))
 	_olimpo = RichTextLabel.new()
 	_olimpo.bbcode_enabled = false
 	_olimpo.scroll_following = true
@@ -303,6 +322,10 @@ func _colonna_olimpo() -> Control:
 	_olimpo.add_theme_font_size_override("normal_font_size", 13)
 	v.add_child(_olimpo)
 	return pan
+
+func _on_llm_log(riga: String) -> void:
+	if _log_llm:
+		_log_llm.append_text("%s\n" % riga)
 
 # --- gioco ---
 
@@ -323,8 +346,12 @@ func _on_agisci() -> void:
 		return
 	_busy = true
 	_input.editable = false
+	_btn_agisci.text = "…"
+	_btn_agisci.disabled = true
 	_narrazione.append_text("[color=#8a9bb0]› %s[/color]\n" % testo)
 	_input.text = ""
+	if not LLMManager.mock_mode:
+		_on_llm_log("[color=%s]— turno %d —[/color]" % [C_VERDIGRIS.to_html(), GameManager.stato.turno + 1])
 
 	var esito: Dictionary = await GameManager.esegui_turno(testo)
 
@@ -348,6 +375,8 @@ func _on_agisci() -> void:
 	else:
 		_input.editable = true
 		_input.grab_focus()
+	_btn_agisci.text = "Agisci"
+	_btn_agisci.disabled = false
 	_busy = false
 
 func _aggiorna_stats() -> void:
@@ -401,6 +430,10 @@ func _on_toggle_olimpo(premuto: bool) -> void:
 func _on_toggle_ollama(premuto: bool) -> void:
 	if premuto:
 		LLMManager.abilita_reale()
-		_narrazione.append_text("[color=%s][modalità Ollama: dèi e narratore reali, può essere lento][/color]\n" % C_VERDIGRIS.to_html())
+		_narrazione.append_text("[color=%s][modalità Ollama: dèi e narratore reali, può essere lento — apro il log a destra][/color]\n" % C_VERDIGRIS.to_html())
+		# Apri automaticamente la colonna di debug col log, cosi' si vede l'elaborazione.
+		_btn_olimpo.button_pressed = true
+		_col_olimpo.visible = true
+		_on_llm_log("[color=%s]Ollama attivo (%s).[/color]" % [C_VERDIGRIS.to_html(), LLMManager.config.get("model", "?")])
 	else:
 		LLMManager.mock_mode = true

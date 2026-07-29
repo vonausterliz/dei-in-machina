@@ -7,6 +7,33 @@
   },
   "episodi": [
     {
+      "id": "troia",
+      "nome": "La partenza da Troia",
+      "intro": "Canta, o Musa, l'uomo dall'ingegno multiforme, che a lungo errò dopo aver raso al suolo la sacra rocca di Troia. Alle tue spalle la città arde, e il fumo sale nero sul mare. Dodici navi ti attendono, cariche di bottino e di uomini stanchi di dieci anni di guerra. Sciogli le vele, Ulisse: Itaca e' lontana, e gli dei non hanno ancora deciso se rivedrai la tua isola.",
+      "dio_locale": null,
+      "eventi_attivi": [],
+      "avanza_su_tag": "rotta",
+      "turni_massimi": 4
+    },
+    {
+      "id": "ciconi",
+      "nome": "I Ciconi di Ismaro",
+      "intro": "Il vento ti spinge a Ismaro, citta' dei Ciconi. I tuoi uomini bramano saccheggio e vino. Puoi colpire e ripartire in fretta, o indugiare a banchettare sulla spiaggia mentre i Ciconi dell'interno corrono alle armi.",
+      "dio_locale": null,
+      "eventi_attivi": [],
+      "avanza_su_tag": "fuga",
+      "turni_massimi": 5
+    },
+    {
+      "id": "lotofagi",
+      "nome": "La terra dei Lotofagi",
+      "intro": "Una costa mite, un popolo che offre un fiore dolcissimo. Chi ne mangia dimentica la casa, il ritorno, se stesso, e vuole solo restare a brucare loto. Alcuni dei tuoi hanno gia' assaggiato: piangono se li chiami.",
+      "dio_locale": null,
+      "eventi_attivi": [],
+      "avanza_su_tag": "fuga",
+      "turni_massimi": 4
+    },
+    {
       "id": "ciclope",
       "nome": "L'antro del Ciclope",
       "intro": "Sei nell'antro buio del ciclope Polifemo. L'aria sa di gregge e di sangue. Il masso chiude l'uscita.",
@@ -23,6 +50,15 @@
       "eventi_attivi": [],
       "avanza_su_tag": "rotta",
       "turni_massimi": 6
+    },
+    {
+      "id": "laestrigoni",
+      "nome": "Il porto dei Lestrigoni",
+      "intro": "Un porto chiuso tra alte scogliere, fin troppo tranquillo. E' la terra dei Lestrigoni, giganti cannibali. Se le navi entrano tutte nella rada, dai dirupi possono piovere massi a fracassarle. La tua e' l'ultima, ancora al largo dell'imboccatura.",
+      "dio_locale": null,
+      "eventi_attivi": [],
+      "avanza_su_tag": "fuga",
+      "turni_massimi": 3
     },
     {
       "id": "circe",

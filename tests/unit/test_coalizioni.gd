@@ -9,6 +9,7 @@ const DENTRO := "Osservo l'antro."
 func before_each():
 	LLMManager.mock_mode = true
 	GameManager.nuova_partita(333)
+	GameManager.vai_a_tappa("ciclope")  # qui Poseidone e Polifemo (contro-ritorno) fanno blocco
 	GameManager.prob_scavalcamento = 0.0  # isola le coalizioni
 
 # --- Coalizioni ---

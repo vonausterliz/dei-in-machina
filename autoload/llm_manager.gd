@@ -66,26 +66,48 @@ func _carica_config() -> Dictionary:
 		return {"mock": true}
 	return parsed
 
+## Log delle chiamate LLM (percorso reale), per la finestra di debug della GUI.
+signal llm_log(riga: String)
+
+func _reg(r: String) -> void:
+	llm_log.emit(r)
+
 func interpreta(testo_libero: String, seed: int = 0) -> Dictionary:
 	if mock_mode:
 		await get_tree().process_frame
 		return _mock.interpreta(testo_libero)
-	return await _interprete.interpreta(testo_libero, _client.chat, seed)
+	_reg("→ Interprete: «%s»" % testo_libero.substr(0, 70))
+	var t0 := Time.get_ticks_msec()
+	var env := await _interprete.interpreta(testo_libero, _client.chat, seed)
+	_reg("← Interprete: tag %s · %s · %d ms" % [str(env.get("tag", [])), env.get("plausibilita", "?"), Time.get_ticks_msec() - t0])
+	return env
 
 func proposta_dio(dio: Dio, contesto: Dictionary, seed: int = 0) -> Dictionary:
 	if mock_mode:
 		await get_tree().process_frame
 		return _mock.proposta_dio(dio, contesto)
-	return await _dio_agente.proponi(dio, contesto, _client.chat, seed)
+	_reg("→ %s medita…" % dio.nome)
+	var t0 := Time.get_ticks_msec()
+	var p := await _dio_agente.proponi(dio, contesto, _client.chat, seed)
+	_reg("← %s: %s «%s» · %d ms" % [dio.nome, p.get("registro", "?"), p.get("dice", ""), Time.get_ticks_msec() - t0])
+	return p
 
 func verdetto_arbitro(proposte: Array, seed: int = 0) -> Dictionary:
 	if mock_mode:
 		await get_tree().process_frame
 		return _mock.verdetto_arbitro(proposte)
-	return await _arbitro.decidi(proposte, _client.chat, seed)
+	_reg("→ Zeus arbitra (%d proposte)…" % proposte.size())
+	var t0 := Time.get_ticks_msec()
+	var v := await _arbitro.decidi(proposte, _client.chat, seed)
+	_reg("← Zeus: %s → %s · %d ms" % [v.get("attore", "?"), v.get("registro", "?"), Time.get_ticks_msec() - t0])
+	return v
 
 func narrazione_omero(contesto: Dictionary, seed: int = 0) -> String:
 	if mock_mode:
 		await get_tree().process_frame
 		return _mock.narrazione_omero(contesto)
-	return await _narratore.narra(contesto, _client.chat, seed)
+	_reg("→ Omero narra…")
+	var t0 := Time.get_ticks_msec()
+	var testo := await _narratore.narra(contesto, _client.chat, seed)
+	_reg("← Omero · %d ms" % (Time.get_ticks_msec() - t0))
+	return testo
