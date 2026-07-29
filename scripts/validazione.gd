@@ -17,27 +17,7 @@ const CALO_FOLLIA := 100
 
 ## Parole inequivocabilmente MODERNE: se compaiono, l'azione e' fuori dal mondo anche se
 ## l'LLM l'ha classificata in_mondo. Lista mirata (alta precisione), non esaustiva: il
-## resto lo intercettano il prompt dell'Interprete e il secondo parere (vaglia()).
-const MARCATORI_ANACRONISMO := [
-	# armi da fuoco ed esplosivi
-	"pistola", "pistole", "fucile", "fucili", "mitra", "mitraglia", "mitragliatrice",
-	"revolver", "sparo", "sparare", "spara", "sparano", "sparai", "sparammo", "sparato",
-	"sparargli", "sparerò", "sparero", "pallottola", "pallottole", "proiettile",
-	"proiettili", "bomba", "bombe", "bombardo", "granata", "granate", "esplosivo",
-	"esplosivi", "dinamite", "tritolo", "missile", "missili", "razzo", "bazooka",
-	"kalashnikov", "cannone", "cannoni", "artiglieria", "siluro",
-	# mezzi militari e motorizzati
-	"carro armato", "carri armati", "tank", "corazzata", "sottomarino", "portaerei",
-	"aereo", "aerei", "aeroplano", "elicottero", "drone", "droni", "motoscafo",
-	"automobile", "camion", "motore", "motori", "treno",
-	# tecnologia
-	"telefono", "telefonare", "telefono a", "cellulare", "smartphone", "computer",
-	"internet", "wifi", "email", "radio", "televisione", "televisore", "elettricità",
-	"elettricita", "batteria", "benzina", "gasolio", "fotografia", "orologio digitale",
-	# sostanze e gergo moderni
-	"droga", "droghe", "cocaina", "eroina", "marijuana", "spinello", "sballo",
-	"raga", "bro", "videogioco", "respawn", "resetta", "gameover", "game over", "prompt",
-]
+
 
 var _stato: StatoPartita
 
@@ -48,7 +28,7 @@ func _init(stato: StatoPartita) -> void:
 static func e_anacronistico(input_testo: String) -> bool:
 	var t := input_testo.to_lower()
 	var re := RegEx.new()
-	for m in MARCATORI_ANACRONISMO:
+	for m in Lingua.marcatori_anacronismo():
 		re.compile("\\b" + m + "\\b")
 		if re.search(t) != null:
 			return true

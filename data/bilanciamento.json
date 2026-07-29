@@ -1,0 +1,52 @@
+{
+  "_nota": "Valori-seme del gioco (design sez. 12: la taratura numerica era rimandata). Stanno qui e non nel codice: si possono ritoccare e riprovare senza toccare GDScript. Chi tara il gioco lavora su questo file.",
+
+  "politica_divina": {
+    "_nota": "Fase 6. Lo scavalcamento deve restare RARO: se accade spesso, il segnale che il giocatore deve dedurre annega nel rumore.",
+    "prob_scavalcamento": 0.35,
+    "rate_sospetto": 20,
+    "ira_zeus_scoperta": 15,
+    "rimbalzo_ulisse": 5,
+    "soglia_scoperta": 60
+  },
+
+  "coalizioni": {
+    "_nota": "Fase 6-bis. Rare e limitate: modulazione di sfondo, mai la causa dominante.",
+    "prob_coalizione": 0.4,
+    "coesione_iniziale": 70,
+    "coesione_decadimento": 15,
+    "massimo": 1,
+    "peso_intensita": 1,
+    "soglia_vulnerabilita": 40
+  },
+
+  "ulisse": {
+    "_nota": "Soglia oltre la quale la tracotanza si paga: chi punisce colpisce con un grado in piu'.",
+    "soglia_hybris": 50
+  },
+
+  "ammonizione": {
+    "_nota": "Scala diegetica dell'input fuori-mondo: richiamo -> smarrimento -> follia.",
+    "calo_smarrimento": 8,
+    "calo_follia": 100
+  },
+
+  "memoria": {
+    "_nota": "Ogni quanti turni si aggiorna il riassunto rotolante (una chiamata LLM in piu').",
+    "cronaca_ogni": 4
+  },
+
+  "delta": {
+    "_nota": "Quanto pesa ogni reazione divina. k = intensita' (1-3). La ciurma cala solo sui castighi forti.",
+    "castigo": {"animo": -2, "ira": 2, "ciurma_se_intensita_3": -2, "ciurma_se_intensita_2": -1},
+    "aiuto": {"animo": 2, "favore": 1},
+    "aiuto_negato": {"animo": -1, "ira": 1},
+    "segno": {"metis": 1, "favore": 1},
+    "trappola": {"animo": 1},
+    "azione": {
+      "hybris_per_intensita": 2,
+      "metis_per_intensita": 1,
+      "sconto_hybris_per_umilta": 1
+    }
+  }
+}

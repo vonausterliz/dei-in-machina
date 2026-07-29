@@ -27,14 +27,6 @@ var _arbitro: Arbitro = null
 var _suggeritore: Suggeritore = null
 var _cronista: Cronista = null
 
-## Spunti generici sempre validi: usati in mock (test deterministici) e come fallback
-## quando l'LLM non ne produce di buoni. Restano 3, per non lasciare mai la UI vuota.
-const _SPUNTI_GENERICI := [
-	{"testo": "Piega ai remi e prosegui la rotta.", "rischio": false},
-	{"testo": "Prega in silenzio chi veglia sugli astuti.", "rischio": false},
-	{"testo": "Alza la voce e sfida apertamente la sorte.", "rischio": true},
-]
-
 func _ready() -> void:
 	config = _carica_config()
 	profili_esterni = _carica_profili_esterni()
@@ -287,7 +279,7 @@ func verdetto_arbitro(proposte: Array, seed: int = 0) -> Dictionary:
 ## fallback) usa spunti generici. Sanitizza: nessuno spunto puo' nominare un dio.
 func suggerisci(contesto: Dictionary = {}, seed: int = 0) -> Array:
 	if mock_mode:
-		return _SPUNTI_GENERICI.duplicate(true)
+		return Lingua.spunti_generici()
 	_reg("→ Suggeritore: 3 spunti…")
 	var t0 := Time.get_ticks_msec()
 	var sp := await _suggeritore.suggerisci(contesto, _client.chat, seed)
@@ -295,7 +287,7 @@ func suggerisci(contesto: Dictionary = {}, seed: int = 0) -> Array:
 		if _narratore and _narratore.nomina_un_dio(s["testo"]):
 			s["testo"] = _narratore.redigi(s["testo"])  # invariante: mai un nome di dio
 	if sp.is_empty():
-		sp = _SPUNTI_GENERICI.duplicate(true)
+		sp = Lingua.spunti_generici()
 	_reg("← Suggeritore: %d spunti · %d ms" % [sp.size(), Time.get_ticks_msec() - t0])
 	return sp
 

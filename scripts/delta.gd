@@ -27,16 +27,16 @@ static func da_azione(envelope: Dictionary) -> Dictionary:
 	var intensita: int = int(envelope.get("intensita", 1))
 	for t in _TAG_HYBRIS:
 		if tag.has(t):
-			d["ulisse.hybris"] = d.get("ulisse.hybris", 0) + 2 * intensita
+			d["ulisse.hybris"] = d.get("ulisse.hybris", 0) + Bilanciamento.intero("delta/azione/hybris_per_intensita", 2) * intensita
 	for t in _TAG_ASTUZIA:
 		if tag.has(t):
-			d["ulisse.metis"] = d.get("ulisse.metis", 0) + intensita
+			d["ulisse.metis"] = d.get("ulisse.metis", 0) + Bilanciamento.intero("delta/azione/metis_per_intensita", 1) * intensita
 			break
 	# La misura ripaga solo se non stai contemporaneamente tracotando.
 	if not d.has("ulisse.hybris"):
 		for t in _TAG_UMILTA:
 			if tag.has(t):
-				d["ulisse.hybris"] = -intensita
+				d["ulisse.hybris"] = -Bilanciamento.intero("delta/azione/sconto_hybris_per_umilta", 1) * intensita
 				break
 	return d
 
@@ -46,23 +46,36 @@ static func da_azione(envelope: Dictionary) -> Dictionary:
 ## (e l'esito "ciurma_perduta" era irraggiungibile).
 static func da_reazione(dio_id: String, registro: String, intensita: int) -> Dictionary:
 	var k: int = max(1, intensita)
+	# I pesi vengono da data/bilanciamento.json: tararli non richiede di toccare il codice.
 	match registro:
 		"castigo":
-			var d := {"ulisse.animo": -2 * k, "%s.ira" % dio_id: 2 * k}
+			var d := {
+				"ulisse.animo": Bilanciamento.intero("delta/castigo/animo", -2) * k,
+				"%s.ira" % dio_id: Bilanciamento.intero("delta/castigo/ira", 2) * k,
+			}
 			if k >= 3:
-				d["ulisse.ciurma.vivi"] = -2   # l'ira piena si porta via dei compagni
+				d["ulisse.ciurma.vivi"] = Bilanciamento.intero("delta/castigo/ciurma_se_intensita_3", -2)
 			elif k == 2:
-				d["ulisse.ciurma.vivi"] = -1
+				d["ulisse.ciurma.vivi"] = Bilanciamento.intero("delta/castigo/ciurma_se_intensita_2", -1)
 			return d
 		"aiuto":
-			return {"ulisse.animo": 2 * k, "%s.favore" % dio_id: k}
+			return {
+				"ulisse.animo": Bilanciamento.intero("delta/aiuto/animo", 2) * k,
+				"%s.favore" % dio_id: Bilanciamento.intero("delta/aiuto/favore", 1) * k,
+			}
 		"aiuto_negato":
-			return {"ulisse.animo": -k, "%s.ira" % dio_id: k}
+			return {
+				"ulisse.animo": Bilanciamento.intero("delta/aiuto_negato/animo", -1) * k,
+				"%s.ira" % dio_id: Bilanciamento.intero("delta/aiuto_negato/ira", 1) * k,
+			}
 		"segno":
-			return {"ulisse.metis": k, "%s.favore" % dio_id: 1}
+			return {
+				"ulisse.metis": Bilanciamento.intero("delta/segno/metis", 1) * k,
+				"%s.favore" % dio_id: Bilanciamento.intero("delta/segno/favore", 1),
+			}
 		"trappola":
 			# Pare un aiuto adesso; il costo nascosto e' lavoro di una fase futura.
-			return {"ulisse.animo": k}
+			return {"ulisse.animo": Bilanciamento.intero("delta/trappola/animo", 1) * k}
 		_:
 			# silenzio / arbitrato: nessun effetto diretto sulle stat.
 			return {}

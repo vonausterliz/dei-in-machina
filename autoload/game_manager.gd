@@ -21,26 +21,27 @@ enum Fase {
 	NARRAZIONE, ESITO, AVANZAMENTO,
 }
 
-## Politica divina (fase 6), valori-seme.
-const _PROB_SCAVALCAMENTO_DEFAULT := 0.35  # raro: non deve annegare il segnale deducibile
-const _RATE_SOSPETTO := 20                 # quanto sale il sospetto di Zeus a ogni turno
-const _IRA_ZEUS_SCOPERTA := 15             # ira che Zeus cova verso il colpevole scoperto
-const _RIMBALZO_ULISSE := 5                # ripercussione di rimbalzo su Ulisse
-const _SOGLIA_SCOPERTA := 60
+## Valori-seme: NON piu' costanti nel codice ma voci di data/bilanciamento.json, cosi' la
+## taratura si fa sul file (design sez. 12). Il secondo argomento e' solo il ripiego.
+@onready var _PROB_SCAVALCAMENTO_DEFAULT: float = Bilanciamento.num("politica_divina/prob_scavalcamento", 0.35)
+@onready var _RATE_SOSPETTO: int = Bilanciamento.intero("politica_divina/rate_sospetto", 20)
+@onready var _IRA_ZEUS_SCOPERTA: int = Bilanciamento.intero("politica_divina/ira_zeus_scoperta", 15)
+@onready var _RIMBALZO_ULISSE: int = Bilanciamento.intero("politica_divina/rimbalzo_ulisse", 5)
+@onready var _SOGLIA_SCOPERTA: int = Bilanciamento.intero("politica_divina/soglia_scoperta", 60)
 
 ## Probabilita' che un dio bocciato scavalchi Zeus. Sovrascrivibile nei test (0/1).
-var prob_scavalcamento := _PROB_SCAVALCAMENTO_DEFAULT
+var prob_scavalcamento := 0.35
 var _rng := RandomNumberGenerator.new()
 
 ## Coalizioni & strategie (fase 6-bis), valori-seme. Rare e bounded per non annegare
 ## il segnale deducibile: restano modulazione di sfondo, mai la causa dominante.
-const _PROB_COALIZIONE_DEFAULT := 0.4
-const _COESIONE_INIZIALE := 70
-const _COESIONE_DECADIMENTO := 15
-const _MAX_COALIZIONI := 1
-const _PESO_COALIZIONE := 1              # bonus d'intensita' per chi fa blocco
-const _SOGLIA_VULNERABILITA := 40        # animo sotto cui Ulisse e' "debole"
-var prob_coalizione := _PROB_COALIZIONE_DEFAULT
+@onready var _PROB_COALIZIONE_DEFAULT: float = Bilanciamento.num("coalizioni/prob_coalizione", 0.4)
+@onready var _COESIONE_INIZIALE: int = Bilanciamento.intero("coalizioni/coesione_iniziale", 70)
+@onready var _COESIONE_DECADIMENTO: int = Bilanciamento.intero("coalizioni/coesione_decadimento", 15)
+@onready var _MAX_COALIZIONI: int = Bilanciamento.intero("coalizioni/massimo", 1)
+@onready var _PESO_COALIZIONE: int = Bilanciamento.intero("coalizioni/peso_intensita", 1)
+@onready var _SOGLIA_VULNERABILITA: int = Bilanciamento.intero("coalizioni/soglia_vulnerabilita", 40)
+var prob_coalizione := 0.4
 
 var stato: StatoPartita = null
 
@@ -52,6 +53,8 @@ var _ultima_narrazione: String = ""
 
 func _ready() -> void:
 	episodi = Episodi.carica(EPISODI_PATH)
+	prob_scavalcamento = _PROB_SCAVALCAMENTO_DEFAULT
+	prob_coalizione = _PROB_COALIZIONE_DEFAULT
 
 func nuova_partita(seed_partita: int = 0) -> void:
 	var s := seed_partita if seed_partita != 0 else randi()
@@ -98,7 +101,7 @@ func _nome_tappa_corrente() -> String:
 
 ## Ogni quanti turni si aggiorna il riassunto rotolante. Non a ogni turno: sarebbe una
 ## chiamata LLM in piu' sempre. Cosi' la memoria costa poco e resta a dimensione costante.
-const _CRONACA_OGNI := 4
+@onready var _CRONACA_OGNI: int = Bilanciamento.intero("memoria/cronaca_ogni", 4)
 
 ## Aggiorna la cronaca (memoria della vicenda) se sono passati abbastanza turni. Prende i
 ## fatti NON ancora riassunti da storico_olimpo (azione + cosa e' seguito).
@@ -386,7 +389,7 @@ func _prepara_per_arbitrato(proposte: Array) -> Array:
 
 ## La TRACOTANZA si paga: oltre la soglia, chi punisce colpisce piu' forte. Prima la
 ## hybris saliva senza mai avere conseguenze — era un numero decorativo.
-const _SOGLIA_HYBRIS := 50
+@onready var _SOGLIA_HYBRIS: int = Bilanciamento.intero("ulisse/soglia_hybris", 50)
 
 func _modula_proposte_per_hybris(proposte: Array) -> Array:
 	if int(stato.ulisse.get("hybris", 0)) < _SOGLIA_HYBRIS:
@@ -674,13 +677,7 @@ func _risolvi_invocazione(envelope: Dictionary, input_testo: String) -> void:
 			envelope["dio_invocato"] = llm_id
 
 ## Parole che segnalano un'invocazione/preghiera: delimitano quando vale la pena spendere
-## una chiamata LLM in piu' per il riconoscimento parafrasato (evita di chiamarla ogni turno).
-const _CUE_INVOCAZIONE := [
-	"prego", "supplico", "invoco", "imploro", "aiutami", "aiutatemi", "aiutateci",
-	"salvami", "salvateci", "salvatemi", "ascoltami", "ascoltatemi", "proteggimi",
-	"proteggici", "guidami", "abbi pietà", "abbi pieta", "o dio", "o dea", "o numi",
-	"o signore", "numi", "ti prego", "vi prego", "preghiera", "prega", "imploro",
-]
+
 
 ## Vero se c'e' motivo di sospettare un'invocazione (per gate della chiamata LLM ibrida).
 func _indizio_invocazione(envelope: Dictionary, input_testo: String) -> bool:
@@ -689,7 +686,7 @@ func _indizio_invocazione(envelope: Dictionary, input_testo: String) -> bool:
 	if envelope.get("tipo", "") == "rituale":
 		return true
 	var t := input_testo.to_lower()
-	for cue in _CUE_INVOCAZIONE:
+	for cue in Lingua.cue_invocazione():
 		if t.find(cue) != -1:
 			return true
 	return false
