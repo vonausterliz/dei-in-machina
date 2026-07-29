@@ -20,6 +20,10 @@ signal motore_scelto(modo: int)
 ## Dimensione dell'interfaccia scelta dall'utente (moltiplicatore sulla scala schermo).
 signal zoom_scelto(fattore: float)
 
+## Dimensione "logica" del contenuto. La finestra va poi moltiplicata per la scala:
+## con content_scale_factor 2 (Retina) il contenuto occupa il doppio dei pixel.
+const DIM_BASE := Vector2i(860, 760)
+
 const MOTORE_MOCK := 0
 const MOTORE_OLLAMA := 1
 const MOTORE_ESTERNO := 2
@@ -33,8 +37,8 @@ var _stato: Label
 
 func _init() -> void:
 	title = "Impostazioni · modelli e chiavi API"
-	size = Vector2i(900, 820)   # il contenuto e' cresciuto: prima si doveva allargare a mano
-	min_size = Vector2i(640, 480)
+	size = DIM_BASE
+	min_size = Vector2i(640, 460)
 	visible = false
 
 func _ready() -> void:
@@ -82,10 +86,13 @@ func _ready() -> void:
 	v.add_child(riga_motore)
 	riga_motore.add_child(_etichetta("Chi dà voce agli dèi:", 13, C_BONE_DIM))
 	_opt_motore = OptionButton.new()
-	_opt_motore.add_item("Simulato (senza LLM, istantaneo)", MOTORE_MOCK)
+	# Il simulato (mock) resta solo come stato interno di partenza e per i test: non e'
+	# una scelta di gioco, quindi non compare qui.
 	_opt_motore.add_item("Ollama locale", MOTORE_OLLAMA)
 	_opt_motore.add_item("Provider esterno (API)", MOTORE_ESTERNO)
-	_opt_motore.select(_opt_motore.get_item_index(int(Impostazioni.leggi("motore", MOTORE_MOCK))))
+	var motore_salvato := int(Impostazioni.leggi("motore", MOTORE_ESTERNO))
+	var idx_motore := _opt_motore.get_item_index(motore_salvato)
+	_opt_motore.select(idx_motore if idx_motore >= 0 else 0)
 	_opt_motore.item_selected.connect(func(i):
 		var modo := _opt_motore.get_item_id(i)
 		Impostazioni.scrivi("motore", modo)
@@ -234,6 +241,14 @@ func _indice_gateway() -> int:
 		if String(nomi[i]).to_lower().find("gateway") != -1:
 			return i
 	return -1
+
+## Adegua la finestra alla scala, senza uscire dallo schermo.
+func adegua_a_scala(f: float) -> void:
+	content_scale_factor = clampf(f, 1.0, 3.0)
+	var schermo := DisplayServer.screen_get_size()
+	size = Vector2i(
+		mini(int(DIM_BASE.x * content_scale_factor), schermo.x - 60),
+		mini(int(DIM_BASE.y * content_scale_factor), schermo.y - 80))
 
 func _sincronizza() -> void:
 	if LLMManager.profili_esterni.is_empty():

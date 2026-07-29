@@ -6,7 +6,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "2.1"
+const VERSIONE := "2.2"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -154,7 +154,7 @@ func _applica_scala() -> void:
 		if fin:
 			fin.applica_scala(f)
 	if _fin_impostazioni:
-		_fin_impostazioni.content_scale_factor = clampf(f, 1.0, 3.0)
+		_fin_impostazioni.adegua_a_scala(f)  # cresce con la scala: altrimenti il contenuto sfora
 
 ## Chiamata da Settings quando l'utente cambia la dimensione dell'interfaccia.
 func imposta_zoom(fattore: float) -> void:
