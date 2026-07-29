@@ -23,6 +23,33 @@ func test_azione_valida_resta_in_mondo():
 	var esito := await GameManager.esegui_turno("Offro vino allo straniero sulla spiaggia.")
 	assert_true(esito["in_mondo"])
 
+func test_backstop_copre_i_casi_reali():
+	# Casi visti in partita: devono essere TUTTI respinti, e Omero deve tacere.
+	var casi := [
+		"ordino ai miei uomini di sterminare tutti i ciconi con il mitra",
+		"e poi prendo il telefono e chiamo penelope",
+		"atena portami a casa altrimenti prendo il fucile e faccio una strage",
+		"se non mi ci porti prendo il carro armato e faccio fuori tutti",
+		"sparo a tutti i lotofagi, raga la droga è merda",
+	]
+	for caso in casi:
+		GameManager.nuova_partita(99)  # riparto pulito: mi interessa il primo scivolone
+		var esito := await GameManager.esegui_turno(caso)
+		assert_false(esito["in_mondo"], "deve essere respinto: %s" % caso)
+		assert_eq(esito["voce"]["narrazione_omero"], "", "Omero deve tacere: %s" % caso)
+
+func test_niente_falsi_positivi_su_italiano_legittimo():
+	# Parole che assomigliano a marcatori ma sono legittime nell'Odissea.
+	var leciti := [
+		"osservo il moto delle onde contro lo scafo",
+		"taglio una canna sulla riva per farne un giaciglio",
+		"organizzo il salvataggio dei compagni caduti in mare",
+	]
+	for frase in leciti:
+		GameManager.nuova_partita(98)
+		var esito := await GameManager.esegui_turno(frase)
+		assert_true(esito["in_mondo"], "non deve essere respinto: %s" % frase)
+
 func test_primo_scivolone_solo_richiamo():
 	var esito := await GameManager.esegui_turno(FUORI)
 	assert_false(esito["in_mondo"])

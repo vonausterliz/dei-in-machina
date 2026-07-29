@@ -234,30 +234,33 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	Delta.applica(stato, delta)
 
 	# NARRAZIONE — Omero reticente, senza nomi di dei (invariante).
+	# Se l'azione e' FUORI-MONDO, Omero TACE: non si chiede al modello di narrare un gesto
+	# impossibile (l'LLM tenderebbe comunque a raccontarlo). Al giocatore va solo il
+	# richiamo, che la UI mostra come avviso. Cosi' il turno e' anche piu' rapido.
 	percorso.append(Fase.keys()[Fase.NARRAZIONE])
 	var impronta := ""
 	if not verdetto.is_empty():
 		var attore: Dio = PantheonManager.get_dio(verdetto["attore"])
 		if attore != null:
 			impronta = attore.impronta
-	var narrazione: String = await LLMManager.narrazione_omero({
-		"sintesi": envelope.get("sintesi", ""),
-		"azione": input_testo,      # le parole/gesto esatti: Omero deve rispondere a QUESTO
-		"scena": scena_corrente(),  # ancora: dove si trova Ulisse e chi c'e' (coerenza)
-		"storia": _storia_recente(),           # i beat precedenti (continuita' del discorso)
-		"ultima_narrazione": _ultima_narrazione, # l'ultima voce di Omero (continuita' immediata)
-		"luogo": _nome_tappa_corrente(),       # per l'orientamento discreto
-		"progresso": _progresso_viaggio(),     # inizio / mezzo / vicino a Itaca
-		"morale": _morale_recente(),           # duro / bene / incerto (come sta andando)
-		"in_mondo": in_mondo,
-		"svegli": svegli,
-		"verdetto": verdetto,
-		"delta": delta,
-		"impronta": impronta,
-		"esito_segno": _segno_esito(delta),
-		"ammonizione": val["classe"],  # "": nessuna; "richiamo"/"smarrimento"/"follia"
-	})
-	_ultima_narrazione = narrazione  # per la continuita' al turno successivo
+	var narrazione := ""
+	if in_mondo:
+		narrazione = await LLMManager.narrazione_omero({
+			"sintesi": envelope.get("sintesi", ""),
+			"azione": input_testo,      # le parole/gesto esatti: Omero deve rispondere a QUESTO
+			"scena": scena_corrente(),  # ancora: dove si trova Ulisse e chi c'e' (coerenza)
+			"storia": _storia_recente(),             # i beat precedenti (continuita' del discorso)
+			"ultima_narrazione": _ultima_narrazione, # l'ultima voce di Omero (continuita' immediata)
+			"luogo": _nome_tappa_corrente(),         # per l'orientamento discreto
+			"progresso": _progresso_viaggio(),       # inizio / mezzo / vicino a Itaca
+			"morale": _morale_recente(),             # duro / bene / incerto (come sta andando)
+			"svegli": svegli,
+			"verdetto": verdetto,
+			"delta": delta,
+			"impronta": impronta,
+			"esito_segno": _segno_esito(delta),
+		})
+		_ultima_narrazione = narrazione  # per la continuita' al turno successivo
 
 	# Registrazioni: storico_olimpo (vista Olimpo/debug) + diario (player-facing).
 	var voce := {
@@ -496,13 +499,24 @@ const _CALO_FOLLIA := 100
 ## anche se l'LLM l'ha classificata in_mondo. Lista mirata (alta precisione), non esaustiva:
 ## il resto lo intercetta il prompt dell'Interprete. Backstop deterministico, testabile.
 const _MARCATORI_ANACRONISMO := [
+	# armi da fuoco ed esplosivi
 	"pistola", "pistole", "fucile", "fucili", "mitra", "mitraglia", "mitragliatrice",
 	"revolver", "sparo", "sparare", "spara", "sparano", "sparai", "sparammo", "sparato",
-	"proiettile", "proiettili", "bomba", "bombe", "granata", "esplosivo", "dinamite",
-	"missile", "razzo", "bazooka", "kalashnikov", "aereo", "aeroplano", "elicottero",
-	"automobile", "telefono", "cellulare", "smartphone", "computer", "internet", "wifi",
-	"televisione", "televisore", "benzina", "droga", "droghe", "cocaina", "eroina",
-	"marijuana", "spinello", "raga", "bro", "videogioco", "respawn",
+	"sparargli", "sparerò", "sparero", "pallottola", "pallottole", "proiettile",
+	"proiettili", "bomba", "bombe", "bombardo", "granata", "granate", "esplosivo",
+	"esplosivi", "dinamite", "tritolo", "missile", "missili", "razzo", "bazooka",
+	"kalashnikov", "cannone", "cannoni", "artiglieria", "siluro",
+	# mezzi militari e motorizzati
+	"carro armato", "carri armati", "tank", "corazzata", "sottomarino", "portaerei",
+	"aereo", "aerei", "aeroplano", "elicottero", "drone", "droni", "motoscafo",
+	"automobile", "camion", "motore", "motori", "treno",
+	# tecnologia
+	"telefono", "telefonare", "telefono a", "cellulare", "smartphone", "computer",
+	"internet", "wifi", "email", "radio", "televisione", "televisore", "elettricità",
+	"elettricita", "batteria", "benzina", "gasolio", "fotografia", "orologio digitale",
+	# sostanze e gergo moderni
+	"droga", "droghe", "cocaina", "eroina", "marijuana", "spinello", "sballo",
+	"raga", "bro", "videogioco", "respawn", "resetta", "gameover", "game over", "prompt",
 ]
 
 ## Vero se l'input contiene un marcatore moderno come PAROLA INTERA (accenti/maiuscole ignorati).

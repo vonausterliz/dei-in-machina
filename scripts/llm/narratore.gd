@@ -42,12 +42,6 @@ func costruisci_messaggi(contesto: Dictionary) -> Array:
 			{"role": "user", "content": "PASSAGGIO: Ulisse lascia «%s» e per mare giunge a «%s». Rendi in 2-3 righe il distacco dalla terra che si allontana e la traversata fino alla nuova sponda: così il lettore capisce come ci è arrivato. Tono epico e asciutto. Non nominare un dio." % [passaggio.get("da", "questa terra"), passaggio.get("a", "una nuova terra")]},
 		]
 
-	# Fuori-mondo (anacronismo/nonsenso): il rifiuto DEVE dominare. Messaggio dedicato, senza
-	# il contesto di scena/azione che spingerebbe Omero a narrare comunque l'atto impossibile.
-	var ammon: String = contesto.get("ammonizione", "")
-	if ammon != "":
-		return _messaggio_ammonizione(ammon, contesto)
-
 	var pezzi: Array[String] = []
 	var scena: String = contesto.get("scena", "")
 	if scena != "":
@@ -81,28 +75,11 @@ func costruisci_messaggi(contesto: Dictionary) -> Array:
 		{"role": "user", "content": "\n".join(pezzi)},
 	]
 
-## Messaggio dedicato per i turni fuori-mondo: il rifiuto è l'unica istruzione, così Omero
-## non si mette a narrare l'atto impossibile. La scena reale serve solo per riportarcelo dentro.
-func _messaggio_ammonizione(classe: String, contesto: Dictionary) -> Array:
-	var scena: String = contesto.get("scena", "la scena presente")
-	var azione: String = contesto.get("azione", contesto.get("sintesi", "qualcosa di impossibile"))
-	var istr := ""
-	match classe:
-		"richiamo":
-			istr = "Ulisse ha tentato qualcosa che NON appartiene a questo mondo (l'Odissea, età del bronzo): «%s». NON narrarlo come accaduto e NON descrivere quell'atto impossibile. In poche righe, con dolcezza, riporta Ulisse nella scena reale — come chi si scuote da un pensiero che qui non ha senso. La scena vera è: %s" % [azione, scena]
-		"smarrimento":
-			istr = "Ulisse insiste con gesti che qui non hanno senso («%s»): lo smarrimento lo prende, i compagni lo guardano con timore. Narra la CONFUSIONE, non il gesto impossibile. La scena: %s" % [azione, scena]
-		"follia":
-			istr = "Ulisse ha perso la ragione: l'empietà reiterata chiama la mano di un dio. È la fine, per follia. Narra il tracollo, cupo e breve — mai un nome, mai l'atto impossibile. La scena: %s" % scena
-	return [
-		{"role": "system", "content": _system_prompt},
-		{"role": "user", "content": istr},
-	]
-
+## NOTA: i turni FUORI-MONDO non arrivano qui. Il GameManager non chiama affatto Omero
+## quando l'azione è impossibile (anacronismo/nonsenso): al giocatore va solo il richiamo,
+## mostrato dalla UI. Chiedere al modello di "non narrare" non funzionava: narrava lo stesso.
 func narra(contesto: Dictionary, chat_fn: Callable, seed: int = 0) -> String:
-	# Per il rifiuto (fuori-mondo) uso una temperatura più bassa: più obbediente, meno estro.
-	var temp := 0.6 if contesto.get("ammonizione", "") != "" else 0.9
-	var opzioni := {"temperature": temp}
+	var opzioni := {"temperature": 0.9}
 	if seed != 0:
 		opzioni["seed"] = seed
 	var messaggi := costruisci_messaggi(contesto)

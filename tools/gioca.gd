@@ -86,7 +86,17 @@ func _intro() -> void:
 func _stampa_turno(esito: Dictionary) -> void:
 	var voce: Dictionary = esito["voce"]
 	# Parte rivolta al giocatore: solo Omero. Gli dei restano nascosti.
-	print("\nOmero: %s" % voce.get("narrazione_omero", ""))
+	# Fuori-mondo: Omero tace, al suo posto il richiamo.
+	var narrazione := String(voce.get("narrazione_omero", ""))
+	if narrazione != "":
+		print("\nOmero: %s" % narrazione)
+	match String(voce.get("ammonizione", "")):
+		"richiamo":
+			print("\n[!] Quel gesto non appartiene a questo mondo: Ulisse non puo' compierlo.")
+		"smarrimento":
+			print("\n[!] Insisti con gesti impossibili: lo smarrimento ti prende.")
+		"follia":
+			print("\n[!] La ragione ti ha abbandonato: l'empieta' reiterata chiama la mano di un dio.")
 	# Vista Olimpo (debug), solo se richiesta.
 	if _mostra_olimpo:
 		print("\n" + TraceFormatter.turno(voce))

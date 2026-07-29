@@ -106,17 +106,6 @@ func test_narratore_usa_azione_grezza():
 	var m := nar.costruisci_messaggi({"azione": "chiedo udienza al re", "sintesi": "richiesta"})
 	assert_string_contains(m[1]["content"], "chiedo udienza al re")
 
-func test_narratore_rifiuto_e_dedicato_e_non_rende_l_atto():
-	# Fuori-mondo: il messaggio deve essere il RIFIUTO, non la narrazione dell'atto.
-	var nar := Narratore.new(_nomi())
-	var m := nar.costruisci_messaggi({
-		"ammonizione": "richiamo", "azione": "sterminare i ciconi col mitra",
-		"scena": "Ismaro, tra i Ciconi.", "sintesi": "x",
-	})
-	var testo: String = m[1]["content"]
-	assert_string_contains(testo, "appartiene a questo mondo")  # è il rifiuto
-	assert_eq(testo.find("RISPOSTA CONCRETA"), -1, "niente istruzione a rendere l'atto")
-
 func test_narratore_passaggio_tra_tappe():
 	# Il passaggio genera un messaggio dedicato (traversata), non la narrazione normale.
 	var nar := Narratore.new(_nomi())

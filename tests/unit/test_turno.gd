@@ -32,8 +32,10 @@ func test_turno_fuori_mondo_salta_risveglio():
 	assert_false(esito["in_mondo"])
 	assert_eq(esito["svegli"], [])
 	assert_does_not_have(esito["fsm_path"], "RISVEGLIO", "fuori-mondo non risveglia dei")
-	# Comunque narrato e registrato (Omero fa da richiamo diegetico).
-	assert_ne(esito["voce"]["narrazione_omero"], "")
+	# Omero TACE sul fuori-mondo: non gli si chiede di narrare un gesto impossibile
+	# (narrerebbe comunque). Al giocatore va solo il richiamo, mostrato dalla UI.
+	assert_eq(esito["voce"]["narrazione_omero"], "", "Omero non narra l'impossibile")
+	assert_eq(esito["voce"]["ammonizione"], "richiamo")
 	assert_eq(GameManager.stato.storico_olimpo.size(), 1)
 
 func test_turni_multipli_avanzano_il_contatore():

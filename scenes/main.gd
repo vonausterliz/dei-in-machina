@@ -6,7 +6,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "0.9"
+const VERSIONE := "1.0"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -447,13 +447,12 @@ func _on_agisci() -> void:
 	var esito: Dictionary = await GameManager.esegui_turno(testo)
 
 	_ultima_narrazione = String(esito["voce"].get("narrazione_omero", ""))
-	_narrazione.append_text("[i]Omero:[/i] %s\n\n" % _ultima_narrazione)
-	# Segnale chiaro (non è la voce di Omero) quando l'azione è fuori dal mondo dell'Odissea.
-	match String(esito["voce"].get("ammonizione", "")):
-		"richiamo":
-			_narrazione.append_text("[color=%s][i]— quel gesto non appartiene a questo mondo: si dissolve —[/i][/color]\n\n" % C_OXBLOOD.to_html())
-		"smarrimento":
-			_narrazione.append_text("[color=%s][i]— insisti con gesti senza senso: lo smarrimento ti prende —[/i][/color]\n\n" % C_OXBLOOD.to_html())
+	if _ultima_narrazione != "":
+		_narrazione.append_text("[i]Omero:[/i] %s\n\n" % _ultima_narrazione)
+	# Fuori-mondo: Omero tace, al suo posto un avviso in chiaro (non è la voce del poeta).
+	var ammon := String(esito["voce"].get("ammonizione", ""))
+	if ammon != "":
+		_narrazione.append_text(_avviso(ammon))
 	_aggiungi_diario()
 	_aggiorna_stats()
 	if _col_olimpo.visible:
@@ -522,6 +521,20 @@ func _scegli_spunto(testo: String) -> void:
 		return
 	_input.text = testo
 	_on_agisci()
+
+## Avviso per l'azione fuori-mondo. Colore CHIARO e testo dritto in grassetto: il
+## rosso-sangue scuro in corsivo, su fondo notte, era illeggibile.
+func _avviso(classe: String) -> String:
+	var giallo := "#f0c26a"   # ambra chiara: buon contrasto sul fondo scuro
+	var chiaro := "#f3b9a4"   # rosso sbiadito ma leggibile
+	match classe:
+		"richiamo":
+			return "[b][color=%s]⟡ Quel gesto non appartiene a questo mondo: Ulisse non può compierlo. Riprova con qualcosa che l'Odissea conosca.[/color][/b]\n\n" % giallo
+		"smarrimento":
+			return "[b][color=%s]⟡ Insisti con gesti impossibili: lo smarrimento ti prende, e l'animo cede.[/color][/b]\n\n" % chiaro
+		"follia":
+			return "[b][color=%s]⟡ La ragione ti ha abbandonato. L'empietà reiterata chiama la mano di un dio.[/color][/b]\n\n" % chiaro
+	return ""
 
 func _aggiorna_stats() -> void:
 	var st: Dictionary = GameManager.stato.ulisse["stat"]
