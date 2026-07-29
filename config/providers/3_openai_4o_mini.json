@@ -1,0 +1,8 @@
+{
+  "nome": "GPT-4o mini",
+  "provider": "openai",
+  "base_url": "https://api.openai.com",
+  "model": "gpt-4o-mini",
+  "api_key_env": "OPENAI_API_KEY",
+  "timeout_sec": 120
+}

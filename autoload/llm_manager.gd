@@ -10,12 +10,13 @@ extends Node
 ## arrivano dalle fasi 2-3 (per ora restano sul mock anche in modalita' non-mock).
 
 const CONFIG_PATH := "res://config/llm_config.json"
-const CONFIG_ESTERNO_PATH := "res://config/llm_config.esterno.json"  # profilo API cloud (es. Mistral)
+const PROVIDERS_DIR := "res://config/providers"  # profili API esterni (un .json per provider)
 
 var mock_mode: bool = true
 var provider_esterno: bool = false   # false = Ollama locale; true = API esterna
+var provider_esterno_idx: int = 0    # quale profilo esterno è selezionato
 var config: Dictionary = {}          # profilo locale (Ollama)
-var config_esterno: Dictionary = {}  # profilo API esterna (vuoto se non predisposto)
+var profili_esterni: Array = []      # profili API esterni caricati da config/providers/*.json
 
 var _mock := LLMMock.new()
 var _client: LLMClient = null
@@ -35,7 +36,7 @@ const _SPUNTI_GENERICI := [
 
 func _ready() -> void:
 	config = _carica_config()
-	config_esterno = _carica_esterno()
+	profili_esterni = _carica_profili_esterni()
 	_applica_override_env()
 	mock_mode = config.get("mock", true)
 	if not mock_mode:
@@ -44,21 +45,55 @@ func _ready() -> void:
 ## Profilo del provider attivo (locale o esterno). I punti di chiamata non cambiano: il
 ## client è provider-agnostico (formato chat-completions OpenAI).
 func _config_attiva() -> Dictionary:
-	return config_esterno if (provider_esterno and not config_esterno.is_empty()) else config
+	if provider_esterno and provider_esterno_idx >= 0 and provider_esterno_idx < profili_esterni.size():
+		return profili_esterni[provider_esterno_idx]
+	return config
 
-func _carica_esterno() -> Dictionary:
-	if not FileAccess.file_exists(CONFIG_ESTERNO_PATH):
-		return {}
-	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(CONFIG_ESTERNO_PATH))
-	return parsed if typeof(parsed) == TYPE_DICTIONARY else {}
+## Carica i profili esterni da config/providers/*.json (ordinati per nome file). Ogni
+## profilo ha almeno base_url e model; "nome" è l'etichetta mostrata nel menù.
+func _carica_profili_esterni() -> Array:
+	var out: Array = []
+	var dir := DirAccess.open(PROVIDERS_DIR)
+	if dir == null:
+		return out
+	var files := dir.get_files()
+	files.sort()
+	for f in files:
+		if not f.to_lower().ends_with(".json"):
+			continue
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(PROVIDERS_DIR + "/" + f))
+		if typeof(parsed) == TYPE_DICTIONARY and parsed.has("base_url") and parsed.has("model"):
+			if not parsed.has("nome"):
+				parsed["nome"] = f
+			out.append(parsed)
+	return out
 
-## Il profilo esterno è disponibile (file presente e valido)?
+## Almeno un profilo esterno disponibile?
 func provider_esterno_disponibile() -> bool:
-	return not config_esterno.is_empty()
+	return not profili_esterni.is_empty()
 
-## La chiave API del profilo esterno è esportata nell'ambiente?
+## Etichette dei profili esterni, per il menù a tendina.
+func nomi_profili_esterni() -> Array:
+	var out: Array = []
+	for p in profili_esterni:
+		out.append(String(p.get("nome", "?")))
+	return out
+
+## Seleziona quale profilo esterno usare; se il percorso esterno è già attivo, riconfigura.
+func imposta_profilo_esterno(idx: int) -> void:
+	if idx < 0 or idx >= profili_esterni.size():
+		return
+	provider_esterno_idx = idx
+	if _client and provider_esterno:
+		var cfg := _config_attiva()
+		_client.configura(cfg, _leggi_chiave(cfg))
+
+## La chiave API del profilo esterno selezionato è esportata nell'ambiente?
 func chiave_esterno_presente() -> bool:
-	return _leggi_chiave(config_esterno) != ""
+	if profili_esterni.is_empty():
+		return false
+	var idx := clampi(provider_esterno_idx, 0, profili_esterni.size() - 1)
+	return _leggi_chiave(profili_esterni[idx]) != ""
 
 ## Modello atteso dal provider attivo (per messaggi/verifica).
 func modello_atteso() -> String:

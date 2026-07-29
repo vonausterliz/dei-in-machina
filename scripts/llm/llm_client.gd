@@ -13,6 +13,9 @@ var base_url: String = "http://localhost:11434"
 var model: String = "llama3.3:latest"
 var api_key: String = ""
 var timeout_sec: float = 120.0
+# Path dell'endpoint (dopo base_url). Default OpenAI/Ollama/Mistral; Google usa /v1beta/openai/...
+var chat_path: String = "/v1/chat/completions"
+var models_path: String = "/v1/models"
 
 ## Logger opzionale per il debug: se valido, riceve righe di testo con il traffico
 ## (cosa viene mandato / cosa viene ricevuto). La GUI lo collega alla finestra di log.
@@ -40,6 +43,10 @@ func configura(config: Dictionary, chiave: String = "") -> void:
 	model = config.get("model", model)
 	api_key = chiave
 	timeout_sec = config.get("timeout_sec", timeout_sec)
+	# Default OpenAI espliciti: se il profilo non li specifica, si torna a questi (così
+	# passando da Google a Mistral il path non resta quello di Google).
+	chat_path = config.get("chat_path", "/v1/chat/completions")
+	models_path = config.get("models_path", "/v1/models")
 	if _http:
 		_http.timeout = timeout_sec
 
@@ -65,7 +72,7 @@ func chat(messaggi: Array, opzioni: Dictionary = {}) -> Dictionary:
 	if api_key != "":
 		headers.append("Authorization: Bearer %s" % api_key)
 
-	var url := "%s/v1/chat/completions" % base_url.trim_suffix("/")
+	var url := base_url.trim_suffix("/") + chat_path
 	_log("  ⇢ POST %s · model=%s · temp=%s%s" % [url, model, corpo["temperature"], " · json" if opzioni.get("json_mode", false) else ""])
 	_log("    ⇡ invio: %s" % _tronca(_ultimo_utente(messaggi), 240))
 	var err := _http.request(url, headers, HTTPClient.METHOD_POST, JSON.stringify(corpo))
@@ -137,7 +144,7 @@ func _ultimo_utente(messaggi: Array) -> String:
 func elenca_modelli() -> Dictionary:
 	if _http == null:
 		return {"ok": false, "modelli": [], "errore": "client non pronto"}
-	var url := "%s/v1/models" % base_url.trim_suffix("/")
+	var url := base_url.trim_suffix("/") + models_path
 	var headers := PackedStringArray()
 	if api_key != "":
 		headers.append("Authorization: Bearer %s" % api_key)

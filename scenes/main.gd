@@ -36,6 +36,7 @@ var _btn_olimpo: Button
 var _btn_agisci: Button
 var _chk_ollama: CheckButton
 var _chk_esterno: CheckButton
+var _opt_provider: OptionButton
 var _opt_modello: OptionButton
 var _stat_bars := {}
 var _stat_vals := {}
@@ -237,13 +238,24 @@ func _colonna_rapsodia() -> Control:
 	_chk_ollama.toggled.connect(_on_toggle_ollama)
 	opz.add_child(_chk_ollama)
 
-	# Flag: usa un LLM esterno (API cloud, es. Mistral) invece di Ollama locale.
+	# Flag: usa un LLM esterno (API cloud) invece di Ollama locale.
 	_chk_esterno = CheckButton.new()
 	_chk_esterno.text = "LLM esterno (API)"
 	_chk_esterno.add_theme_color_override("font_color", C_BONE_DIM)
-	_chk_esterno.tooltip_text = "Usa il provider esterno (config/llm_config.esterno.json). Serve la chiave: export MISTRAL_API_KEY=…"
+	_chk_esterno.tooltip_text = "Usa un provider esterno (config/providers/*.json). Serve la chiave nell'ambiente, es. export MISTRAL_API_KEY=…"
 	_chk_esterno.toggled.connect(_on_toggle_esterno)
 	opz.add_child(_chk_esterno)
+
+	# Quale provider esterno (Mistral / Gemini / OpenAI …).
+	_opt_provider = OptionButton.new()
+	_opt_provider.add_theme_color_override("font_color", C_BONE)
+	_opt_provider.add_theme_font_size_override("font_size", 13)
+	_opt_provider.tooltip_text = "Provider esterno da usare col flag «LLM esterno»"
+	for nome in LLMManager.nomi_profili_esterni():
+		_opt_provider.add_item(String(nome))
+	_opt_provider.disabled = _opt_provider.item_count == 0
+	_opt_provider.item_selected.connect(_on_provider_scelto)
+	opz.add_child(_opt_provider)
 
 	# Selettore del modello: popolato quando Ollama e' attivo, coi modelli installati.
 	_opt_modello = OptionButton.new()
@@ -566,12 +578,19 @@ func _on_toggle_esterno(premuto: bool) -> void:
 		_chk_esterno.set_pressed_no_signal(false)
 		_narrazione.append_text("[color=%s]Nessun provider esterno configurato (config/llm_config.esterno.json). Resto sui dèi simulati (mock).[/color]\n" % C_OXBLOOD.to_html())
 		return
+	LLMManager.imposta_profilo_esterno(_opt_provider.selected)
 	if not LLMManager.chiave_esterno_presente():
 		_chk_esterno.set_pressed_no_signal(false)
-		_narrazione.append_text("[color=%s]Manca la chiave API: esporta la variabile d'ambiente (es. export MISTRAL_API_KEY=…) e rilancia. Resto sui dèi simulati (mock).[/color]\n" % C_OXBLOOD.to_html())
+		_narrazione.append_text("[color=%s]Manca la chiave API per «%s»: esporta la variabile d'ambiente e rilancia. Resto sui dèi simulati (mock).[/color]\n" % [C_OXBLOOD.to_html(), _opt_provider.get_item_text(_opt_provider.selected)])
 		return
 	_chk_ollama.set_pressed_no_signal(false)  # mutuamente esclusivi
 	await _attiva_reale(true)
+
+## Cambio provider esterno dal menù: se il percorso esterno è già attivo, ri-verifica.
+func _on_provider_scelto(idx: int) -> void:
+	LLMManager.imposta_profilo_esterno(idx)
+	if _chk_esterno.button_pressed and not _busy and not _finita:
+		await _attiva_reale(true)
 
 ## Attiva il percorso reale sul provider scelto (Ollama locale o API esterna), verifica
 ## e popola il selettore dei modelli. Se non è pronto, torna ai dèi simulati e spiega.
