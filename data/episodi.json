@@ -16,8 +16,8 @@
       "turni_massimi": 4,
       "scena": "Ulisse e i suoi uomini lasciano le coste di Troia in fiamme, imbarcati su dodici navi cariche di bottino. Presenti: Ulisse, i compagni-guerrieri stanchi, il mare aperto. Nessun altro. Non nominare personaggi assenti (Penelope e Telemaco sono lontani, a Itaca) né alcun dio.",
       "mappa": {
-        "x": 0.93,
-        "y": 0.3
+        "x": 0.62,
+        "y": 0.46
       }
     },
     {
@@ -30,8 +30,8 @@
       "turni_massimi": 5,
       "scena": "Ulisse e i compagni sono sbarcati a Ismaro, città dei Ciconi di Tracia. Presenti: Ulisse, i suoi uomini avidi di saccheggio e vino, i Ciconi ostili e le loro donne, le navi tirate sulla spiaggia. Niente foreste incantate, niente re stranieri, nessun personaggio di altre tappe; nessun dio visibile.",
       "mappa": {
-        "x": 0.86,
-        "y": 0.22
+        "x": 0.55,
+        "y": 0.47
       }
     },
     {
@@ -44,8 +44,8 @@
       "turni_massimi": 4,
       "scena": "Una costa mite del sud, terra dei Lotofagi, mangiatori di loto. Presenti: Ulisse, i compagni (alcuni già intontiti dal fiore), i pacifici Lotofagi che offrono il loto. Nessun re, nessun mostro, nessun personaggio di altre tappe.",
       "mappa": {
-        "x": 0.55,
-        "y": 0.86
+        "x": 0.45,
+        "y": 0.67
       }
     },
     {
@@ -58,7 +58,7 @@
       "turni_massimi": 8,
       "scena": "Ulisse e pochi compagni sono intrappolati nell'antro buio del ciclope Polifemo, chiuso da un masso enorme, tra greggi e odore di sangue. Presenti: Ulisse, i compagni superstiti, il ciclope. Nessun altro, nessuna nave qui dentro.",
       "mappa": {
-        "x": 0.42,
+        "x": 0.44,
         "y": 0.62
       }
     },
@@ -72,8 +72,8 @@
       "turni_massimi": 6,
       "scena": "L'isola galleggiante di Eolo, signore dei venti, che accoglie Ulisse come ospite e gli dona l'otre dei venti. Presenti: Ulisse, i compagni, Eolo e la sua famiglia. Ambiente domestico e ospitale; nessun mostro, nessun altro popolo.",
       "mappa": {
-        "x": 0.45,
-        "y": 0.54
+        "x": 0.4,
+        "y": 0.58
       }
     },
     {
@@ -86,8 +86,8 @@
       "turni_massimi": 3,
       "scena": "Un porto stretto tra alte scogliere, terra dei Lestrigoni, giganti cannibali. Presenti: Ulisse, la sua nave e le altre navi nella rada, i giganti in agguato sui dirupi. Atmosfera di trappola imminente; nessun ospite amichevole.",
       "mappa": {
-        "x": 0.34,
-        "y": 0.44
+        "x": 0.27,
+        "y": 0.45
       }
     },
     {
@@ -100,8 +100,8 @@
       "turni_massimi": 8,
       "scena": "L'isola di Eea; nel folto fuma il palazzo della maga Circe, che muta gli uomini in bestie. Presenti: Ulisse, alcuni compagni (una parte è già andata avanti ed è stata trasformata), Circe. Nessun re, nessun banchetto di altri popoli.",
       "mappa": {
-        "x": 0.49,
-        "y": 0.44
+        "x": 0.295,
+        "y": 0.52
       }
     },
     {
@@ -114,8 +114,8 @@
       "turni_massimi": 6,
       "scena": "Ai confini del mondo, sulla soglia dell'Ade, presso una fossa di sangue attorno a cui si accalcano le ombre dei morti. Ulisse è venuto a interrogare l'indovino cieco Tiresia. Presenti: Ulisse, pochi compagni, le anime dei defunti. Luogo cupo e liminale; nessun vivente estraneo.",
       "mappa": {
-        "x": 0.1,
-        "y": 0.3
+        "x": 0.03,
+        "y": 0.4
       }
     },
     {
@@ -128,8 +128,8 @@
       "turni_massimi": 5,
       "scena": "Il mare liscio come olio presso l'isola delle Sirene, il cui canto promette ogni sapere e attira alla morte. Presenti: Ulisse (che può farsi legare all'albero) e i compagni ai remi con le orecchie turate di cera. Solo la nave e lo scoglio delle Sirene.",
       "mappa": {
-        "x": 0.47,
-        "y": 0.56
+        "x": 0.38,
+        "y": 0.57
       }
     },
     {
@@ -144,8 +144,8 @@
       "turni_massimi": 4,
       "scena": "Uno stretto angusto: da un lato lo scoglio della mostruosa Scilla dalle sei teste, dall'altro il gorgo di Cariddi che inghiotte il mare. Presenti: Ulisse e i compagni sulla nave in transito. Nessun approdo, nessun altro personaggio.",
       "mappa": {
-        "x": 0.51,
-        "y": 0.63
+        "x": 0.39,
+        "y": 0.615
       }
     },
     {
@@ -158,8 +158,8 @@
       "turni_massimi": 6,
       "scena": "L'isola Trinacia, dove pascolano le mandrie sacre del Sole. Presenti: Ulisse, i compagni affamati, le bestie sacre intoccabili. Niente città, niente sovrani, nessun altro popolo.",
       "mappa": {
-        "x": 0.44,
-        "y": 0.69
+        "x": 0.46,
+        "y": 0.66
       }
     },
     {
@@ -172,8 +172,8 @@
       "turni_massimi": 8,
       "scena": "Ogigia, isola nascosta della ninfa Calipso, che trattiene Ulisse con dolcezza offrendogli l'immortalità. Presenti: soltanto Ulisse (nostalgico di casa) e Calipso. Isola solitaria e fuori dal tempo; nessun altro, nessun compagno.",
       "mappa": {
-        "x": 0.08,
-        "y": 0.55
+        "x": 0.06,
+        "y": 0.57
       }
     },
     {
@@ -188,7 +188,7 @@
       "turni_massimi": 4,
       "scena": "In mare aperto, la zattera di Ulisse si sfascia sotto una tempesta furiosa: sta annegando tra le onde. Presenti: solo Ulisse e il mare in furia (e forse un velo salvifico offerto da una presenza marina). Nessuna terra, nessun compagno, nessuna città.",
       "mappa": {
-        "x": 0.26,
+        "x": 0.2,
         "y": 0.6
       }
     },
@@ -202,8 +202,8 @@
       "turni_massimi": 5,
       "scena": "La spiaggia dei Feaci, popolo di mare ospitale, dove Ulisse naufrago viene accolto. Presenti: Ulisse, la giovane principessa Nausicaa con le ancelle, poi la corte ospitale dei Feaci. Ambiente civile; nessun mostro.",
       "mappa": {
-        "x": 0.63,
-        "y": 0.45
+        "x": 0.455,
+        "y": 0.51
       }
     },
     {
@@ -216,8 +216,8 @@
       "turni_massimi": 0,
       "scena": "Itaca, la patria. Ulisse è finalmente tornato sulla sua isola. Presenti: Ulisse, la sua terra, e i segni — non ancora affrontati — di chi ha invaso la sua casa. Momento sospeso del ritorno.",
       "mappa": {
-        "x": 0.6,
-        "y": 0.41
+        "x": 0.475,
+        "y": 0.545
       }
     }
   ]
