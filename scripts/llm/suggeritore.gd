@@ -27,13 +27,14 @@ func _leggi(path: String) -> String:
 	return FileAccess.get_file_as_string(path)
 
 func costruisci_messaggi(contesto: Dictionary) -> Array:
-	var scena := "Scena: %s.\nUltima voce del poeta: %s" % [
+	var testo := "LA SCENA (attieniti a questa: luogo, chi è presente, cosa NON esiste qui): %s\n\nDove: %s.\nUltima voce del poeta: %s" % [
+		contesto.get("scena", "il mare aperto"),
 		contesto.get("episodio", "il mare aperto"),
 		contesto.get("narrazione", "(l'inizio del viaggio)"),
 	]
 	return [
 		{"role": "system", "content": _system_prompt},
-		{"role": "user", "content": scena},
+		{"role": "user", "content": testo},
 	]
 
 ## Ritorna un Array di {testo: String, rischio: bool}, al piu' 3. Vuoto se l'output

@@ -67,6 +67,12 @@ func _nomi() -> Array:
 		out.append(d.nome)
 	return out
 
+func test_narratore_include_la_scena_nel_messaggio():
+	# La scena (grounding) deve arrivare a Omero, per non far derivare la narrazione.
+	var nar := Narratore.new(_nomi())
+	var m := nar.costruisci_messaggi({"sintesi": "guardo il mare", "scena": "Antro del ciclope, chiuso da un masso."})
+	assert_string_contains(m[1]["content"], "Antro del ciclope")
+
 func test_narrazione_pulita_passa():
 	var nar := Narratore.new(_nomi())
 	var fake := FakeChat.new()

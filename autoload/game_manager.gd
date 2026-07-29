@@ -76,6 +76,12 @@ func intro_corrente() -> String:
 	var ep := episodi.get_episodio(_episodio_corrente())
 	return ep.intro if ep else ""
 
+## Ancora di scena della tappa corrente (luogo + chi e' presente + vincoli): serve a
+## Omero e al Suggeritore per restare coerenti e non inventare luoghi/personaggi assenti.
+func scena_corrente() -> String:
+	var ep := episodi.get_episodio(_episodio_corrente())
+	return ep.scena if ep else ""
+
 ## Salta direttamente a una tappa (test/strumenti/debug). Accende i suoi locali.
 func vai_a_tappa(id: String) -> void:
 	_entra_in_episodio(id)
@@ -188,6 +194,7 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 			impronta = attore.impronta
 	var narrazione: String = await LLMManager.narrazione_omero({
 		"sintesi": envelope.get("sintesi", ""),
+		"scena": scena_corrente(),  # ancora: dove si trova Ulisse e chi c'e' (coerenza)
 		"in_mondo": in_mondo,
 		"svegli": svegli,
 		"verdetto": verdetto,

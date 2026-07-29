@@ -29,6 +29,9 @@ func _leggi(path: String) -> String:
 
 func costruisci_messaggi(contesto: Dictionary) -> Array:
 	var pezzi: Array[String] = []
+	var scena: String = contesto.get("scena", "")
+	if scena != "":
+		pezzi.append("LA SCENA (attieniti a questa: luogo, chi è presente, cosa NO): %s" % scena)
 	pezzi.append("Ulisse ha appena: %s" % contesto.get("sintesi", "qualcosa"))
 	match contesto.get("ammonizione", ""):
 		"richiamo":

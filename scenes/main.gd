@@ -25,6 +25,7 @@ var _narrazione: RichTextLabel
 var _spunti_box: VBoxContainer
 var _ultima_narrazione: String = ""
 var _diario_box: VBoxContainer
+var _mappa: MappaViaggio
 var _input: LineEdit
 var _episodio: Label
 var _olimpo: RichTextLabel
@@ -251,6 +252,17 @@ func _colonna_aside() -> Control:
 	v.size_flags_horizontal = Control.SIZE_FILL
 	v.add_theme_constant_override("separation", 22)
 
+	# Carta del viaggio (dove si trova Ulisse)
+	var carta_m := _pannello(Color(1, 1, 1, 0.012), _line())
+	v.add_child(carta_m)
+	var vm := VBoxContainer.new()
+	vm.add_theme_constant_override("separation", 10)
+	carta_m.add_child(vm)
+	vm.add_child(_titolo("CARTA DEL VIAGGIO", 13, C_GOLD, _serif_bold))
+	_mappa = MappaViaggio.new()
+	_mappa.custom_minimum_size = Vector2(0, 200)
+	vm.add_child(_mappa)
+
 	# Carta Diario di bordo
 	var carta_d := _pannello(Color(1, 1, 1, 0.012), _line())
 	v.add_child(carta_d)
@@ -358,8 +370,19 @@ func _apri_scena() -> void:
 	_ultima_narrazione = GameManager.intro_corrente()
 	_narrazione.append_text("[i]Omero:[/i] %s\n\n" % _ultima_narrazione)
 	_aggiorna_stats()
+	_aggiorna_mappa()
 	_input.grab_focus()
 	await _rigenera_spunti()
+
+func _aggiorna_mappa() -> void:
+	if _mappa == null:
+		return
+	var punti: Array = []
+	for id in GameManager.episodi.ordine():
+		var ep := GameManager.episodi.get_episodio(id)
+		if ep:
+			punti.append({"id": id, "nome": ep.nome, "pos": ep.mappa})
+	_mappa.imposta(punti, GameManager.stato.viaggio["corrente"], GameManager.stato.viaggio.get("completati", []))
 
 func _on_invio(_t: String) -> void:
 	_on_agisci()
@@ -394,6 +417,7 @@ func _on_agisci() -> void:
 		_episodio.text = "· %s ·" % _nome_tappa()
 		_ultima_narrazione = String(esito.get("intro", ""))
 		_narrazione.append_text("[color=%s]— %s —[/color]\n[i]Omero:[/i] %s\n\n" % [C_GOLD.to_html(), _nome_tappa(), _ultima_narrazione])
+	_aggiorna_mappa()
 
 	if esito["esito"] != "continua":
 		_finita = true
@@ -416,7 +440,7 @@ func _rigenera_spunti() -> void:
 	_pulisci_spunti()
 	if not LLMManager.mock_mode:  # in reale la generazione e' lenta: mostro un'attesa
 		_spunti_box.add_child(_titolo("… il mare suggerisce …", 13, C_BONE_DIM, _serif_italic))
-	var contesto := {"episodio": _nome_tappa(), "narrazione": _ultima_narrazione}
+	var contesto := {"episodio": _nome_tappa(), "scena": GameManager.scena_corrente(), "narrazione": _ultima_narrazione}
 	var spunti: Array = await LLMManager.suggerisci(contesto)
 	_pulisci_spunti()
 	for sp in spunti:
@@ -429,7 +453,7 @@ func _pulisci_spunti() -> void:
 func _cue(testo: String, rischio: bool) -> Button:
 	var accento := C_OXBLOOD if rischio else C_GOLD
 	var b := Button.new()
-	b.text = "◈  " + testo
+	b.text = "›  " + testo
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.add_theme_font_override("font", _serif)

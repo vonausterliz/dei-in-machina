@@ -12,6 +12,17 @@ func test_inizio_nella_prima_tappa():
 	assert_eq(GameManager.stato.viaggio["corrente"], "troia")
 	assert_eq(GameManager.stato.ulisse["episodio_corrente"], "troia")
 
+func test_ogni_tappa_ha_scena_e_mappa():
+	# Grounding + cartina: ogni episodio deve avere una scena e coordinate valide.
+	for id in GameManager.episodi.ordine():
+		var ep := GameManager.episodi.get_episodio(id)
+		assert_ne(ep.scena, "", "%s deve avere una scena (grounding)" % id)
+		assert_between(ep.mappa.x, 0.0, 1.0, "%s: x mappa normalizzata" % id)
+		assert_between(ep.mappa.y, 0.0, 1.0, "%s: y mappa normalizzata" % id)
+
+func test_scena_corrente_non_vuota():
+	assert_ne(GameManager.scena_corrente(), "", "la scena corrente alimenta Omero e il Suggeritore")
+
 func test_locale_di_tappa_acceso_e_eleggibile():
 	# Nel Ciclope il suo locale (Polifemo) deve essere in gioco ed eleggibile.
 	GameManager.vai_a_tappa("ciclope")

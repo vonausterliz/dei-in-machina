@@ -9,6 +9,9 @@ Ti do la scena corrente (dove si trova Ulisse e l'ultima voce del poeta). Propon
 ESATTAMENTE 3 spunti, diversi tra loro, plausibili qui e ora, in carattere epico:
 - ognuno è una breve frase d'azione (seconda persona o infinito), max ~12 parole;
 - varia l'indole: uno prudente, uno d'astuzia o di preghiera, uno d'audacia;
+- RESTA NELLA SCENA: proponi solo azioni plausibili qui e ora, riferite a ciò e a CHI è
+  presente. NON inventare personaggi assenti (niente Telemaco, Penelope o compagni con nomi
+  nuovi) né luoghi che non ci sono. Se sei a un banchetto, gli spunti riguardano il banchetto.
 - al più UNO può essere apertamente rischioso (tracotanza, empietà, sfida): marcalo rischio=true;
 - NON nominare MAI un dio (né "Poseidone", né "Atena", né "un dio del mare"): al massimo
   un'allusione ("chi veglia sugli astuti", "il signore dei flutti"). L'impronta, non il nome.
