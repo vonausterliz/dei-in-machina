@@ -42,6 +42,12 @@ func costruisci_messaggi(contesto: Dictionary) -> Array:
 			{"role": "user", "content": "PASSAGGIO: Ulisse lascia «%s» e per mare giunge a «%s». Rendi in 2-3 righe il distacco dalla terra che si allontana e la traversata fino alla nuova sponda: così il lettore capisce come ci è arrivato. Tono epico e asciutto. Non nominare un dio." % [passaggio.get("da", "questa terra"), passaggio.get("a", "una nuova terra")]},
 		]
 
+	# Fuori-mondo (anacronismo/nonsenso): il rifiuto DEVE dominare. Messaggio dedicato, senza
+	# il contesto di scena/azione che spingerebbe Omero a narrare comunque l'atto impossibile.
+	var ammon: String = contesto.get("ammonizione", "")
+	if ammon != "":
+		return _messaggio_ammonizione(ammon, contesto)
+
 	var pezzi: Array[String] = []
 	var scena: String = contesto.get("scena", "")
 	if scena != "":
@@ -58,24 +64,12 @@ func costruisci_messaggi(contesto: Dictionary) -> Array:
 		var progresso: String = {"inizio": "il ritorno è ancora lontano", "mezzo": "sei a metà del cammino verso Itaca", "vicino": "Itaca non è più tanto lontana"}.get(contesto.get("progresso", ""), "")
 		var morale: String = {"duro": "le ultime vicende sono state dure", "bene": "le cose sembrano volgere al meglio", "incerto": ""}.get(contesto.get("morale", ""), "")
 		pezzi.append("ORIENTAMENTO (fallo SENTIRE con naturalezza, non ogni volta e mai come un elenco): siamo a «%s»; %s; %s." % [luogo, progresso, morale])
-	# L'azione GREZZA di Ulisse (parole/gesto esatti) + la sintesi. Se e' un gesto valido
-	# (nessuna ammonizione), Omero deve rispondere proprio a QUELLO; se e' fuori-mondo,
-	# NON va reso concreto — se ne occupa l'istruzione di ammonizione qui sotto.
+	# L'azione GREZZA di Ulisse (parole/gesto esatti): Omero deve rispondere proprio a QUELLO.
 	var azione: String = contesto.get("azione", "")
-	var ammon: String = contesto.get("ammonizione", "")
-	if azione != "" and ammon == "":
+	if azione != "":
 		pezzi.append("ULISSE HA APPENA, con queste parole o questo gesto: «%s» (in sintesi: %s). Rendi la scena e la sua RISPOSTA CONCRETA nel mondo — cosa accade come diretta conseguenza di ciò che Ulisse ha fatto o detto (se chiede udienza, mostra la risposta; se offre qualcosa, mostra chi lo accoglie o lo rifiuta) — e solo dopo, con misura, l'impronta del divino." % [azione, contesto.get("sintesi", "qualcosa")])
-	elif azione != "":
-		pezzi.append("Ulisse ha tentato, con queste parole o questo gesto: «%s»." % azione)
 	else:
 		pezzi.append("Ulisse ha appena: %s" % contesto.get("sintesi", "qualcosa"))
-	match ammon:
-		"richiamo":
-			pezzi.append("(Gesto fuori dal mondo dell'Odissea: NON narrarlo come reale. Rifiutati con dolcezza e riportalo dentro la scena, senza spezzare l'incanto.)")
-		"smarrimento":
-			pezzi.append("(Ulisse insiste con gesti insensati: lo smarrimento lo prende, i compagni lo guardano con timore. Narra la confusione, non il gesto.)")
-		"follia":
-			pezzi.append("(Ulisse ha perso la ragione: l'empieta reiterata chiama la mano di un dio. E' la fine, per follia. Narra il tracollo, cupo e breve — mai un nome.)")
 	var segno: String = contesto.get("esito_segno", "")
 	if segno != "":
 		pezzi.append("La piega delle cose: %s." % segno)
@@ -87,8 +81,28 @@ func costruisci_messaggi(contesto: Dictionary) -> Array:
 		{"role": "user", "content": "\n".join(pezzi)},
 	]
 
+## Messaggio dedicato per i turni fuori-mondo: il rifiuto è l'unica istruzione, così Omero
+## non si mette a narrare l'atto impossibile. La scena reale serve solo per riportarcelo dentro.
+func _messaggio_ammonizione(classe: String, contesto: Dictionary) -> Array:
+	var scena: String = contesto.get("scena", "la scena presente")
+	var azione: String = contesto.get("azione", contesto.get("sintesi", "qualcosa di impossibile"))
+	var istr := ""
+	match classe:
+		"richiamo":
+			istr = "Ulisse ha tentato qualcosa che NON appartiene a questo mondo (l'Odissea, età del bronzo): «%s». NON narrarlo come accaduto e NON descrivere quell'atto impossibile. In poche righe, con dolcezza, riporta Ulisse nella scena reale — come chi si scuote da un pensiero che qui non ha senso. La scena vera è: %s" % [azione, scena]
+		"smarrimento":
+			istr = "Ulisse insiste con gesti che qui non hanno senso («%s»): lo smarrimento lo prende, i compagni lo guardano con timore. Narra la CONFUSIONE, non il gesto impossibile. La scena: %s" % [azione, scena]
+		"follia":
+			istr = "Ulisse ha perso la ragione: l'empietà reiterata chiama la mano di un dio. È la fine, per follia. Narra il tracollo, cupo e breve — mai un nome, mai l'atto impossibile. La scena: %s" % scena
+	return [
+		{"role": "system", "content": _system_prompt},
+		{"role": "user", "content": istr},
+	]
+
 func narra(contesto: Dictionary, chat_fn: Callable, seed: int = 0) -> String:
-	var opzioni := {"temperature": 0.9}
+	# Per il rifiuto (fuori-mondo) uso una temperatura più bassa: più obbediente, meno estro.
+	var temp := 0.6 if contesto.get("ammonizione", "") != "" else 0.9
+	var opzioni := {"temperature": temp}
 	if seed != 0:
 		opzioni["seed"] = seed
 	var messaggi := costruisci_messaggi(contesto)
