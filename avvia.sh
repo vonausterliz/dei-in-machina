@@ -72,30 +72,33 @@ _leggi_modello() {
     | head -1 | sed -E 's/.*:[[:space:]]*"([^"]*)"/\1/'
 }
 
+# Nota: solo ASCII e variabili tra ${...}. Il bash 3.2 di macOS, sotto 'set -u',
+# ingloba un carattere multibyte attaccato a una variabile ("<<${model}>>") nel nome
+# e va in errore "unbound variable". Meglio tenerlo semplice e portabile.
 ollama_preflight() {
   local url="http://localhost:11434" model base
   if ! command -v ollama >/dev/null 2>&1; then
-    echo "ℹ Ollama non installato: la modalità «dèi reali» non sarà disponibile (si gioca coi dèi simulati)."
+    echo "[i] Ollama non installato: modalita' 'dei reali' non disponibile (si gioca coi dei simulati)."
     return 0
   fi
-  model="$(_leggi_modello)"; [ -z "$model" ] && model="mistral-small3.2:latest"
+  model="$(_leggi_modello)"; [ -z "${model}" ] && model="mistral-small3.2:latest"
   # 1) server attivo? altrimenti avvialo in background e attendi che risponda.
-  if ! curl -fsS "$url/api/tags" >/dev/null 2>&1; then
-    echo "Avvio Ollama in background (ollama serve)…"
+  if ! curl -fsS "${url}/api/tags" >/dev/null 2>&1; then
+    echo "Avvio Ollama in background (ollama serve)..."
     ollama serve >/dev/null 2>&1 &
-    for _ in $(seq 1 30); do curl -fsS "$url/api/tags" >/dev/null 2>&1 && break; sleep 0.5; done
+    for _ in $(seq 1 30); do curl -fsS "${url}/api/tags" >/dev/null 2>&1 && break; sleep 0.5; done
   fi
-  if ! curl -fsS "$url/api/tags" >/dev/null 2>&1; then
-    echo "⚠ Non riesco a contattare Ollama su $url. Avvialo a mano con «ollama serve»."
+  if ! curl -fsS "${url}/api/tags" >/dev/null 2>&1; then
+    echo "[!] Non riesco a contattare Ollama su ${url}. Avvialo a mano con 'ollama serve'."
     return 0
   fi
   # 2) modello presente? (confronto sul nome base, tollera il tag :latest)
   base="${model%%:*}"
   if ! ollama list 2>/dev/null | awk 'NR>1{print $1}' | grep -Eq "^${base}(:|$)"; then
-    echo "Scarico il modello «$model» (una volta sola, può richiedere alcuni minuti)…"
-    ollama pull "$model" || echo "⚠ Download fallito: scaricalo a mano con «ollama pull $model»."
+    echo "Scarico il modello '${model}' (una volta sola, puo' richiedere alcuni minuti)..."
+    ollama pull "${model}" || echo "[!] Download fallito: scaricalo a mano con 'ollama pull ${model}'."
   fi
-  echo "✓ Ollama pronto · modello «$model» (attiva «Ollama (dèi reali)» nel gioco)."
+  echo "[ok] Ollama pronto - modello '${model}' (attiva 'Ollama (dei reali)' nel gioco)."
 }
 
 MODE="${1:-gui}"
