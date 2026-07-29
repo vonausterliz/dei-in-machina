@@ -1,5 +1,7 @@
 {{GUARDRAIL}}
 
+{{MONDO}}
+
 ---
 
 Sei Zeus, arbitro degli dei. Due o piu' potenze confliggono su cosa debba capitare a

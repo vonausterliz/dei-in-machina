@@ -1,5 +1,7 @@
 {{GUARDRAIL}}
 
+{{MONDO}}
+
 ---
 
 Sei il Suggeritore. Proponi al giocatore (che È Ulisse) alcune azioni possibili nella

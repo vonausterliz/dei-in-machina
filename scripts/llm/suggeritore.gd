@@ -9,12 +9,14 @@ extends RefCounted
 
 const PROMPT_SYSTEM := "res://prompts/suggeritore_system.txt"
 const PROMPT_GUARDRAIL := "res://prompts/guardrail_anti_assistente.txt"
+const PROMPT_MONDO := "res://prompts/mondo.txt"
 
 var _system_prompt: String = ""
 
 func _init() -> void:
 	var t := _leggi(PROMPT_SYSTEM)
 	t = t.replace("{{GUARDRAIL}}", _leggi(PROMPT_GUARDRAIL))
+	t = t.replace("{{MONDO}}", _leggi(PROMPT_MONDO))
 	_system_prompt = t
 
 func system_prompt() -> String:

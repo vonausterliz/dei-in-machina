@@ -19,6 +19,20 @@ var _p: Pantheon
 func before_each():
 	_p = Pantheon.carica("res://data/pantheon.json")
 
+# --- Contesto di mondo condiviso (in OGNI agente, nessun placeholder residuo) ---
+
+func test_mondo_in_tutti_gli_agenti():
+	var prompts := [
+		DioAgente.new().system_prompt(_p.get_dio("atena")),
+		Narratore.new(_nomi()).system_prompt(),
+		Arbitro.new(_p).system_prompt(),
+		Suggeritore.new().system_prompt(),
+		Interprete.new([], _p).system_prompt(),
+	]
+	for sp in prompts:
+		assert_string_contains(sp, "età del bronzo", "il blocco mondo dev'essere presente")
+		assert_eq(sp.find("{{"), -1, "nessun placeholder residuo")
+
 # --- DioAgente ---
 
 func test_prompt_dio_include_guardrail_e_voce():

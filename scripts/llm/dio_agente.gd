@@ -11,14 +11,17 @@ extends RefCounted
 
 const PROMPT_SYSTEM := "res://prompts/dio_agente_system.txt"
 const PROMPT_GUARDRAIL := "res://prompts/guardrail_anti_assistente.txt"
+const PROMPT_MONDO := "res://prompts/mondo.txt"
 
 var _template: String = ""
 var _guardrail: String = ""
+var _mondo: String = ""
 var _cache_prompt: Dictionary = {}  # id dio -> system prompt
 
 func _init() -> void:
 	_template = _leggi(PROMPT_SYSTEM)
 	_guardrail = _leggi(PROMPT_GUARDRAIL)
+	_mondo = _leggi(PROMPT_MONDO)
 
 func _leggi(path: String) -> String:
 	if not FileAccess.file_exists(path):
@@ -31,6 +34,7 @@ func system_prompt(dio: Dio) -> String:
 		return _cache_prompt[dio.id]
 	var sp := _template
 	sp = sp.replace("{{GUARDRAIL}}", _guardrail)
+	sp = sp.replace("{{MONDO}}", _mondo)
 	sp = sp.replace("{{NOME}}", dio.nome)
 	sp = sp.replace("{{DOMINIO}}", dio.dominio)
 	sp = sp.replace("{{AGENDA}}", dio.agenda)

@@ -1,5 +1,7 @@
 {{GUARDRAIL}}
 
+{{MONDO}}
+
 ---
 
 Sei l'Interprete del mondo dell'Odissea. Il tuo compito: leggere cio' che Ulisse

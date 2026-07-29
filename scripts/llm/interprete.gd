@@ -13,6 +13,7 @@ extends RefCounted
 
 const PROMPT_SYSTEM := "res://prompts/interprete_system.txt"
 const PROMPT_GUARDRAIL := "res://prompts/guardrail_anti_assistente.txt"
+const PROMPT_MONDO := "res://prompts/mondo.txt"
 
 var _system_prompt: String = ""
 var id_dei_validi: Array = []
@@ -31,6 +32,7 @@ func _costruisci_system_prompt(pantheon: Pantheon = null) -> String:
 	var template := _leggi(PROMPT_SYSTEM)
 	var guardrail := _leggi(PROMPT_GUARDRAIL)
 	template = template.replace("{{GUARDRAIL}}", guardrail)
+	template = template.replace("{{MONDO}}", _leggi(PROMPT_MONDO))
 	template = template.replace("{{VOCABOLARIO_TAG}}", Contratto.vocabolario_per_prompt())
 	template = template.replace("{{ROSTER_DEI}}", _roster(pantheon))
 	return template

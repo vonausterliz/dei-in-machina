@@ -10,6 +10,7 @@ extends RefCounted
 
 const PROMPT_SYSTEM := "res://prompts/omero_system.txt"
 const PROMPT_GUARDRAIL := "res://prompts/guardrail_anti_assistente.txt"
+const PROMPT_MONDO := "res://prompts/mondo.txt"
 
 var _system_prompt: String = ""
 var _nomi_dei: Array[String] = []
@@ -19,7 +20,11 @@ func _init(nomi_dei: Array = []) -> void:
 		_nomi_dei.append(String(n))
 	var template := _leggi(PROMPT_SYSTEM)
 	template = template.replace("{{GUARDRAIL}}", _leggi(PROMPT_GUARDRAIL))
+	template = template.replace("{{MONDO}}", _leggi(PROMPT_MONDO))
 	_system_prompt = template
+
+func system_prompt() -> String:
+	return _system_prompt
 
 func _leggi(path: String) -> String:
 	if not FileAccess.file_exists(path):
