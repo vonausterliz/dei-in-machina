@@ -6,7 +6,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "1.9"
+const VERSIONE := "2.0"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -44,6 +44,7 @@ var _menu_view: PopupMenu
 var _lbl_motore: Label
 var _scala_schermo: float = 1.0
 var _zoom_utente: float = 1.0
+var _motore_da_ripristinare: int = -1
 var _fin_impostazioni: FinestraImpostazioni
 var _btn_olimpo: Button
 var _btn_log: Button
@@ -68,11 +69,65 @@ func _ready() -> void:
 	_serif_italic = load("res://fonts/Cardo-Italic.ttf")
 	_prepara_finestra()
 	_costruisci_ui()
-	FinestraImpostazioni.applica_chiavi_salvate()  # chiavi utente -> ambiente
-	LLMManager.mock_mode = true
+	Impostazioni.applica_chiavi_all_ambiente()  # chiavi utente -> ambiente
+	_ripristina_preferenze()
 	LLMManager.llm_log.connect(_on_llm_log)
 	GameManager.nuova_partita(0)
 	_apri_scena()
+	_ripristina_finestre()
+
+## Rimette le scelte dell'ultima sessione: dimensione interfaccia, provider/modello e
+## motore. Cosi' non si riconfigura tutto a ogni avvio.
+func _ripristina_preferenze() -> void:
+	imposta_zoom(float(Impostazioni.leggi("zoom", 1.0)))
+	var idx := int(Impostazioni.leggi("provider_idx", 0))
+	if idx > 0:
+		LLMManager.imposta_profilo_esterno(idx)
+	var modello := String(Impostazioni.leggi("modello", ""))
+	if modello != "":
+		LLMManager.imposta_modello(modello)
+	LLMManager.mock_mode = true  # il motore reale si attiva dopo, senza bloccare l'avvio
+	var motore := int(Impostazioni.leggi("motore", FinestraImpostazioni.MOTORE_MOCK))
+	if motore != FinestraImpostazioni.MOTORE_MOCK:
+		_motore_da_ripristinare = motore
+
+## Riapre le viste che erano aperte, dove e come erano; poi riattiva il motore scelto.
+func _ripristina_finestre() -> void:
+	if _senza_schermo():
+		return
+	for coppia in [["log", _fin_log, _btn_log, VOCE_LOG], ["olimpo", _fin_olimpo, _btn_olimpo, VOCE_OLIMPO]]:
+		var g: Dictionary = Impostazioni.geometria(String(coppia[0]))
+		if g.is_empty():
+			continue
+		var fin: FinestraTesto = coppia[1]
+		if g["dim"].x > 200 and g["dim"].y > 150:
+			fin.size = g["dim"]
+		fin.position = g["pos"]
+		if g["aperta"]:
+			coppia[2].button_pressed = true
+			_spunta_view(int(coppia[3]), true)
+	if _motore_da_ripristinare >= 0:
+		var m := _motore_da_ripristinare
+		_motore_da_ripristinare = -1
+		await _on_motore_scelto(m)
+
+## Alla chiusura salvo dove sono finite le finestre, per ritrovarle uguali.
+func _notification(che: int) -> void:
+	if che == NOTIFICATION_WM_CLOSE_REQUEST or che == NOTIFICATION_PREDELETE:
+		_salva_geometrie()
+
+func _salva_geometrie() -> void:
+	if _senza_schermo():
+		return
+	if _fin_log:
+		Impostazioni.salva_geometria("log", _fin_log.position, _fin_log.size, _fin_log.visible)
+	if _fin_olimpo:
+		Impostazioni.salva_geometria("olimpo", _fin_olimpo.position, _fin_olimpo.size, _fin_olimpo.visible)
+
+## Vero in headless (i test): li' non esiste un vero server finestre e le operazioni di
+## geometria falliscono. Le preferenze visive non hanno senso senza schermo.
+func _senza_schermo() -> bool:
+	return DisplayServer.get_name() == "headless"
 
 func _prepara_finestra() -> void:
 	var w := get_window()
@@ -104,6 +159,7 @@ func _applica_scala() -> void:
 ## Chiamata da Settings quando l'utente cambia la dimensione dell'interfaccia.
 func imposta_zoom(fattore: float) -> void:
 	_zoom_utente = clampf(fattore, 0.8, 2.0)
+	Impostazioni.scrivi("zoom", _zoom_utente)  # unico punto in cui la scelta si persiste
 	_applica_scala()
 
 # --- helper di stile ---
@@ -391,7 +447,7 @@ func _colonna_rapsodia() -> Control:
 	_btn_olimpo.add_theme_stylebox_override("hover", _sfondo(8, C_SEA2, C_GOLD))
 	_btn_olimpo.add_theme_stylebox_override("pressed", _sfondo(8, C_GOLD_DEEP, C_GOLD))
 	_btn_olimpo.toggled.connect(_on_toggle_olimpo)
-	_btn_olimpo.visible = false  # il comando ora è in View; il bottone resta da attuatore
+	opz.add_child(_btn_olimpo)  # nel contenitore invisibile: comandato dal menu View
 	# Log LLM: finestra separata col traffico verso il modello.
 	_btn_log = Button.new()
 	_btn_log.text = "Log LLM"
@@ -401,7 +457,7 @@ func _colonna_rapsodia() -> Control:
 	_btn_log.add_theme_stylebox_override("hover", _sfondo(8, C_SEA2, C_GOLD))
 	_btn_log.add_theme_stylebox_override("pressed", _sfondo(8, C_GOLD_DEEP, C_GOLD))
 	_btn_log.toggled.connect(_on_toggle_log)
-	_btn_log.visible = false     # idem: comandato dal menu View
+	opz.add_child(_btn_log)     # idem: comandato dal menu View
 	_chk_ollama = CheckButton.new()
 	_chk_ollama.text = "Ollama (locale)"
 	_chk_ollama.add_theme_color_override("font_color", C_BONE_DIM)

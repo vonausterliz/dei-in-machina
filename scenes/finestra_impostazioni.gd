@@ -7,8 +7,6 @@ extends Window
 ## dell'utente, fuori dal progetto). Restano valide le variabili d'ambiente: se una chiave
 ## è già nell'ambiente, quella ha la precedenza e qui appare come "già presente".
 
-const PERCORSO := "user://impostazioni.json"
-
 const C_SEA := Color("0e0b16")
 const C_BONE := Color("eadfc7")
 const C_BONE_DIM := Color("b4a98d")
@@ -35,11 +33,13 @@ var _stato: Label
 
 func _init() -> void:
 	title = "Impostazioni · modelli e chiavi API"
-	size = Vector2i(680, 560)
+	size = Vector2i(900, 820)   # il contenuto e' cresciuto: prima si doveva allargare a mano
+	min_size = Vector2i(640, 480)
 	visible = false
-	close_requested.connect(hide)
 
 func _ready() -> void:
+	if not close_requested.is_connected(hide):
+		close_requested.connect(hide)
 	var sfondo := ColorRect.new()
 	sfondo.color = C_SEA
 	sfondo.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -49,9 +49,15 @@ func _ready() -> void:
 	for lato in ["left", "top", "right", "bottom"]:
 		margine.add_theme_constant_override("margin_" + lato, 18)
 	add_child(margine)
+	# Scorrevole: cosi' il contenuto resta raggiungibile anche a finestra piccola.
+	var scorri := ScrollContainer.new()
+	scorri.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scorri.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	margine.add_child(scorri)
 	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.add_theme_constant_override("separation", 14)
-	margine.add_child(v)
+	scorri.add_child(v)
 
 	v.add_child(_etichetta("ASPETTO", 14, C_GOLD))
 	var riga_zoom := HBoxContainer.new()
@@ -61,9 +67,11 @@ func _ready() -> void:
 	var opt_zoom := OptionButton.new()
 	for etichetta in ["100%", "115%", "130%", "150%", "175%"]:
 		opt_zoom.add_item(etichetta)
-	opt_zoom.select(0)
+	var zoom_valori := [1.0, 1.15, 1.30, 1.50, 1.75]
+	opt_zoom.select(maxi(0, zoom_valori.find(float(Impostazioni.leggi("zoom", 1.0)))))
 	opt_zoom.item_selected.connect(func(i):
-		zoom_scelto.emit([1.0, 1.15, 1.30, 1.50, 1.75][i]))
+		Impostazioni.scrivi("zoom", zoom_valori[i])
+		zoom_scelto.emit(zoom_valori[i]))
 	riga_zoom.add_child(opt_zoom)
 	riga_zoom.add_child(_etichetta("(vale per il gioco e per le finestre di servizio)", 12, C_BONE_DIM))
 
@@ -77,7 +85,11 @@ func _ready() -> void:
 	_opt_motore.add_item("Simulato (senza LLM, istantaneo)", MOTORE_MOCK)
 	_opt_motore.add_item("Ollama locale", MOTORE_OLLAMA)
 	_opt_motore.add_item("Provider esterno (API)", MOTORE_ESTERNO)
-	_opt_motore.item_selected.connect(func(i): motore_scelto.emit(_opt_motore.get_item_id(i)))
+	_opt_motore.select(_opt_motore.get_item_index(int(Impostazioni.leggi("motore", MOTORE_MOCK))))
+	_opt_motore.item_selected.connect(func(i):
+		var modo := _opt_motore.get_item_id(i)
+		Impostazioni.scrivi("motore", modo)
+		motore_scelto.emit(modo))
 	riga_motore.add_child(_opt_motore)
 
 	v.add_child(_separatore())
@@ -93,7 +105,9 @@ func _ready() -> void:
 	riga.add_child(_opt_provider)
 	riga.add_child(_etichetta("Modello:", 13, C_BONE_DIM))
 	_opt_modello = OptionButton.new()
-	_opt_modello.item_selected.connect(func(i): LLMManager.imposta_modello(_opt_modello.get_item_text(i)))
+	_opt_modello.item_selected.connect(func(i):
+		Impostazioni.scrivi("modello", _opt_modello.get_item_text(i))
+		LLMManager.imposta_modello(_opt_modello.get_item_text(i)))
 	riga.add_child(_opt_modello)
 	var btn_agg := Button.new()
 	btn_agg.text = "Aggiorna elenco"
@@ -175,22 +189,11 @@ func _variabili_chiave() -> Array:
 # --- persistenza ---
 
 static func _chiavi_salvate() -> Dictionary:
-	if not FileAccess.file_exists(PERCORSO):
-		return {}
-	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(PERCORSO))
-	if typeof(parsed) != TYPE_DICTIONARY:
-		return {}
-	var c: Variant = parsed.get("chiavi", {})
-	return c if typeof(c) == TYPE_DICTIONARY else {}
+	return Impostazioni.chiavi()
 
-## Carica le chiavi salvate nell'ambiente del processo (all'avvio del gioco), così il
-## resto del codice continua a leggerle come sempre da OS.get_environment.
+## Compatibilita': l'avvio chiama questa; la sostanza sta in Impostazioni.
 static func applica_chiavi_salvate() -> void:
-	for env in _chiavi_salvate():
-		var valore := String(_chiavi_salvate()[env])
-		# L'ambiente vero ha la precedenza: non lo sovrascrivo.
-		if valore != "" and not (OS.has_environment(env) and OS.get_environment(env) != ""):
-			OS.set_environment(env, valore)
+	Impostazioni.applica_chiavi_all_ambiente()
 
 func _salva() -> void:
 	var chiavi: Dictionary = {}
@@ -200,18 +203,14 @@ func _salva() -> void:
 			chiavi[env] = v
 			if not (OS.has_environment(env) and OS.get_environment(env) != ""):
 				OS.set_environment(env, v)
-	var f := FileAccess.open(PERCORSO, FileAccess.WRITE)
-	if f == null:
-		_stato.text = "Impossibile salvare le impostazioni."
-		return
-	f.store_string(JSON.stringify({"chiavi": chiavi}, "  "))
-	f.close()
+	Impostazioni.scrivi("chiavi", chiavi)
 	_stato.text = "Salvato. Le chiavi valgono da subito (le nuove chiamate le useranno)."
 	applicate.emit()
 
 # --- reazioni ---
 
 func _on_provider(idx: int) -> void:
+	Impostazioni.scrivi("provider_idx", idx)
 	LLMManager.imposta_profilo_esterno(idx)
 	_sincronizza_modello()
 

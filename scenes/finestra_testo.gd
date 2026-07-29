@@ -24,17 +24,23 @@ func _init(titolo_finestra: String, accodante: bool = true, dimensione := Vector
 		position = posizione  # finestre distinte: ognuna col suo posto, non sovrapposte
 	unresizable = false
 	visible = false
-	always_on_top = true  # viste di servizio: restano davanti al gioco mentre si legge
+	# Restano davanti al gioco mentre si legge. In headless (i test) non esiste un vero
+	# server finestre e la chiamata fallirebbe.
+	if DisplayServer.get_name() != "headless":
+		always_on_top = true
 
 ## Le finestre secondarie NON ereditano il content_scale_factor della principale: su uno
 ## schermo Retina il testo verrebbe disegnato a pixel nativi, cioè minuscolo (ed è il
 ## motivo per cui A+/A− sembravano non funzionare: cambiavano di 1 px su scala dimezzata).
 func applica_scala(fattore: float) -> void:
 	content_scale_factor = clampf(fattore, 1.0, 3.0)
-	# Chiudendo dalla X la finestra si nasconde soltanto: lo stato del gioco non cambia.
-	close_requested.connect(_su_chiusura)
+
 
 func _ready() -> void:
+	# Chiudendo dalla X la finestra si nasconde soltanto: lo stato del gioco non cambia.
+	# La connessione va qui, non in _init: _init puo' essere eseguito piu' volte.
+	if not close_requested.is_connected(_su_chiusura):
+		close_requested.connect(_su_chiusura)
 	var sfondo := ColorRect.new()
 	sfondo.color = C_SEA
 	sfondo.set_anchors_preset(Control.PRESET_FULL_RECT)
