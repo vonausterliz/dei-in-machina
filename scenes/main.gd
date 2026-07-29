@@ -160,6 +160,8 @@ func _colonna_rapsodia() -> Control:
 	_narrazione.bbcode_enabled = true
 	_narrazione.scroll_following = true
 	_narrazione.fit_content = false
+	_narrazione.selection_enabled = true       # si può selezionare il testo…
+	_narrazione.context_menu_enabled = true     # …e copiarlo col tasto destro / Cmd+C
 	_narrazione.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_narrazione.add_theme_font_override("normal_font", _serif)
 	_narrazione.add_theme_font_override("bold_font", _serif_bold)
@@ -314,6 +316,8 @@ func _colonna_olimpo() -> Control:
 	_log_llm = RichTextLabel.new()
 	_log_llm.bbcode_enabled = true
 	_log_llm.scroll_following = true
+	_log_llm.selection_enabled = true
+	_log_llm.context_menu_enabled = true
 	_log_llm.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_log_llm.custom_minimum_size = Vector2(0, 220)
 	_log_llm.add_theme_color_override("default_color", C_BONE_DIM)
@@ -327,6 +331,8 @@ func _colonna_olimpo() -> Control:
 	_olimpo = RichTextLabel.new()
 	_olimpo.bbcode_enabled = false
 	_olimpo.scroll_following = true
+	_olimpo.selection_enabled = true
+	_olimpo.context_menu_enabled = true
 	_olimpo.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_olimpo.add_theme_color_override("default_color", C_BONE_DIM)
 	_olimpo.add_theme_font_size_override("normal_font_size", 13)
@@ -416,8 +422,16 @@ func _aggiungi_diario() -> void:
 	punto.custom_minimum_size = Vector2(7, 7)
 	punto.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	riga.add_child(punto)
-	var testo := _titolo(d.get("voce", ""), 14, C_BONE, _serif)
+	var testo := RichTextLabel.new()
+	testo.text = d.get("voce", "")
+	testo.fit_content = true
+	testo.scroll_active = false
+	testo.selection_enabled = true       # anche il diario è copiabile
+	testo.context_menu_enabled = true
 	testo.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	testo.add_theme_font_override("normal_font", _serif)
+	testo.add_theme_font_size_override("normal_font_size", 14)
+	testo.add_theme_color_override("default_color", C_BONE)
 	testo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	testo.custom_minimum_size = Vector2(240, 0)
 	riga.add_child(testo)
