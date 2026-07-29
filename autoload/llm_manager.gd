@@ -10,9 +10,12 @@ extends Node
 ## arrivano dalle fasi 2-3 (per ora restano sul mock anche in modalita' non-mock).
 
 const CONFIG_PATH := "res://config/llm_config.json"
+const CONFIG_ESTERNO_PATH := "res://config/llm_config.esterno.json"  # profilo API cloud (es. Mistral)
 
 var mock_mode: bool = true
-var config: Dictionary = {}
+var provider_esterno: bool = false   # false = Ollama locale; true = API esterna
+var config: Dictionary = {}          # profilo locale (Ollama)
+var config_esterno: Dictionary = {}  # profilo API esterna (vuoto se non predisposto)
 
 var _mock := LLMMock.new()
 var _client: LLMClient = null
@@ -32,10 +35,34 @@ const _SPUNTI_GENERICI := [
 
 func _ready() -> void:
 	config = _carica_config()
+	config_esterno = _carica_esterno()
 	_applica_override_env()
 	mock_mode = config.get("mock", true)
 	if not mock_mode:
 		_inizializza_reale()
+
+## Profilo del provider attivo (locale o esterno). I punti di chiamata non cambiano: il
+## client è provider-agnostico (formato chat-completions OpenAI).
+func _config_attiva() -> Dictionary:
+	return config_esterno if (provider_esterno and not config_esterno.is_empty()) else config
+
+func _carica_esterno() -> Dictionary:
+	if not FileAccess.file_exists(CONFIG_ESTERNO_PATH):
+		return {}
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(CONFIG_ESTERNO_PATH))
+	return parsed if typeof(parsed) == TYPE_DICTIONARY else {}
+
+## Il profilo esterno è disponibile (file presente e valido)?
+func provider_esterno_disponibile() -> bool:
+	return not config_esterno.is_empty()
+
+## La chiave API del profilo esterno è esportata nell'ambiente?
+func chiave_esterno_presente() -> bool:
+	return _leggi_chiave(config_esterno) != ""
+
+## Modello atteso dal provider attivo (per messaggi/verifica).
+func modello_atteso() -> String:
+	return String(_config_attiva().get("model", "?"))
 
 ## Il modello puo' essere scelto senza toccare il JSON: variabile d'ambiente DEI_MODELLO
 ## (impostata da ./avvia.sh con MODELLO=...). Comodo per provare modelli diversi su M1.
@@ -49,22 +76,27 @@ func _applica_override_env() -> void:
 func imposta_modello(nome: String) -> void:
 	if nome.strip_edges() == "":
 		return
-	config["model"] = nome
+	_config_attiva()["model"] = nome
 	if _client:
 		_client.model = nome
 	_reg("modello impostato: %s" % nome)
 
-## Abilita il percorso LLM reale a runtime (usato dalla console con Ollama), anche se
-## la config parte in mock. Idempotente.
-func abilita_reale() -> void:
+## Abilita il percorso LLM reale a runtime. esterno=false -> Ollama locale; true -> API
+## esterna (profilo config_esterno). Riconfigura il client sul provider scelto. Idempotente.
+func abilita_reale(esterno: bool = false) -> void:
 	mock_mode = false
+	provider_esterno = esterno
 	if _client == null:
 		_inizializza_reale()
+	else:
+		var cfg := _config_attiva()
+		_client.configura(cfg, _leggi_chiave(cfg))
 
 func _inizializza_reale() -> void:
 	_client = LLMClient.new()
 	add_child(_client)
-	_client.configura(config, _leggi_chiave(config))
+	var cfg := _config_attiva()
+	_client.configura(cfg, _leggi_chiave(cfg))
 	_client.logger = Callable(self, "_reg")  # il traffico HTTP finisce nel log di debug
 	var id_dei: Array = PantheonManager.pantheon.tutti_gli_id() if PantheonManager.pantheon else []
 	_interprete = Interprete.new(id_dei, PantheonManager.pantheon)
@@ -107,7 +139,7 @@ func _reg(r: String) -> void:
 func verifica_ollama() -> Dictionary:
 	if _client == null:
 		_inizializza_reale()
-	var atteso: String = config.get("model", "?")
+	var atteso: String = modello_atteso()
 	_reg("→ verifica: server LLM e modello «%s»…" % atteso)
 	var r: Dictionary = await _client.elenca_modelli()
 	if not r["ok"]:

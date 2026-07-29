@@ -34,6 +34,7 @@ var _col_olimpo: Control
 var _btn_olimpo: Button
 var _btn_agisci: Button
 var _chk_ollama: CheckButton
+var _chk_esterno: CheckButton
 var _opt_modello: OptionButton
 var _stat_bars := {}
 var _stat_vals := {}
@@ -230,17 +231,25 @@ func _colonna_rapsodia() -> Control:
 	_btn_olimpo.toggled.connect(_on_toggle_olimpo)
 	opz.add_child(_btn_olimpo)
 	_chk_ollama = CheckButton.new()
-	_chk_ollama.text = "Ollama (dèi reali)"
+	_chk_ollama.text = "Ollama (locale)"
 	_chk_ollama.add_theme_color_override("font_color", C_BONE_DIM)
 	_chk_ollama.toggled.connect(_on_toggle_ollama)
 	opz.add_child(_chk_ollama)
+
+	# Flag: usa un LLM esterno (API cloud, es. Mistral) invece di Ollama locale.
+	_chk_esterno = CheckButton.new()
+	_chk_esterno.text = "LLM esterno (API)"
+	_chk_esterno.add_theme_color_override("font_color", C_BONE_DIM)
+	_chk_esterno.tooltip_text = "Usa il provider esterno (config/llm_config.esterno.json). Serve la chiave: export MISTRAL_API_KEY=…"
+	_chk_esterno.toggled.connect(_on_toggle_esterno)
+	opz.add_child(_chk_esterno)
 
 	# Selettore del modello: popolato quando Ollama e' attivo, coi modelli installati.
 	_opt_modello = OptionButton.new()
 	_opt_modello.disabled = true
 	_opt_modello.add_theme_color_override("font_color", C_BONE)
 	_opt_modello.add_theme_font_size_override("font_size", 13)
-	_opt_modello.tooltip_text = "Modello Ollama (attiva «Ollama» per popolarlo)"
+	_opt_modello.tooltip_text = "Modello del provider attivo (attiva Ollama o LLM esterno per popolarlo)"
 	_opt_modello.item_selected.connect(_on_modello_scelto)
 	opz.add_child(_opt_modello)
 
@@ -530,33 +539,61 @@ func _on_toggle_olimpo(premuto: bool) -> void:
 
 func _on_toggle_ollama(premuto: bool) -> void:
 	if not premuto:
-		LLMManager.mock_mode = true
+		if not _chk_esterno.button_pressed:
+			LLMManager.mock_mode = true
 		return
+	_chk_esterno.set_pressed_no_signal(false)  # mutuamente esclusivi
+	await _attiva_reale(false)
+
+func _on_toggle_esterno(premuto: bool) -> void:
+	if not premuto:
+		if not _chk_ollama.button_pressed:
+			LLMManager.mock_mode = true
+		return
+	if not LLMManager.provider_esterno_disponibile():
+		_chk_esterno.set_pressed_no_signal(false)
+		_narrazione.append_text("[color=%s]Nessun provider esterno configurato (config/llm_config.esterno.json). Resto sui dèi simulati (mock).[/color]\n" % C_OXBLOOD.to_html())
+		return
+	if not LLMManager.chiave_esterno_presente():
+		_chk_esterno.set_pressed_no_signal(false)
+		_narrazione.append_text("[color=%s]Manca la chiave API: esporta la variabile d'ambiente (es. export MISTRAL_API_KEY=…) e rilancia. Resto sui dèi simulati (mock).[/color]\n" % C_OXBLOOD.to_html())
+		return
+	_chk_ollama.set_pressed_no_signal(false)  # mutuamente esclusivi
+	await _attiva_reale(true)
+
+## Attiva il percorso reale sul provider scelto (Ollama locale o API esterna), verifica
+## e popola il selettore dei modelli. Se non è pronto, torna ai dèi simulati e spiega.
+func _attiva_reale(esterno: bool) -> void:
+	var chk := _chk_esterno if esterno else _chk_ollama
+	var dove := "API esterna" if esterno else "Ollama"
 	# Apri la colonna di debug col log, cosi' si vede subito la verifica e il traffico.
 	_btn_olimpo.button_pressed = true
 	_col_olimpo.visible = true
 	_chk_ollama.disabled = true
-	LLMManager.abilita_reale()
+	_chk_esterno.disabled = true
+	LLMManager.abilita_reale(esterno)
 	var v: Dictionary = await LLMManager.verifica_ollama()
 	_chk_ollama.disabled = false
+	_chk_esterno.disabled = false
 	if not v["attivo"]:
 		LLMManager.mock_mode = true
-		_chk_ollama.set_pressed_no_signal(false)
-		_narrazione.append_text("[color=%s]Ollama non risponde. Avvialo con «ollama serve» (o rilancia ./avvia.sh). Resto sui dèi simulati (mock).[/color]\n" % C_OXBLOOD.to_html())
+		chk.set_pressed_no_signal(false)
+		var aiuto := "controlla la chiave API e la rete" if esterno else "avvialo con «ollama serve» (o rilancia ./avvia.sh)"
+		_narrazione.append_text("[color=%s]%s non risponde (%s): %s. Resto sui dèi simulati (mock).[/color]\n" % [C_OXBLOOD.to_html(), dove, v.get("errore", "?"), aiuto])
 		return
 	if v["modelli"].is_empty():
 		LLMManager.mock_mode = true
-		_chk_ollama.set_pressed_no_signal(false)
-		_narrazione.append_text("[color=%s]Nessun modello installato su Ollama: scaricane uno con «ollama pull …». Resto sui dèi simulati (mock).[/color]\n" % C_OXBLOOD.to_html())
+		chk.set_pressed_no_signal(false)
+		_narrazione.append_text("[color=%s]%s non elenca modelli disponibili. Resto sui dèi simulati (mock).[/color]\n" % [C_OXBLOOD.to_html(), dove])
 		return
 	# Modello: quello di config se presente, altrimenti il primo disponibile (lo dico).
 	var scelto: String = v["atteso"]
 	if not v["modello_presente"]:
 		scelto = String(v["modelli"][0])
 		LLMManager.imposta_modello(scelto)
-		_narrazione.append_text("[color=%s]Il modello «%s» non è installato: uso «%s». Puoi cambiarlo dal menù accanto.[/color]\n" % [C_OXBLOOD.to_html(), v["atteso"], scelto])
+		_narrazione.append_text("[color=%s]Il modello «%s» non è disponibile: uso «%s». Puoi cambiarlo dal menù accanto.[/color]\n" % [C_OXBLOOD.to_html(), v["atteso"], scelto])
 	_popola_modelli(v["modelli"], scelto)
-	_narrazione.append_text("[color=%s][modalità Ollama: dèi e narratore reali (%s). Può essere lento; guarda il log a destra.][/color]\n" % [C_VERDIGRIS.to_html(), scelto])
+	_narrazione.append_text("[color=%s][modalità %s: dèi e narratore reali (%s). Guarda il log a destra.][/color]\n" % [C_VERDIGRIS.to_html(), dove, scelto])
 	if not _busy and not _finita:
 		await _rigenera_spunti()  # spunti contestuali generati dal modello
 

@@ -1,0 +1,8 @@
+{
+  "_nota": "Profilo LLM ESTERNO (API cloud), selezionabile in gioco col flag «LLM esterno (API)». Serve la chiave nella variabile d'ambiente indicata: export MISTRAL_API_KEY=... prima di lanciare. Il codice non cambia: client provider-agnostico (chat-completions OpenAI). Endpoint effettivo = base_url + /v1/chat/completions.",
+  "provider": "mistral-api",
+  "base_url": "https://api.mistral.ai",
+  "model": "mistral-large-latest",
+  "api_key_env": "MISTRAL_API_KEY",
+  "timeout_sec": 120
+}
