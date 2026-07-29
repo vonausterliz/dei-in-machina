@@ -1,0 +1,97 @@
+{
+  "_nota": "Tutte le stringhe mostrate all'utente. Per tradurre: copiare questo file in en.json / fr.json / de.json / el.json e tradurre i VALORI (le chiavi restano). Niente testo dentro il codice.",
+  "lingua": "it",
+  "app": {
+    "titolo_finestra": "Dei in machina",
+    "titolo": "DEI  IN  MACHINA",
+    "sottotitolo": "l'Odissea · gli dèi ti ascoltano",
+    "marchio_poeta": "ΟΜΗΡΟΣ · la voce del poeta"
+  },
+  "menu": {
+    "view": "View",
+    "settings": "Settings",
+    "vista_olimpo": "Vista Olimpo",
+    "log_llm": "Log LLM",
+    "impostazioni": "Modelli e chiavi API…"
+  },
+  "gioco": {
+    "domanda": "Cosa fai, Ulisse?",
+    "placeholder": "Scrivi qui quello che pensi debba fare Ulisse…",
+    "agisci": "Agisci",
+    "attesa": "…",
+    "suggerimento": "Puoi scrivere qualunque cosa. Gli dèi ascoltano le parole, non i comandi.",
+    "spunti_in_arrivo": "… il mare suggerisce …",
+    "omero": "Omero:",
+    "vittoria": "— VITTORIA: sei tornato a Itaca. —",
+    "fine": "— FINE: %s —"
+  },
+  "pannelli": {
+    "carta_viaggio": "CARTA DEL VIAGGIO",
+    "diario": "DIARIO DI BORDO",
+    "condizione": "LA TUA CONDIZIONE",
+    "astuzia": "Astuzia",
+    "animo": "Animo",
+    "ciurma": "Ciurma",
+    "tracotanza": "Tracotanza",
+    "ciurma_conteggio": "%d di %d",
+    "nota_dei_nascosti": "Degli dèi non vedrai nulla: né volti, né favori, né la misura della loro ira. Solo il mare, e ciò che ne segue."
+  },
+  "avvisi": {
+    "richiamo": "⟡ Quel gesto non appartiene a questo mondo: Ulisse non può compierlo. Riprova con qualcosa che l'Odissea conosca.",
+    "smarrimento": "⟡ Insisti con gesti impossibili: lo smarrimento ti prende, e l'animo cede.",
+    "follia": "⟡ La ragione ti ha abbandonato. L'empietà reiterata chiama la mano di un dio."
+  },
+  "motore": {
+    "in_uso": "motore: %s · %s",
+    "simulato": "motore: dèi simulati  ·  cambia da Settings",
+    "dei_simulati": "[dèi simulati: nessuna chiamata al modello]",
+    "attivo": "[modalità %s: dèi e narratore reali (%s). Guarda il log a destra.]",
+    "non_risponde": "%s non risponde (%s): %s. Resto sui dèi simulati (mock).",
+    "aiuto_ollama": "avvialo con «ollama serve» (o rilancia ./avvia.sh)",
+    "aiuto_esterno": "controlla la chiave API e la rete",
+    "niente_modelli": "%s non elenca modelli disponibili. Resto sui dèi simulati (mock).",
+    "modello_assente": "Attenzione: «%s» non compare tra i modelli offerti dal provider. Lo uso lo stesso; se le chiamate falliscono, scegline un altro da Settings.",
+    "nessun_profilo": "Nessun provider esterno configurato (config/providers/). Resto sui dèi simulati (mock).",
+    "manca_chiave": "Manca la chiave API per «%s»: impostala da Settings. Resto sui dèi simulati (mock).",
+    "nome_ollama": "Ollama",
+    "nome_esterno": "API esterna"
+  },
+  "finestre": {
+    "log_titolo": "Log LLM · traffico verso il modello",
+    "olimpo_titolo": "Vista Olimpo · le voci degli dèi",
+    "impostazioni_titolo": "Impostazioni · modelli e chiavi API",
+    "copia": "Copia tutto",
+    "pulisci": "Pulisci",
+    "testo_piu": "A+",
+    "testo_meno": "A−"
+  },
+  "impostazioni": {
+    "aspetto": "ASPETTO",
+    "dimensione": "Dimensione interfaccia:",
+    "dimensione_nota": "(vale per il gioco e per le finestre di servizio)",
+    "motore": "MOTORE",
+    "chi_parla": "Chi dà voce agli dèi:",
+    "ollama_locale": "Ollama locale",
+    "provider_esterno": "Provider esterno (API)",
+    "provider_modello": "PROVIDER E MODELLO",
+    "provider": "Provider:",
+    "modello": "Modello:",
+    "aggiorna_elenco": "Aggiorna elenco",
+    "gateway": "Passa dal Gateway locale (limiti del piano gratuito: coda, throttling, cache)",
+    "chiavi": "CHIAVI API",
+    "chiavi_nota": "Salvate nella cartella dati dell'utente, mai nel progetto. Una chiave già presente nell'ambiente ha la precedenza.",
+    "chiave_placeholder": "incolla qui la chiave",
+    "gia_ambiente": "già nell'ambiente",
+    "salva": "Salva e applica",
+    "chiudi": "Chiudi",
+    "salvato": "Salvato. Le chiavi valgono da subito (le nuove chiamate le useranno).",
+    "salvataggio_fallito": "Impossibile salvare le impostazioni.",
+    "gateway_scelto": "Gateway selezionato. Ricorda di avviarlo: llm_gateway/gateway.sh start",
+    "interrogo": "Interrogo il provider…",
+    "non_raggiungibile": "Provider non raggiungibile: %s",
+    "modelli_trovati": "%d modelli disponibili.",
+    "tooltip_esterno": "Usa un provider esterno (config/providers/*.json). La chiave si imposta qui in Settings.",
+    "tooltip_provider": "Provider esterno da usare",
+    "tooltip_modello": "Modello del provider attivo"
+  }
+}

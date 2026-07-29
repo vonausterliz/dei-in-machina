@@ -36,7 +36,7 @@ var _chk_gateway: CheckBox
 var _stato: Label
 
 func _init() -> void:
-	title = "Impostazioni · modelli e chiavi API"
+	title = Testi.s("finestre/impostazioni_titolo")
 	size = DIM_BASE
 	min_size = Vector2i(640, 460)
 	visible = false
@@ -63,11 +63,11 @@ func _ready() -> void:
 	v.add_theme_constant_override("separation", 14)
 	scorri.add_child(v)
 
-	v.add_child(_etichetta("ASPETTO", 14, C_GOLD))
+	v.add_child(_etichetta(Testi.s("impostazioni/aspetto"), 14, C_GOLD))
 	var riga_zoom := HBoxContainer.new()
 	riga_zoom.add_theme_constant_override("separation", 10)
 	v.add_child(riga_zoom)
-	riga_zoom.add_child(_etichetta("Dimensione interfaccia:", 13, C_BONE_DIM))
+	riga_zoom.add_child(_etichetta(Testi.s("impostazioni/dimensione"), 13, C_BONE_DIM))
 	var opt_zoom := OptionButton.new()
 	for etichetta in ["100%", "115%", "130%", "150%", "175%"]:
 		opt_zoom.add_item(etichetta)
@@ -77,19 +77,19 @@ func _ready() -> void:
 		Impostazioni.scrivi("zoom", zoom_valori[i])
 		zoom_scelto.emit(zoom_valori[i]))
 	riga_zoom.add_child(opt_zoom)
-	riga_zoom.add_child(_etichetta("(vale per il gioco e per le finestre di servizio)", 12, C_BONE_DIM))
+	riga_zoom.add_child(_etichetta(Testi.s("impostazioni/dimensione_nota"), 12, C_BONE_DIM))
 
 	v.add_child(_separatore())
-	v.add_child(_etichetta("MOTORE", 14, C_GOLD))
+	v.add_child(_etichetta(Testi.s("impostazioni/motore"), 14, C_GOLD))
 	var riga_motore := HBoxContainer.new()
 	riga_motore.add_theme_constant_override("separation", 10)
 	v.add_child(riga_motore)
-	riga_motore.add_child(_etichetta("Chi dà voce agli dèi:", 13, C_BONE_DIM))
+	riga_motore.add_child(_etichetta(Testi.s("impostazioni/chi_parla"), 13, C_BONE_DIM))
 	_opt_motore = OptionButton.new()
 	# Il simulato (mock) resta solo come stato interno di partenza e per i test: non e'
 	# una scelta di gioco, quindi non compare qui.
-	_opt_motore.add_item("Ollama locale", MOTORE_OLLAMA)
-	_opt_motore.add_item("Provider esterno (API)", MOTORE_ESTERNO)
+	_opt_motore.add_item(Testi.s("impostazioni/ollama_locale"), MOTORE_OLLAMA)
+	_opt_motore.add_item(Testi.s("impostazioni/provider_esterno"), MOTORE_ESTERNO)
 	var motore_salvato := int(Impostazioni.leggi("motore", MOTORE_ESTERNO))
 	var idx_motore := _opt_motore.get_item_index(motore_salvato)
 	_opt_motore.select(idx_motore if idx_motore >= 0 else 0)
@@ -100,36 +100,36 @@ func _ready() -> void:
 	riga_motore.add_child(_opt_motore)
 
 	v.add_child(_separatore())
-	v.add_child(_etichetta("PROVIDER E MODELLO", 14, C_GOLD))
+	v.add_child(_etichetta(Testi.s("impostazioni/provider_modello"), 14, C_GOLD))
 	var riga := HBoxContainer.new()
 	riga.add_theme_constant_override("separation", 10)
 	v.add_child(riga)
-	riga.add_child(_etichetta("Provider:", 13, C_BONE_DIM))
+	riga.add_child(_etichetta(Testi.s("impostazioni/provider"), 13, C_BONE_DIM))
 	_opt_provider = OptionButton.new()
 	for nome in LLMManager.nomi_profili_esterni():
 		_opt_provider.add_item(String(nome))
 	_opt_provider.item_selected.connect(_on_provider)
 	riga.add_child(_opt_provider)
-	riga.add_child(_etichetta("Modello:", 13, C_BONE_DIM))
+	riga.add_child(_etichetta(Testi.s("impostazioni/modello"), 13, C_BONE_DIM))
 	_opt_modello = OptionButton.new()
 	_opt_modello.item_selected.connect(func(i):
 		Impostazioni.scrivi("modello", _opt_modello.get_item_text(i))
 		LLMManager.imposta_modello(_opt_modello.get_item_text(i)))
 	riga.add_child(_opt_modello)
 	var btn_agg := Button.new()
-	btn_agg.text = "Aggiorna elenco"
+	btn_agg.text = Testi.s("impostazioni/aggiorna_elenco")
 	btn_agg.pressed.connect(_aggiorna_modelli)
 	riga.add_child(btn_agg)
 
 	_chk_gateway = CheckBox.new()
-	_chk_gateway.text = "Passa dal Gateway locale (limiti del piano gratuito: coda, throttling, cache)"
+	_chk_gateway.text = Testi.s("impostazioni/gateway")
 	_chk_gateway.add_theme_color_override("font_color", C_BONE)
 	_chk_gateway.toggled.connect(_on_gateway)
 	v.add_child(_chk_gateway)
 
 	v.add_child(_separatore())
-	v.add_child(_etichetta("CHIAVI API", 14, C_GOLD))
-	var nota := _etichetta("Salvate nella cartella dati dell'utente, mai nel progetto. Una chiave già presente nell'ambiente ha la precedenza.", 12, C_BONE_DIM)
+	v.add_child(_etichetta(Testi.s("impostazioni/chiavi"), 14, C_GOLD))
+	var nota := _etichetta(Testi.s("impostazioni/chiavi_nota"), 12, C_BONE_DIM)
 	nota.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(nota)
 
@@ -142,13 +142,13 @@ func _ready() -> void:
 		griglia.add_child(_etichetta(env, 13, C_BONE))
 		var campo := LineEdit.new()
 		campo.secret = true
-		campo.placeholder_text = "incolla qui la chiave"
+		campo.placeholder_text = Testi.s("impostazioni/chiave_placeholder")
 		campo.custom_minimum_size = Vector2(340, 0)
 		campo.text = _chiavi_salvate().get(env, "")
 		_campi_chiave[env] = campo
 		griglia.add_child(campo)
 		var da_env := OS.has_environment(env) and OS.get_environment(env) != ""
-		griglia.add_child(_etichetta("già nell'ambiente" if da_env else "", 12, C_VERDIGRIS))
+		griglia.add_child(_etichetta(Testi.s("impostazioni/gia_ambiente") if da_env else "", 12, C_VERDIGRIS))
 
 	v.add_child(_separatore())
 	_stato = _etichetta("", 13, C_VERDIGRIS)
@@ -159,11 +159,11 @@ func _ready() -> void:
 	azioni.add_theme_constant_override("separation", 10)
 	v.add_child(azioni)
 	var salva := Button.new()
-	salva.text = "Salva e applica"
+	salva.text = Testi.s("impostazioni/salva")
 	salva.pressed.connect(_salva)
 	azioni.add_child(salva)
 	var chiudi := Button.new()
-	chiudi.text = "Chiudi"
+	chiudi.text = Testi.s("impostazioni/chiudi")
 	chiudi.pressed.connect(hide)
 	azioni.add_child(chiudi)
 
@@ -211,7 +211,7 @@ func _salva() -> void:
 			if not (OS.has_environment(env) and OS.get_environment(env) != ""):
 				OS.set_environment(env, v)
 	Impostazioni.scrivi("chiavi", chiavi)
-	_stato.text = "Salvato. Le chiavi valgono da subito (le nuove chiamate le useranno)."
+	_stato.text = Testi.s("impostazioni/salvato")
 	applicate.emit()
 
 # --- reazioni ---
@@ -228,7 +228,7 @@ func _on_gateway(premuto: bool) -> void:
 		_opt_provider.select(idx)
 		LLMManager.imposta_profilo_esterno(idx)
 		_sincronizza_modello()
-		_stato.text = "Gateway selezionato. Ricorda di avviarlo: llm_gateway/gateway.sh start"
+		_stato.text = Testi.s("impostazioni/gateway_scelto")
 	elif not premuto and _indice_gateway() == _opt_provider.selected:
 		var alt := 1 if LLMManager.profili_esterni.size() > 1 else 0
 		_opt_provider.select(alt)
@@ -264,10 +264,10 @@ func _sincronizza_modello() -> void:
 
 ## Chiede al provider l'elenco dei modelli disponibili.
 func _aggiorna_modelli() -> void:
-	_stato.text = "Interrogo il provider…"
+	_stato.text = Testi.s("impostazioni/interrogo")
 	var v: Dictionary = await LLMManager.verifica_ollama()
 	if not v["attivo"]:
-		_stato.text = "Provider non raggiungibile: %s" % v.get("errore", "?")
+		_stato.text = Testi.s("impostazioni/non_raggiungibile", [v.get("errore", "?")])
 		return
 	_opt_modello.clear()
 	for m in v["modelli"]:
@@ -276,4 +276,4 @@ func _aggiorna_modelli() -> void:
 	for i in _opt_modello.item_count:
 		if _opt_modello.get_item_text(i) == atteso:
 			_opt_modello.select(i)
-	_stato.text = "%d modelli disponibili." % v["modelli"].size()
+	_stato.text = Testi.s("impostazioni/modelli_trovati", [v["modelli"].size()])

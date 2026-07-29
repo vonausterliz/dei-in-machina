@@ -60,14 +60,14 @@ func _ready() -> void:
 	var barra := HBoxContainer.new()
 	barra.add_theme_constant_override("separation", 8)
 	v.add_child(barra)
-	barra.add_child(_bottone("Copia tutto", _copia))
+	barra.add_child(_bottone(Testi.s("finestre/copia"), _copia))
 	if _accodante:
-		barra.add_child(_bottone("Pulisci", _pulisci))
+		barra.add_child(_bottone(Testi.s("finestre/pulisci"), _pulisci))
 	var riempi := Control.new()
 	riempi.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	barra.add_child(riempi)
-	barra.add_child(_bottone("A−", func(): _ridimensiona(-1)))
-	barra.add_child(_bottone("A+", func(): _ridimensiona(+1)))
+	barra.add_child(_bottone(Testi.s("finestre/testo_meno"), func(): _ridimensiona(-1)))
+	barra.add_child(_bottone(Testi.s("finestre/testo_piu"), func(): _ridimensiona(+1)))
 
 	testo = RichTextLabel.new()
 	testo.bbcode_enabled = true

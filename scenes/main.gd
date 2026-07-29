@@ -6,7 +6,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "2.2"
+const VERSIONE := "2.3"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -19,7 +19,7 @@ const C_GOLD_DEEP := Color("9a7a34")
 const C_OXBLOOD := Color("b04a34")
 const C_VERDIGRIS := Color("4e9a8e")
 
-const PLACEHOLDER := "Scrivi qui quello che pensi debba fare Ulisse…"
+const PLACEHOLDER := ""  # dal file testi (vedi _colonna_rapsodia)
 
 # id delle voci di menu
 const VOCE_OLIMPO := 0
@@ -131,7 +131,7 @@ func _senza_schermo() -> bool:
 
 func _prepara_finestra() -> void:
 	var w := get_window()
-	w.title = "Dei in machina"
+	w.title = Testi.s("app/titolo_finestra")
 	w.min_size = Vector2i(1000, 680)
 	w.mode = Window.MODE_MAXIMIZED
 	# HiDPI/Retina: su schermi ad alta densita' Godot disegna a pixel nativi e la UI
@@ -214,7 +214,7 @@ func _costruisci_ui() -> void:
 	# Header: titolo oro + tag
 	var header := HBoxContainer.new()
 	root.add_child(header)
-	var titolo := _titolo("DEI  IN  MACHINA", 30, C_GOLD, _serif_bold)
+	var titolo := _titolo(Testi.s("app/titolo"), 30, C_GOLD, _serif_bold)
 	header.add_child(titolo)
 	# Numero di versione accanto al nome: per capire a colpo d'occhio se l'app è aggiornata.
 	var ver := _titolo("v%s" % VERSIONE, 13, C_VERDIGRIS, _serif)
@@ -231,7 +231,7 @@ func _costruisci_ui() -> void:
 	var spazio := Control.new()
 	spazio.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(spazio)
-	var tag := _titolo("l'Odissea · gli dèi ti ascoltano", 13, C_BONE_DIM, _serif_italic)
+	var tag := _titolo(Testi.s("app/sottotitolo"), 13, C_BONE_DIM, _serif_italic)
 	tag.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	header.add_child(tag)
 	root.add_child(_riga_oro())
@@ -266,7 +266,7 @@ func _crea_finestre_servizio() -> void:
 		alt = clampi(int((schermo.y - 200) / 2.0), 260, 520)
 		alto = Vector2i(maxi(margine, schermo.x - larg - margine), y)
 		basso = Vector2i(alto.x, y + alt + 46)
-	_fin_log = FinestraTesto.new("Log LLM · traffico verso il modello", true, Vector2i(larg, alt), alto)
+	_fin_log = FinestraTesto.new(Testi.s("finestre/log_titolo"), true, Vector2i(larg, alt), alto)
 	_fin_log.chiusa.connect(func():
 		_btn_log.button_pressed = false
 		_spunta_view(VOCE_LOG, false))
@@ -275,7 +275,7 @@ func _crea_finestre_servizio() -> void:
 	_fin_impostazioni.motore_scelto.connect(_on_motore_scelto)
 	_fin_impostazioni.zoom_scelto.connect(imposta_zoom)
 	add_child(_fin_impostazioni)
-	_fin_olimpo = FinestraTesto.new("Vista Olimpo · le voci degli dèi", false, Vector2i(larg, alt), basso)
+	_fin_olimpo = FinestraTesto.new(Testi.s("finestre/olimpo_titolo"), false, Vector2i(larg, alt), basso)
 	_fin_olimpo.chiusa.connect(func():
 		_btn_olimpo.button_pressed = false
 		_spunta_view(VOCE_OLIMPO, false))
@@ -300,15 +300,15 @@ func _barra_menu() -> Control:
 	barra.add_theme_stylebox_override("pressed", _sfondo(7, C_GOLD_DEEP, C_GOLD))
 
 	_menu_view = PopupMenu.new()
-	_menu_view.name = "View"
-	_menu_view.add_check_item("Vista Olimpo", VOCE_OLIMPO)
-	_menu_view.add_check_item("Log LLM", VOCE_LOG)
+	_menu_view.name = Testi.s("menu/view")
+	_menu_view.add_check_item(Testi.s("menu/vista_olimpo"), VOCE_OLIMPO)
+	_menu_view.add_check_item(Testi.s("menu/log_llm"), VOCE_LOG)
 	_menu_view.id_pressed.connect(_on_menu_view)
 	barra.add_child(_menu_view)
 
 	var menu_set := PopupMenu.new()
-	menu_set.name = "Settings"
-	menu_set.add_item("Modelli e chiavi API…", VOCE_IMPOSTAZIONI)
+	menu_set.name = Testi.s("menu/settings")
+	menu_set.add_item(Testi.s("menu/impostazioni"), VOCE_IMPOSTAZIONI)
 	menu_set.id_pressed.connect(func(id): if id == VOCE_IMPOSTAZIONI: _apri_impostazioni())
 	barra.add_child(menu_set)
 	return barra
@@ -320,7 +320,7 @@ func _on_motore_scelto(modo: int) -> void:
 			_chk_ollama.set_pressed_no_signal(false)
 			_chk_esterno.set_pressed_no_signal(false)
 			LLMManager.mock_mode = true
-			_narrazione.append_text("[color=%s][dèi simulati: nessuna chiamata al modello][/color]\n" % C_VERDIGRIS.to_html())
+			_narrazione.append_text("[color=%s]%s[/color]\n" % [C_VERDIGRIS.to_html(), Testi.s("motore/dei_simulati")])
 		FinestraImpostazioni.MOTORE_OLLAMA:
 			_chk_esterno.set_pressed_no_signal(false)
 			_chk_ollama.set_pressed_no_signal(true)
@@ -336,10 +336,10 @@ func _aggiorna_indicatore_motore() -> void:
 	if _lbl_motore == null:
 		return
 	if LLMManager.mock_mode:
-		_lbl_motore.text = "motore: dèi simulati  ·  cambia da Settings"
+		_lbl_motore.text = Testi.s("motore/simulato")
 	else:
-		var dove := "API esterna" if LLMManager.provider_esterno else "Ollama"
-		_lbl_motore.text = "motore: %s · %s" % [dove, LLMManager.modello_atteso()]
+		var dove := Testi.s("motore/nome_esterno") if LLMManager.provider_esterno else Testi.s("motore/nome_ollama")
+		_lbl_motore.text = Testi.s("motore/in_uso", [dove, LLMManager.modello_atteso()])
 
 func _apri_impostazioni() -> void:
 	_fin_impostazioni.popup_centered()
@@ -372,7 +372,7 @@ func _colonna_rapsodia() -> Control:
 	v.add_theme_constant_override("separation", 14)
 	pan.add_child(v)
 
-	var marchio := _titolo("ΟΜΗΡΟΣ · la voce del poeta", 13, C_GOLD, _serif)
+	var marchio := _titolo(Testi.s("app/marchio_poeta"), 13, C_GOLD, _serif)
 	v.add_child(marchio)
 
 	_narrazione = RichTextLabel.new()
@@ -391,8 +391,8 @@ func _colonna_rapsodia() -> Control:
 
 	v.add_child(_riga_oro())
 
-	# "Ciò che ti circonda": 3 spunti d'azione generati sul contesto (cliccabili).
-	v.add_child(_titolo("Cosa fai, Ulisse?", 15, C_GOLD, _serif_italic))
+	# Gli spunti d'azione generati sul contesto (cliccabili), sotto la domanda.
+	v.add_child(_titolo(Testi.s("gioco/domanda"), 15, C_GOLD, _serif_italic))
 	_spunti_box = VBoxContainer.new()
 	_spunti_box.add_theme_constant_override("separation", 7)
 	v.add_child(_spunti_box)
@@ -404,7 +404,7 @@ func _colonna_rapsodia() -> Control:
 	v.add_child(campo)
 
 	_input = LineEdit.new()
-	_input.placeholder_text = PLACEHOLDER
+	_input.placeholder_text = Testi.s("gioco/placeholder")
 	_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_input.add_theme_color_override("font_color", C_BONE)
 	_input.add_theme_color_override("font_placeholder_color", C_BONE_DIM)
@@ -415,7 +415,7 @@ func _colonna_rapsodia() -> Control:
 	campo.add_child(_input)
 
 	var btn := Button.new()
-	btn.text = "Agisci"
+	btn.text = Testi.s("gioco/agisci")
 	btn.add_theme_font_override("font", _serif)
 	btn.add_theme_font_size_override("font_size", 15)
 	btn.add_theme_color_override("font_color", Color.WHITE)
@@ -427,7 +427,7 @@ func _colonna_rapsodia() -> Control:
 	campo.add_child(btn)
 	_btn_agisci = btn
 
-	var hint := _titolo("Puoi scrivere qualunque cosa. Gli dèi ascoltano le parole, non i comandi.", 12, C_BONE_DIM, _serif_italic)
+	var hint := _titolo(Testi.s("gioco/suggerimento"), 12, C_BONE_DIM, _serif_italic)
 	v.add_child(hint)
 	_lbl_motore = _titolo("", 12, C_VERDIGRIS, _serif)
 	v.add_child(_lbl_motore)
@@ -440,7 +440,7 @@ func _colonna_rapsodia() -> Control:
 	opz.visible = false
 	v.add_child(opz)
 	_btn_olimpo = Button.new()
-	_btn_olimpo.text = "Vista Olimpo"
+	_btn_olimpo.text = Testi.s("menu/vista_olimpo")
 	_btn_olimpo.toggle_mode = true
 	_btn_olimpo.add_theme_color_override("font_color", C_BONE_DIM)
 	_btn_olimpo.add_theme_stylebox_override("normal", _sfondo(8, C_SEA2, _line()))
@@ -450,7 +450,7 @@ func _colonna_rapsodia() -> Control:
 	opz.add_child(_btn_olimpo)  # nel contenitore invisibile: comandato dal menu View
 	# Log LLM: finestra separata col traffico verso il modello.
 	_btn_log = Button.new()
-	_btn_log.text = "Log LLM"
+	_btn_log.text = Testi.s("menu/log_llm")
 	_btn_log.toggle_mode = true
 	_btn_log.add_theme_color_override("font_color", C_BONE_DIM)
 	_btn_log.add_theme_stylebox_override("normal", _sfondo(8, C_SEA2, _line()))
@@ -468,7 +468,7 @@ func _colonna_rapsodia() -> Control:
 	_chk_esterno = CheckButton.new()
 	_chk_esterno.text = "LLM esterno (API)"
 	_chk_esterno.add_theme_color_override("font_color", C_BONE_DIM)
-	_chk_esterno.tooltip_text = "Usa un provider esterno (config/providers/*.json). Serve la chiave nell'ambiente, es. export MISTRAL_API_KEY=…"
+	_chk_esterno.tooltip_text = Testi.s("impostazioni/tooltip_esterno")
 	_chk_esterno.toggled.connect(_on_toggle_esterno)
 	opz.add_child(_chk_esterno)
 
@@ -476,7 +476,7 @@ func _colonna_rapsodia() -> Control:
 	_opt_provider = OptionButton.new()
 	_opt_provider.add_theme_color_override("font_color", C_BONE)
 	_opt_provider.add_theme_font_size_override("font_size", 13)
-	_opt_provider.tooltip_text = "Provider esterno da usare col flag «LLM esterno»"
+	_opt_provider.tooltip_text = Testi.s("impostazioni/tooltip_provider")
 	for nome in LLMManager.nomi_profili_esterni():
 		_opt_provider.add_item(String(nome))
 	_opt_provider.disabled = _opt_provider.item_count == 0
@@ -488,7 +488,7 @@ func _colonna_rapsodia() -> Control:
 	_opt_modello.disabled = true
 	_opt_modello.add_theme_color_override("font_color", C_BONE)
 	_opt_modello.add_theme_font_size_override("font_size", 13)
-	_opt_modello.tooltip_text = "Modello del provider attivo (attiva Ollama o LLM esterno per popolarlo)"
+	_opt_modello.tooltip_text = Testi.s("impostazioni/tooltip_modello")
 	_opt_modello.item_selected.connect(_on_modello_scelto)
 	opz.add_child(_opt_modello)
 
@@ -506,7 +506,7 @@ func _colonna_aside() -> Control:
 	var vm := VBoxContainer.new()
 	vm.add_theme_constant_override("separation", 10)
 	carta_m.add_child(vm)
-	vm.add_child(_titolo("CARTA DEL VIAGGIO", 13, C_GOLD, _serif_bold))
+	vm.add_child(_titolo(Testi.s("pannelli/carta_viaggio"), 13, C_GOLD, _serif_bold))
 	_mappa = MappaViaggio.new()
 	_mappa.custom_minimum_size = Vector2(0, 200)
 	vm.add_child(_mappa)
@@ -519,7 +519,7 @@ func _colonna_aside() -> Control:
 	var vd := VBoxContainer.new()
 	vd.add_theme_constant_override("separation", 12)
 	carta_d.add_child(vd)
-	vd.add_child(_titolo("DIARIO DI BORDO", 13, C_GOLD, _serif_bold))
+	vd.add_child(_titolo(Testi.s("pannelli/diario"), 13, C_GOLD, _serif_bold))
 	_diario_scroll = ScrollContainer.new()
 	_diario_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_diario_scroll.custom_minimum_size = Vector2(0, 140)
@@ -538,12 +538,12 @@ func _colonna_aside() -> Control:
 	var vc := VBoxContainer.new()
 	vc.add_theme_constant_override("separation", 14)
 	carta_c.add_child(vc)
-	vc.add_child(_titolo("LA TUA CONDIZIONE", 13, C_GOLD, _serif_bold))
-	vc.add_child(_meter("Astuzia", "metis"))
-	vc.add_child(_meter("Animo", "animo"))
-	vc.add_child(_meter("Ciurma", "ciurma"))
-	vc.add_child(_meter("Tracotanza", "hybris"))
-	var absent := _titolo("Degli dèi non vedrai nulla: né volti, né favori, né la misura della loro ira. Solo il mare, e ciò che ne segue.", 12, C_BONE_DIM, _serif_italic)
+	vc.add_child(_titolo(Testi.s("pannelli/condizione"), 13, C_GOLD, _serif_bold))
+	vc.add_child(_meter(Testi.s("pannelli/astuzia"), "metis"))
+	vc.add_child(_meter(Testi.s("pannelli/animo"), "animo"))
+	vc.add_child(_meter(Testi.s("pannelli/ciurma"), "ciurma"))
+	vc.add_child(_meter(Testi.s("pannelli/tracotanza"), "hybris"))
+	var absent := _titolo(Testi.s("pannelli/nota_dei_nascosti"), 12, C_BONE_DIM, _serif_italic)
 	absent.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	absent.custom_minimum_size = Vector2(290, 0)
 	vc.add_child(absent)
@@ -588,7 +588,7 @@ func _on_llm_log(riga: String) -> void:
 func _apri_scena() -> void:
 	_episodio.text = "· %s ·" % _nome_tappa()
 	_ultima_narrazione = GameManager.intro_corrente()
-	_narrazione.append_text("[i]Omero:[/i] %s\n\n" % _ultima_narrazione)
+	_narrazione.append_text("[i]" + Testi.s("gioco/omero") + "[/i] %s\n\n" % _ultima_narrazione)
 	_aggiorna_stats()
 	_aggiorna_mappa()
 	_aggiorna_indicatore_motore()
@@ -616,7 +616,7 @@ func _on_agisci() -> void:
 		return
 	_busy = true
 	_input.editable = false
-	_btn_agisci.text = "…"
+	_btn_agisci.text = Testi.s("gioco/attesa")
 	_btn_agisci.disabled = true
 	_narrazione.append_text("[color=#8a9bb0]› %s[/color]\n" % testo)
 	_input.text = ""
@@ -629,7 +629,7 @@ func _on_agisci() -> void:
 
 	_ultima_narrazione = String(esito["voce"].get("narrazione_omero", ""))
 	if _ultima_narrazione != "":
-		_narrazione.append_text("[i]Omero:[/i] %s\n\n" % _ultima_narrazione)
+		_narrazione.append_text("[i]" + Testi.s("gioco/omero") + "[/i] %s\n\n" % _ultima_narrazione)
 	# Fuori-mondo: Omero tace, al suo posto un avviso in chiaro (non è la voce del poeta).
 	var ammon := String(esito["voce"].get("ammonizione", ""))
 	if ammon != "":
@@ -643,7 +643,7 @@ func _on_agisci() -> void:
 	# "teletrasporta" da un luogo all'altro.
 	var trans := String(esito.get("transizione", ""))
 	if esito.get("avanzato", false) and trans != "":
-		_narrazione.append_text("[i]Omero:[/i] %s\n\n" % trans)
+		_narrazione.append_text("[i]" + Testi.s("gioco/omero") + "[/i] %s\n\n" % trans)
 	if esito.get("avanzato", false) and esito["esito"] == "continua":
 		_episodio.text = "· %s ·" % _nome_tappa()
 		_ultima_narrazione = String(esito.get("intro", ""))
@@ -654,14 +654,14 @@ func _on_agisci() -> void:
 		_finita = true
 		_input.editable = false
 		if esito["esito"] == "itaca":
-			_narrazione.append_text("\n[b][color=%s]— VITTORIA: sei tornato a Itaca. —[/color][/b]\n" % C_VERDIGRIS.to_html())
+			_narrazione.append_text("\n[b][color=%s]%s[/color][/b]\n" % [C_VERDIGRIS.to_html(), Testi.s("gioco/vittoria")])
 		else:
-			_narrazione.append_text("\n[b][color=%s]— FINE: %s —[/color][/b]\n" % [C_OXBLOOD.to_html(), esito["esito"]])
+			_narrazione.append_text("\n[b][color=%s]%s[/color][/b]\n" % [C_OXBLOOD.to_html(), Testi.s("gioco/fine", [esito["esito"]])])
 	else:
 		await _rigenera_spunti()  # nuovi spunti sulla scena aggiornata (busy: nessun conflitto)
 		_input.editable = true
 		_input.grab_focus()
-	_btn_agisci.text = "Agisci"
+	_btn_agisci.text = Testi.s("gioco/agisci")
 	_btn_agisci.disabled = false
 	_busy = false
 
@@ -670,7 +670,7 @@ func _on_agisci() -> void:
 func _rigenera_spunti() -> void:
 	_pulisci_spunti()
 	if not LLMManager.mock_mode:  # in reale la generazione e' lenta: mostro un'attesa
-		_spunti_box.add_child(_titolo("… il mare suggerisce …", 13, C_BONE_DIM, _serif_italic))
+		_spunti_box.add_child(_titolo(Testi.s("gioco/spunti_in_arrivo"), 13, C_BONE_DIM, _serif_italic))
 	var contesto := {
 		"episodio": _nome_tappa(),
 		"scena": GameManager.scena_corrente(),
@@ -715,11 +715,11 @@ func _avviso(classe: String) -> String:
 	var chiaro := "#f3b9a4"   # rosso sbiadito ma leggibile
 	match classe:
 		"richiamo":
-			return "[b][color=%s]⟡ Quel gesto non appartiene a questo mondo: Ulisse non può compierlo. Riprova con qualcosa che l'Odissea conosca.[/color][/b]\n\n" % giallo
+			return "[b][color=%s]%s[/color][/b]\n\n" % [giallo, Testi.s("avvisi/richiamo")]
 		"smarrimento":
-			return "[b][color=%s]⟡ Insisti con gesti impossibili: lo smarrimento ti prende, e l'animo cede.[/color][/b]\n\n" % chiaro
+			return "[b][color=%s]%s[/color][/b]\n\n" % [chiaro, Testi.s("avvisi/smarrimento")]
 		"follia":
-			return "[b][color=%s]⟡ La ragione ti ha abbandonato. L'empietà reiterata chiama la mano di un dio.[/color][/b]\n\n" % chiaro
+			return "[b][color=%s]%s[/color][/b]\n\n" % [chiaro, Testi.s("avvisi/follia")]
 	return ""
 
 var _stat_prec := {}  # valori del turno prima: per mostrare di quanto sono cambiati
@@ -731,7 +731,7 @@ func _aggiorna_stats() -> void:
 	_imposta_stat("metis", st["metis"], 100, "%d%s" % [st["metis"], _variazione("metis", int(st["metis"]))])
 	_imposta_stat("animo", st["animo"], 100, "%d%s" % [st["animo"], _variazione("animo", int(st["animo"]))])
 	_imposta_stat("ciurma", 100.0 * float(ciurma["vivi"]) / max(1, int(ciurma["iniziali"])), 100,
-		"%d di %d%s" % [ciurma["vivi"], ciurma["iniziali"], _variazione("ciurma", int(ciurma["vivi"]))])
+		Testi.s("pannelli/ciurma_conteggio", [ciurma["vivi"], ciurma["iniziali"]]) + _variazione("ciurma", int(ciurma["vivi"])))
 	_imposta_stat("hybris", hybris, 100, "%d%s" % [hybris, _variazione("hybris", hybris)])
 
 ## Scarto rispetto al turno precedente, es. "  −2": rende visibile CHE COSA e' cambiato.
@@ -840,7 +840,7 @@ func _on_provider_scelto(idx: int) -> void:
 ## e popola il selettore dei modelli. Se non è pronto, torna ai dèi simulati e spiega.
 func _attiva_reale(esterno: bool) -> void:
 	var chk := _chk_esterno if esterno else _chk_ollama
-	var dove := "API esterna" if esterno else "Ollama"
+	var dove := Testi.s("motore/nome_esterno") if esterno else Testi.s("motore/nome_ollama")
 	# Apri la finestra del log, cosi' si vede subito la verifica e il traffico.
 	_btn_log.button_pressed = true
 	_spunta_view(VOCE_LOG, true)
@@ -853,22 +853,22 @@ func _attiva_reale(esterno: bool) -> void:
 	if not v["attivo"]:
 		LLMManager.mock_mode = true
 		chk.set_pressed_no_signal(false)
-		var aiuto := "controlla la chiave API e la rete" if esterno else "avvialo con «ollama serve» (o rilancia ./avvia.sh)"
-		_narrazione.append_text("[color=%s]%s non risponde (%s): %s. Resto sui dèi simulati (mock).[/color]\n" % [C_OXBLOOD.to_html(), dove, v.get("errore", "?"), aiuto])
+		var aiuto := Testi.s("motore/aiuto_esterno") if esterno else Testi.s("motore/aiuto_ollama")
+		_narrazione.append_text("[color=%s]%s[/color]\n" % [C_OXBLOOD.to_html(), Testi.s("motore/non_risponde", [dove, v.get("errore", "?"), aiuto])])
 		return
 	if v["modelli"].is_empty():
 		LLMManager.mock_mode = true
 		chk.set_pressed_no_signal(false)
-		_narrazione.append_text("[color=%s]%s non elenca modelli disponibili. Resto sui dèi simulati (mock).[/color]\n" % [C_OXBLOOD.to_html(), dove])
+		_narrazione.append_text("[color=%s]%s[/color]\n" % [C_OXBLOOD.to_html(), Testi.s("motore/niente_modelli", [dove])])
 		return
 	# Modello: si TIENE quello richiesto anche se non compare nell'elenco. Sostituirlo
 	# d'ufficio col primo disponibile poteva dirottare su un modello piu' costoso (e fuori
 	# dal piano gratuito) senza che il giocatore se ne accorgesse: meglio avvisare.
 	var scelto: String = v["atteso"]
 	if not v["modello_presente"]:
-		_narrazione.append_text("[color=%s]Attenzione: «%s» non compare tra i modelli offerti dal provider. Lo uso lo stesso; se le chiamate falliscono, scegline un altro da Settings.[/color]\n" % [C_OXBLOOD.to_html(), scelto])
+		_narrazione.append_text("[color=%s]%s[/color]\n" % [C_OXBLOOD.to_html(), Testi.s("motore/modello_assente", [scelto])])
 	_popola_modelli(v["modelli"], scelto)
-	_narrazione.append_text("[color=%s][modalità %s: dèi e narratore reali (%s). Guarda il log a destra.][/color]\n" % [C_VERDIGRIS.to_html(), dove, scelto])
+	_narrazione.append_text("[color=%s]%s[/color]\n" % [C_VERDIGRIS.to_html(), Testi.s("motore/attivo", [dove, scelto])])
 	if not _busy and not _finita:
 		await _rigenera_spunti()  # spunti contestuali generati dal modello
 
