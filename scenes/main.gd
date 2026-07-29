@@ -6,7 +6,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "1.4"
+const VERSIONE := "1.5"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -19,7 +19,12 @@ const C_GOLD_DEEP := Color("9a7a34")
 const C_OXBLOOD := Color("b04a34")
 const C_VERDIGRIS := Color("4e9a8e")
 
-const PLACEHOLDER := "Scrivi liberamente — parla, agisci, prega, taci…"
+const PLACEHOLDER := "Scrivi qui quello che pensi debba fare Ulisse…"
+
+# id delle voci di menu
+const VOCE_OLIMPO := 0
+const VOCE_LOG := 1
+const VOCE_IMPOSTAZIONI := 10
 
 var _serif: FontFile
 var _serif_bold: FontFile
@@ -35,6 +40,8 @@ var _input: LineEdit
 var _episodio: Label
 var _fin_olimpo: FinestraTesto   # finestra separata: traccia dell'ultimo turno
 var _fin_log: FinestraTesto      # finestra separata: log delle chiamate LLM
+var _menu_view: PopupMenu
+var _fin_impostazioni: FinestraImpostazioni
 var _btn_olimpo: Button
 var _btn_log: Button
 var _btn_agisci: Button
@@ -58,6 +65,7 @@ func _ready() -> void:
 	_serif_italic = load("res://fonts/Cardo-Italic.ttf")
 	_prepara_finestra()
 	_costruisci_ui()
+	FinestraImpostazioni.applica_chiavi_salvate()  # chiavi utente -> ambiente
 	LLMManager.mock_mode = true
 	LLMManager.llm_log.connect(_on_llm_log)
 	GameManager.nuova_partita(0)
@@ -136,6 +144,9 @@ func _costruisci_ui() -> void:
 	var ver := _titolo("v%s" % VERSIONE, 13, C_VERDIGRIS, _serif)
 	ver.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	header.add_child(ver)
+	# Barra dei menu: le viste di servizio e le impostazioni stanno qui, non sparse
+	# tra i controlli di gioco.
+	header.add_child(_barra_menu())
 	var spazio := Control.new()
 	spazio.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(spazio)
@@ -158,12 +169,62 @@ func _costruisci_ui() -> void:
 ## servono, si spostano su un altro schermo e lasciano tutto lo spazio alla narrazione.
 func _crea_finestre_servizio() -> void:
 	get_tree().root.gui_embed_subwindows = false  # finestre vere del sistema, non incorporate
-	_fin_log = FinestraTesto.new("Log LLM · elaborazione", true, Vector2i(820, 620))
-	_fin_log.chiusa.connect(func(): _btn_log.button_pressed = false)
+	# Due finestre DISTINTE, in posizioni diverse: non devono sembrare la stessa che
+	# cambia contenuto. Le sfalso in base allo schermo.
+	var schermo := DisplayServer.screen_get_size()
+	var alto := Vector2i(maxi(40, schermo.x - 900), 80)
+	var basso := Vector2i(maxi(20, schermo.x - 940), 120)
+	_fin_log = FinestraTesto.new("Log LLM · traffico verso il modello", true, Vector2i(860, 560), alto)
+	_fin_log.chiusa.connect(func():
+		_btn_log.button_pressed = false
+		_spunta_view(VOCE_LOG, false))
 	add_child(_fin_log)
-	_fin_olimpo = FinestraTesto.new("Vista Olimpo · dietro le quinte", false, Vector2i(760, 620))
-	_fin_olimpo.chiusa.connect(func(): _btn_olimpo.button_pressed = false)
+	_fin_impostazioni = FinestraImpostazioni.new()
+	add_child(_fin_impostazioni)
+	_fin_olimpo = FinestraTesto.new("Vista Olimpo · le voci degli dèi", false, Vector2i(820, 640), basso)
+	_fin_olimpo.chiusa.connect(func():
+		_btn_olimpo.button_pressed = false
+		_spunta_view(VOCE_OLIMPO, false))
 	add_child(_fin_olimpo)
+
+## Barra dei menu (View, Settings). Le voci di View sono spuntabili: riflettono se la
+## finestra è aperta.
+func _barra_menu() -> Control:
+	var barra := MenuBar.new()
+	barra.add_theme_font_size_override("font_size", 14)
+	barra.add_theme_color_override("font_color", C_BONE_DIM)
+	barra.add_theme_color_override("font_hover_color", C_GOLD)
+
+	_menu_view = PopupMenu.new()
+	_menu_view.name = "View"
+	_menu_view.add_check_item("Vista Olimpo", VOCE_OLIMPO)
+	_menu_view.add_check_item("Log LLM", VOCE_LOG)
+	_menu_view.id_pressed.connect(_on_menu_view)
+	barra.add_child(_menu_view)
+
+	var menu_set := PopupMenu.new()
+	menu_set.name = "Settings"
+	menu_set.add_item("Modelli e chiavi API…", VOCE_IMPOSTAZIONI)
+	menu_set.id_pressed.connect(func(id): if id == VOCE_IMPOSTAZIONI: _apri_impostazioni())
+	barra.add_child(menu_set)
+	return barra
+
+func _apri_impostazioni() -> void:
+	_fin_impostazioni.popup_centered()
+
+func _on_menu_view(id: int) -> void:
+	var i := _menu_view.get_item_index(id)
+	var acceso := not _menu_view.is_item_checked(i)
+	_menu_view.set_item_checked(i, acceso)
+	if id == VOCE_OLIMPO:
+		_btn_olimpo.button_pressed = acceso
+	else:
+		_btn_log.button_pressed = acceso
+
+## Tiene la spunta del menu allineata allo stato reale della finestra.
+func _spunta_view(id: int, acceso: bool) -> void:
+	if _menu_view:
+		_menu_view.set_item_checked(_menu_view.get_item_index(id), acceso)
 
 func _riga_oro() -> Control:
 	var r := ColorRect.new()
@@ -199,14 +260,12 @@ func _colonna_rapsodia() -> Control:
 	v.add_child(_riga_oro())
 
 	# "Ciò che ti circonda": 3 spunti d'azione generati sul contesto (cliccabili).
-	v.add_child(_titolo("CIÒ CHE TI CIRCONDA", 11, C_BONE_DIM, _serif_bold))
+	v.add_child(_titolo("Cosa fai, Ulisse?", 15, C_GOLD, _serif_italic))
 	_spunti_box = VBoxContainer.new()
 	_spunti_box.add_theme_constant_override("separation", 7)
 	v.add_child(_spunti_box)
 
-	# "Cosa fai, Ulisse?" + campo input + hint (il 4o percorso: scrivere liberamente)
-	var speak := _titolo("Cosa fai, Ulisse?", 15, C_GOLD, _serif_italic)
-	v.add_child(speak)
+	# Il quarto percorso: scrivere liberamente.
 
 	var campo := HBoxContainer.new()
 	campo.add_theme_constant_override("separation", 10)
@@ -251,7 +310,7 @@ func _colonna_rapsodia() -> Control:
 	_btn_olimpo.add_theme_stylebox_override("hover", _sfondo(8, C_SEA2, C_GOLD))
 	_btn_olimpo.add_theme_stylebox_override("pressed", _sfondo(8, C_GOLD_DEEP, C_GOLD))
 	_btn_olimpo.toggled.connect(_on_toggle_olimpo)
-	opz.add_child(_btn_olimpo)
+	_btn_olimpo.visible = false  # il comando ora è in View; il bottone resta da attuatore
 	# Log LLM: finestra separata col traffico verso il modello.
 	_btn_log = Button.new()
 	_btn_log.text = "Log LLM"
@@ -261,7 +320,7 @@ func _colonna_rapsodia() -> Control:
 	_btn_log.add_theme_stylebox_override("hover", _sfondo(8, C_SEA2, C_GOLD))
 	_btn_log.add_theme_stylebox_override("pressed", _sfondo(8, C_GOLD_DEEP, C_GOLD))
 	_btn_log.toggled.connect(_on_toggle_log)
-	opz.add_child(_btn_log)
+	_btn_log.visible = false     # idem: comandato dal menu View
 	_chk_ollama = CheckButton.new()
 	_chk_ollama.text = "Ollama (locale)"
 	_chk_ollama.add_theme_color_override("font_color", C_BONE_DIM)
@@ -629,6 +688,7 @@ func _attiva_reale(esterno: bool) -> void:
 	var dove := "API esterna" if esterno else "Ollama"
 	# Apri la finestra del log, cosi' si vede subito la verifica e il traffico.
 	_btn_log.button_pressed = true
+	_spunta_view(VOCE_LOG, true)
 	_chk_ollama.disabled = true
 	_chk_esterno.disabled = true
 	LLMManager.abilita_reale(esterno)

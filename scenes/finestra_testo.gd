@@ -13,12 +13,15 @@ const C_GOLD := Color("cba24b")
 const C_VERDIGRIS := Color("4e9a8e")
 
 var testo: RichTextLabel
-var _accodante: bool = true  # true = log (si accoda), false = vista (si sostituisce)
+var dimensione_testo: int = 16   # leggibile anche su Retina; regolabile con +/-
+var _accodante: bool = true      # true = log (si accoda), false = vista (si sostituisce)
 
-func _init(titolo_finestra: String, accodante: bool = true, dimensione := Vector2i(760, 560)) -> void:
+func _init(titolo_finestra: String, accodante: bool = true, dimensione := Vector2i(760, 560), posizione := Vector2i(-1, -1)) -> void:
 	title = titolo_finestra
 	_accodante = accodante
 	size = dimensione
+	if posizione != Vector2i(-1, -1):
+		position = posizione  # finestre distinte: ognuna col suo posto, non sovrapposte
 	unresizable = false
 	visible = false
 	# Chiudendo dalla X la finestra si nasconde soltanto: lo stato del gioco non cambia.
@@ -50,6 +53,8 @@ func _ready() -> void:
 	var riempi := Control.new()
 	riempi.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	barra.add_child(riempi)
+	barra.add_child(_bottone("A−", func(): _ridimensiona(-1)))
+	barra.add_child(_bottone("A+", func(): _ridimensiona(+1)))
 
 	testo = RichTextLabel.new()
 	testo.bbcode_enabled = true
@@ -57,8 +62,10 @@ func _ready() -> void:
 	testo.selection_enabled = true
 	testo.context_menu_enabled = true
 	testo.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	testo.add_theme_color_override("default_color", C_BONE_DIM)
-	testo.add_theme_font_size_override("normal_font_size", 13)
+	testo.add_theme_color_override("default_color", C_BONE)
+	testo.add_theme_font_size_override("normal_font_size", dimensione_testo)
+	testo.add_theme_font_size_override("bold_font_size", dimensione_testo)
+	testo.add_theme_font_size_override("italics_font_size", dimensione_testo)
 	v.add_child(testo)
 
 func _bottone(etichetta: String, azione: Callable) -> Button:
@@ -77,6 +84,11 @@ func aggiungi(riga: String) -> void:
 func imposta(contenuto: String) -> void:
 	if testo:
 		testo.text = contenuto
+
+func _ridimensiona(passo: int) -> void:
+	dimensione_testo = clampi(dimensione_testo + passo, 10, 30)
+	for chiave in ["normal_font_size", "bold_font_size", "italics_font_size"]:
+		testo.add_theme_font_size_override(chiave, dimensione_testo)
 
 func _copia() -> void:
 	if testo:
