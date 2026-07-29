@@ -6,7 +6,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "1.5"
+const VERSIONE := "1.6"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -584,13 +584,26 @@ func _avviso(classe: String) -> String:
 			return "[b][color=%s]⟡ La ragione ti ha abbandonato. L'empietà reiterata chiama la mano di un dio.[/color][/b]\n\n" % chiaro
 	return ""
 
+var _stat_prec := {}  # valori del turno prima: per mostrare di quanto sono cambiati
+
 func _aggiorna_stats() -> void:
 	var st: Dictionary = GameManager.stato.ulisse["stat"]
 	var ciurma: Dictionary = st["ciurma"]
-	_imposta_stat("metis", st["metis"], 100, "%d" % st["metis"])
-	_imposta_stat("animo", st["animo"], 100, "%d" % st["animo"])
-	_imposta_stat("ciurma", 100.0 * float(ciurma["vivi"]) / max(1, int(ciurma["iniziali"])), 100, "%d di %d" % [ciurma["vivi"], ciurma["iniziali"]])
-	_imposta_stat("hybris", GameManager.stato.ulisse["hybris"], 100, "%d" % GameManager.stato.ulisse["hybris"])
+	var hybris: int = int(GameManager.stato.ulisse["hybris"])
+	_imposta_stat("metis", st["metis"], 100, "%d%s" % [st["metis"], _variazione("metis", int(st["metis"]))])
+	_imposta_stat("animo", st["animo"], 100, "%d%s" % [st["animo"], _variazione("animo", int(st["animo"]))])
+	_imposta_stat("ciurma", 100.0 * float(ciurma["vivi"]) / max(1, int(ciurma["iniziali"])), 100,
+		"%d di %d%s" % [ciurma["vivi"], ciurma["iniziali"], _variazione("ciurma", int(ciurma["vivi"]))])
+	_imposta_stat("hybris", hybris, 100, "%d%s" % [hybris, _variazione("hybris", hybris)])
+
+## Scarto rispetto al turno precedente, es. "  −2": rende visibile CHE COSA e' cambiato.
+func _variazione(chiave: String, valore: int) -> String:
+	var prec: int = _stat_prec.get(chiave, valore)
+	_stat_prec[chiave] = valore
+	var d := valore - prec
+	if d == 0:
+		return ""
+	return "  %s%d" % ["+" if d > 0 else "−", abs(d)]
 
 func _imposta_stat(chiave: String, valore: float, _massimo: int, testo: String) -> void:
 	if _stat_bars.has(chiave):

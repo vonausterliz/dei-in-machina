@@ -72,3 +72,25 @@ func test_marcatore_ill_fair_neutro():
 	assert_eq(Delta.marcatore_diario({"ulisse.ciurma.vivi": -1}), "ill")
 	assert_eq(Delta.marcatore_diario({"ulisse.animo": 3}), "fair")
 	assert_eq(Delta.marcatore_diario({"ulisse.metis": 1}), "neutro")
+
+# --- Difetti corretti nel box "La tua condizione" ---
+
+func test_castigo_forte_costa_uomini():
+	# Prima nessun delta toccava la ciurma: restava 45/45 per tutta la partita e
+	# l'esito "ciurma_perduta" era irraggiungibile.
+	var forte := Delta.da_reazione("poseidone", "castigo", 3)
+	assert_eq(forte.get("ulisse.ciurma.vivi", 0), -2, "l'ira piena si porta via dei compagni")
+	var medio := Delta.da_reazione("poseidone", "castigo", 2)
+	assert_eq(medio.get("ulisse.ciurma.vivi", 0), -1)
+	var lieve := Delta.da_reazione("poseidone", "castigo", 1)
+	assert_false(lieve.has("ulisse.ciurma.vivi"), "un castigo lieve non uccide nessuno")
+
+func test_umilta_fa_scendere_la_tracotanza():
+	# Prima la hybris poteva solo salire: fondo di scala inevitabile.
+	var d := Delta.da_azione({"tag": ["preghiera"], "intensita": 2})
+	assert_eq(d.get("ulisse.hybris", 0), -2, "la reverenza sgonfia la tracotanza")
+
+func test_vanto_e_preghiera_insieme_non_si_annullano():
+	# Se ti vanti mentre preghi, la tracotanza sale: l'umilta' non ripaga.
+	var d := Delta.da_azione({"tag": ["vanto", "preghiera"], "intensita": 1})
+	assert_gt(d.get("ulisse.hybris", 0), 0)

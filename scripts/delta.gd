@@ -15,9 +15,12 @@ const STAT_MAX := 100
 
 const _TAG_HYBRIS := ["tracotanza", "vanto", "empieta", "violenza"]
 const _TAG_ASTUZIA := ["astuzia", "inganno"]
+## Atti di misura e reverenza: sono l'unico modo di far SCENDERE la tracotanza. Senza
+## questi la hybris saliva e basta, e l'indicatore diventava un fondo di scala inutile.
+const _TAG_UMILTA := ["preghiera", "supplica", "rispetto", "xenia", "misura"]
 
 ## Effetto della sola AZIONE di Ulisse (indipendente dai dei): la tracotanza gonfia
-## la hybris, l'astuzia affina la metis. E' cio' che l'atto fa a lui, comunque.
+## la hybris, l'astuzia affina la metis, la reverenza la sgonfia.
 static func da_azione(envelope: Dictionary) -> Dictionary:
 	var d: Dictionary = {}
 	var tag: Array = envelope.get("tag", [])
@@ -29,14 +32,28 @@ static func da_azione(envelope: Dictionary) -> Dictionary:
 		if tag.has(t):
 			d["ulisse.metis"] = d.get("ulisse.metis", 0) + intensita
 			break
+	# La misura ripaga solo se non stai contemporaneamente tracotando.
+	if not d.has("ulisse.hybris"):
+		for t in _TAG_UMILTA:
+			if tag.has(t):
+				d["ulisse.hybris"] = -intensita
+				break
 	return d
 
 ## Effetto della REAZIONE di un dio, dato il registro scelto e l'intensita'.
+## Un castigo al massimo dell'intensita' COSTA UOMINI: e' l'unico modo in cui la ciurma
+## si assottiglia, e senza il suo indicatore restava fermo a 45/45 per tutta la partita
+## (e l'esito "ciurma_perduta" era irraggiungibile).
 static func da_reazione(dio_id: String, registro: String, intensita: int) -> Dictionary:
 	var k: int = max(1, intensita)
 	match registro:
 		"castigo":
-			return {"ulisse.animo": -2 * k, "%s.ira" % dio_id: 2 * k}
+			var d := {"ulisse.animo": -2 * k, "%s.ira" % dio_id: 2 * k}
+			if k >= 3:
+				d["ulisse.ciurma.vivi"] = -2   # l'ira piena si porta via dei compagni
+			elif k == 2:
+				d["ulisse.ciurma.vivi"] = -1
+			return d
 		"aiuto":
 			return {"ulisse.animo": 2 * k, "%s.favore" % dio_id: k}
 		"aiuto_negato":

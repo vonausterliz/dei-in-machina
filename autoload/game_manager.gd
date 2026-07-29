@@ -382,7 +382,22 @@ func _delibera(svegli: Array, envelope: Dictionary) -> Dictionary:
 ## Sfondo (fase 6-bis) sulle proposte prima del verdetto: strategie (piano) e peso di
 ## coalizione. Modulano l'intensita', non sostituiscono la scelta LLM del registro.
 func _prepara_per_arbitrato(proposte: Array) -> Array:
-	return _applica_peso_coalizioni(_modula_proposte_per_piano(proposte))
+	return _applica_peso_coalizioni(_modula_proposte_per_hybris(_modula_proposte_per_piano(proposte)))
+
+## La TRACOTANZA si paga: oltre la soglia, chi punisce colpisce piu' forte. Prima la
+## hybris saliva senza mai avere conseguenze — era un numero decorativo.
+const _SOGLIA_HYBRIS := 50
+
+func _modula_proposte_per_hybris(proposte: Array) -> Array:
+	if int(stato.ulisse.get("hybris", 0)) < _SOGLIA_HYBRIS:
+		return proposte
+	var out: Array = []
+	for p in proposte:
+		var q: Dictionary = p.duplicate()
+		if _REGISTRI_PUNITIVI.has(String(q.get("registro", ""))):
+			q["intensita"] = clampi(int(q.get("intensita", 1)) + 1, 1, 3)
+		out.append(q)
+	return out
 
 ## Ogni dio in 'svegli' propone. 'altri' (opzionale) = proposte altrui da mostrargli (replica).
 func _raccogli_proposte(svegli: Array, envelope: Dictionary, altri: Array) -> Array:
