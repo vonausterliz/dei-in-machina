@@ -81,6 +81,16 @@ func _nomi() -> Array:
 		out.append(d.nome)
 	return out
 
+func test_prompt_omero_ha_le_direttive_di_stile():
+	# Lo stile della prosa e' una scelta dell'autore, non un dettaglio: se qualcuno
+	# riscrive il prompt e le perde, il test lo dice invece di scoprirlo giocando.
+	var sp := Narratore.new(_nomi()).system_prompt()
+	assert_string_contains(sp, "PARATASSI")
+	assert_string_contains(sp, "arcaismi")
+	assert_string_contains(sp, "PROSA")
+	assert_eq(sp.find("Conferma di aver compreso"), -1,
+		"niente istruzioni meta: Omero deve narrare, non confermare")
+
 func test_narratore_include_la_scena_nel_messaggio():
 	# La scena (grounding) deve arrivare a Omero, per non far derivare la narrazione.
 	var nar := Narratore.new(_nomi())
