@@ -231,9 +231,15 @@ func imposta_modello(nome: String) -> void:
 		profili_esterni[provider_esterno_idx]["model"] = pulito
 	else:
 		config["model"] = pulito
+	# Cio' che il client manda dev'essere il nome EFFETTIVO, ricalcolato: senza gateway il
+	# nome nudo, col gateway quello col prefisso d'instradamento. Prima si assegnava `nome`
+	# cosi' com'era arrivato — e dall'elenco di Google arriva come «models/gemini-3.5-flash»:
+	# il profilo teneva il nome pulito e il client ne mandava un altro. Due verita' diverse
+	# per la stessa cosa, ed e' il genere di divergenza che si vede solo a valle, in un 404.
+	var effettivo := String(_config_attiva().get("model", pulito))
 	if _client:
-		_client.model = nome
-	_reg("modello impostato: %s" % nome)
+		_client.model = effettivo
+	_reg("modello impostato: %s" % effettivo)
 
 ## Abilita il percorso LLM reale a runtime. esterno=false -> Ollama locale; true -> API
 ## esterna (profilo config_esterno). Riconfigura il client sul provider scelto. Idempotente.

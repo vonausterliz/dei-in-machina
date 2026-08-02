@@ -141,3 +141,19 @@ func test_settings_mostra_il_modello_del_profilo_scelto():
 	assert_string_contains(LLMManager.modello_del_profilo(), "gemini")
 	LLMManager.usa_gateway = true
 	assert_eq(LLMManager.modello_del_profilo(), "google/%s" % _modello_del_file(i))
+
+## L'elenco di Google restituisce i nomi come «models/gemini-3.5-flash». Sceglierne uno dal
+## menu non deve lasciare due verita' in giro: il profilo col nome pulito e il client con
+## un altro. Il nome effettivo si ricalcola sempre dal profilo + trasporto.
+func test_il_prefisso_dell_elenco_non_si_porta_dietro():
+	var i := _indice_di("gemini")
+	if i < 0:
+		pending("nessun profilo Gemini configurato"); return
+	LLMManager.imposta_profilo_esterno(i)
+	LLMManager.imposta_modello("models/gemini-3.5-flash")
+	assert_eq(String(LLMManager.profili_esterni[i]["model"]), "gemini-3.5-flash",
+		"nel profilo si salva il nome nudo")
+	assert_eq(LLMManager.modello_atteso(), "gemini-3.5-flash", "e si manda quello")
+	LLMManager.usa_gateway = true
+	assert_eq(LLMManager.modello_atteso(), "google/gemini-3.5-flash",
+		"col gateway il prefisso e' quello d'instradamento, non quello dell'elenco")

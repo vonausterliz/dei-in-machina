@@ -1,11 +1,11 @@
 {
-  "nome": "Gemini 2.5 Pro",
+  "nome": "Gemini 3.5 Flash",
   "provider": "google",
   "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
   "chat_path": "/chat/completions",
   "models_path": "/models",
-  "model": "gemini-2.5-pro",
+  "model": "gemini-3.5-flash",
   "api_key_env": "GEMINI_API_KEY",
   "timeout_sec": 120,
-  "_nota": "Scelto dall'umano il 2026-08-02 sulla pagina ufficiale del free tier. ATTENZIONE: e' un modello PRO, e i limiti gratuiti dei Pro sono molto piu' stretti dei Flash — con ~9 chiamate per turno il gioco rallenta parecchio. Se serve velocita', l'alternativa e' un Flash ('gemini-3.6-flash', 'gemini-flash-latest'): stessa riga di questo file. Google ritira i modelli in fretta e continua a ELENCARLI in /models: se torna 404, l'elenco vero e' curl -s 'https://generativelanguage.googleapis.com/v1beta/models?key=$GEMINI_API_KEY' | grep -o '\"name\": \"models/[^\"]*\"'"
+  "_nota": "Provato sul campo il 2026-08-02: la linea 2.x risponde 404 «no longer available to new users» (gratuita solo per chi la usava gia'), la linea 3.x risponde 200. Verificati: 3.5-flash OK, 3.5-flash-lite OK, 2.5-pro e 2.5-flash-lite NO. Il bottone «Prova il modello» in Settings dice in due secondi se un nome funziona."
 }
