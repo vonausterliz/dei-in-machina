@@ -44,7 +44,7 @@
   },
   "motore": {
     "in_uso": "motore: %s · %s",
-    "simulato": "motore: dèi simulati  ·  cambia da Settings",
+    "simulato": "⚠ SIMULATO — gli dèi non pensano · Settings › Prova il modello",
     "dei_simulati": "[dèi simulati: nessuna chiamata al modello]",
     "attivo": "[modalità %s: dèi e narratore reali (%s). Guarda il log a destra.]",
     "non_risponde": "%s non risponde (%s): %s. Resto sui dèi simulati (mock).",
@@ -101,7 +101,8 @@
     "prova_ok": "✓ «%s» risponde. Tutto a posto — %d ms.",
     "prova_ok_non_elencato": "✓ «%s» risponde (%d ms). Non compare nell'elenco del provider, ma genera: succede con gli alias tipo *-latest. Va bene così.",
     "prova_irraggiungibile": "✗ Non raggiungo %s — %s\nControlla la rete; se hai acceso il Gateway, avvialo con llm_gateway/gateway.sh start.",
-    "prova_non_genera": "✗ «%s» non genera — %s\nDi solito il provider l'ha ritirato (continuando a elencarlo) o manca la chiave. Il menu «Modello» qui sopra ha appena ricevuto l'elenco vero: scegline un altro."
+    "prova_non_genera": "✗ «%s» non genera — %s\nDi solito il provider l'ha ritirato (continuando a elencarlo) o manca la chiave. Il menu «Modello» qui sopra ha appena ricevuto l'elenco vero: scegline un altro.",
+    "motore_acceso": "Motore acceso: da adesso rispondono gli dèi veri."
   },
   "ciurma": {
     "titolo": "Ciurma · i tuoi compagni",

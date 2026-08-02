@@ -6,7 +6,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "2.19"
+const VERSIONE := "2.20"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -94,9 +94,10 @@ func _apri_sipario() -> void:
 func _ripristina_preferenze() -> void:
 	imposta_zoom(float(Impostazioni.leggi("zoom", 1.0)))
 	_ripristina_provider()
-	var modello := String(Impostazioni.leggi("modello", ""))
-	if modello != "":
-		LLMManager.imposta_modello(modello)
+	# Ogni profilo riprende il modello che l'utente aveva scelto PER QUEL provider. Scrive
+	# nei profili direttamente: qui il percorso esterno non e' ancora acceso, e passare da
+	# imposta_modello() manderebbe la scelta sul provider locale (era il difetto).
+	LLMManager.applica_modelli_ricordati()
 	LLMManager.mock_mode = true  # il motore reale si attiva dopo, senza bloccare l'avvio
 	var motore := int(Impostazioni.leggi("motore", FinestraImpostazioni.MOTORE_MOCK))
 	if motore != FinestraImpostazioni.MOTORE_MOCK:
@@ -265,6 +266,13 @@ func _costruisci_ui() -> void:
 	var ver := _titolo("v%s" % VERSIONE, 13, C_VERDIGRIS, _serif)
 	ver.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	header.add_child(ver)
+	# Lo stato del motore sta QUI, nell'intestazione, non in una riga discreta in fondo
+	# alla pagina: col motore simulato si sono giocati quattro turni credendo di parlare
+	# con gli dèi veri, perche' l'avviso stava sotto la piega e in colore tenue. Un avviso
+	# che non si vede non e' un avviso.
+	_lbl_motore = _titolo("", 13, C_OXBLOOD, _serif_bold)
+	_lbl_motore.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	header.add_child(_lbl_motore)
 	# Barra dei menu: le viste di servizio e le impostazioni stanno qui, non sparse
 	# tra i controlli di gioco.
 	var stacco := Control.new()
@@ -394,9 +402,11 @@ func _aggiorna_indicatore_motore() -> void:
 		return
 	if LLMManager.mock_mode:
 		_lbl_motore.text = Testi.s("motore/simulato")
+		_lbl_motore.add_theme_color_override("font_color", C_OXBLOOD)
 	else:
 		var dove := Testi.s("motore/nome_esterno") if LLMManager.provider_esterno else Testi.s("motore/nome_ollama")
 		_lbl_motore.text = Testi.s("motore/in_uso", [dove, LLMManager.modello_atteso()])
+		_lbl_motore.add_theme_color_override("font_color", C_VERDIGRIS)
 
 func _apri_impostazioni() -> void:
 	_fin_impostazioni.popup_centered()
@@ -486,8 +496,6 @@ func _colonna_rapsodia() -> Control:
 
 	var hint := _titolo(Testi.s("gioco/suggerimento"), 12, C_BONE_DIM, _serif_italic)
 	v.add_child(hint)
-	_lbl_motore = _titolo("", 12, C_VERDIGRIS, _serif)
-	v.add_child(_lbl_motore)
 
 	# opzioni
 	# I comandi del motore LLM sono nel menu Settings: qui restano solo come attuatori

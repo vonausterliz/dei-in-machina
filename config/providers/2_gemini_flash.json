@@ -7,5 +7,17 @@
   "model": "gemini-3.5-flash",
   "api_key_env": "GEMINI_API_KEY",
   "timeout_sec": 120,
-  "_nota": "Provato sul campo il 2026-08-02: la linea 2.x risponde 404 «no longer available to new users» (gratuita solo per chi la usava gia'), la linea 3.x risponde 200. Verificati: 3.5-flash OK, 3.5-flash-lite OK, 2.5-pro e 2.5-flash-lite NO. Il bottone «Prova il modello» in Settings dice in due secondi se un nome funziona."
+  "_nota": "Provato sul campo il 2026-08-02: la linea 2.x risponde 404 «no longer available to new users» (gratuita solo per chi la usava gia'), la linea 3.x risponde 200. Verificati: 3.5-flash OK, 3.5-flash-lite OK, 2.5-pro e 2.5-flash-lite NO. Il bottone «Prova il modello» in Settings dice in due secondi se un nome funziona.",
+  "escludi_modelli": [
+    "embedding",
+    "imagen",
+    "veo",
+    "tts",
+    "audio",
+    "image",
+    "aqa",
+    "gemma",
+    "learnlm"
+  ],
+  "_nota_filtro": "L'endpoint /models di Google restituisce TUTTO il catalogo: sintesi vocale, immagini, video, embedding. Il gioco sa solo scrivere testo, quindi il menu «Modello» scarta i nomi che contengono questi frammenti."
 }

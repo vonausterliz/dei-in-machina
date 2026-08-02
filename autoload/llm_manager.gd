@@ -207,6 +207,70 @@ func prova_profilo() -> Dictionary:
 	_client.configura(attuale, _leggi_chiave(attuale))
 	return esito
 
+## --- La scelta del modello, ricordata PER PROVIDER ---
+##
+## C'era una preferenza sola per tutto il gioco. Ma un modello appartiene al suo provider:
+## «gemini-3.5-flash» non vuol dire niente per Mistral. E veniva riapplicata all'avvio,
+## quando il percorso esterno non e' ancora acceso, quindi finiva nel profilo di Ollama:
+## sceglievi Gemini, riaprivi, e ritrovavi il modello di prima. Senza un errore, senza una
+## riga di log. Ora ogni provider ha la sua chiave.
+
+## Il nome del modello senza fronzoli: né il prefisso d'instradamento del gateway
+## («google/…») né quello dell'elenco di Google («models/…»).
+static func nome_nudo(nome: String) -> String:
+	return nome.get_slice("/", 1) if nome.contains("/") else nome
+
+func _chiave_modello(idx: int) -> String:
+	if idx < 0 or idx >= profili_esterni.size():
+		return "modello:locale"
+	return "modello:%s" % String(profili_esterni[idx].get("nome", idx))
+
+## Ricorda il modello scelto per il provider CORRENTE (e lo applica subito).
+func ricorda_modello(nome: String) -> void:
+	var pulito := nome_nudo(nome.strip_edges())
+	if pulito == "":
+		return
+	Impostazioni.scrivi(_chiave_modello(provider_esterno_idx), pulito)
+	imposta_modello(pulito)
+
+func modello_ricordato(idx: int) -> String:
+	return String(Impostazioni.leggi(_chiave_modello(idx), ""))
+
+## Rimette in ogni profilo il modello che l'utente aveva scelto per quel provider.
+## Scrive nei profili DIRETTAMENTE: all'avvio il percorso esterno non e' ancora acceso, e
+## passare da imposta_modello() manderebbe la scelta sul provider locale.
+func applica_modelli_ricordati() -> void:
+	for i in profili_esterni.size():
+		var m := modello_ricordato(i)
+		if m != "":
+			profili_esterni[i]["model"] = m
+
+## L'elenco dei modelli, senza quelli che non sanno scrivere testo. Gli endpoint dei
+## provider restituiscono tutto il catalogo — sintesi vocale, immagini, video, embedding —
+## e offrirli nel menu significa proporre scelte che non possono funzionare.
+## I frammenti da escludere stanno nel profilo del provider (`escludi_modelli`): li conosce
+## lui, non il gioco.
+static func solo_modelli_testuali(modelli: Array, escludi: Array) -> Array:
+	if escludi.is_empty():
+		return modelli
+	var out: Array = []
+	for m in modelli:
+		var nome := nome_nudo(String(m)).to_lower()
+		var scartare := false
+		for pezzo in escludi:
+			if nome.contains(String(pezzo).to_lower()):
+				scartare = true
+				break
+		if not scartare:
+			out.append(m)
+	return out
+
+## I frammenti da escludere dichiarati dal profilo selezionato.
+func filtro_modelli() -> Array:
+	if provider_esterno_idx < 0 or provider_esterno_idx >= profili_esterni.size():
+		return []
+	return Array(profili_esterni[provider_esterno_idx].get("escludi_modelli", []))
+
 ## Modello atteso dal provider attivo (per messaggi/verifica).
 func modello_atteso() -> String:
 	return String(_config_attiva().get("model", "?"))

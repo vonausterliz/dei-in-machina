@@ -4,5 +4,15 @@
   "base_url": "https://api.openai.com",
   "model": "gpt-4o-mini",
   "api_key_env": "OPENAI_API_KEY",
-  "timeout_sec": 120
+  "timeout_sec": 120,
+  "escludi_modelli": [
+    "embedding",
+    "dall-e",
+    "tts",
+    "whisper",
+    "audio",
+    "image",
+    "moderation",
+    "realtime"
+  ]
 }

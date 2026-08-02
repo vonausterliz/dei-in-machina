@@ -114,9 +114,10 @@ func _ready() -> void:
 	riga.add_child(_opt_provider)
 	riga.add_child(_etichetta(Testi.s("impostazioni/modello"), 13, C_BONE_DIM))
 	_opt_modello = OptionButton.new()
+	# Ricordato PER PROVIDER: un modello appartiene al suo provider.
 	_opt_modello.item_selected.connect(func(i):
-		Impostazioni.scrivi("modello", _opt_modello.get_item_text(i))
-		LLMManager.imposta_modello(_opt_modello.get_item_text(i)))
+		LLMManager.ricorda_modello(_opt_modello.get_item_text(i))
+		_sincronizza_modello())
 	riga.add_child(_opt_modello)
 	var btn_agg := Button.new()
 	btn_agg.text = Testi.s("impostazioni/aggiorna_elenco")
@@ -266,9 +267,7 @@ func _aggiorna_modelli() -> void:
 	if not v["attivo"]:
 		_stato.text = Testi.s("impostazioni/non_raggiungibile", [v.get("errore", "?")])
 		return
-	_opt_modello.clear()
-	for m in v["modelli"]:
-		_opt_modello.add_item(String(m))
+	_riempi_modelli(v["modelli"])
 	var atteso: String = v["atteso"]
 	for i in _opt_modello.item_count:
 		if _opt_modello.get_item_text(i) == atteso:
@@ -288,9 +287,7 @@ func _prova_modello() -> void:
 
 	# L'elenco appena arrivato dal provider: se qualcosa non va, le alternative sono li'.
 	if not v["modelli"].is_empty():
-		_opt_modello.clear()
-		for m in v["modelli"]:
-			_opt_modello.add_item(String(m))
+		_riempi_modelli(v["modelli"])
 		for i in _opt_modello.item_count:
 			if _opt_modello.get_item_text(i) == String(v["atteso"]):
 				_opt_modello.select(i)
@@ -302,8 +299,31 @@ func _prova_modello() -> void:
 	elif not v["elencato"]:
 		# Genera ma non compare in elenco: funziona, quindi va bene — capita con gli alias.
 		_verdetto(Testi.s("impostazioni/prova_ok_non_elencato", [v["atteso"], v["ms"]]), true)
+		_accendi_se_spento()
 	else:
 		_verdetto(Testi.s("impostazioni/prova_ok", [v["atteso"], v["ms"]]), true)
+		_accendi_se_spento()
+
+## Una prova riuscita mentre il gioco e' rimasto sul simulato lascia l'utente in trappola:
+## il motore funziona, ma nessuno l'ha acceso — e la partita continua con dèi finti senza
+## che si veda. E' successo davvero. Un bottone "prova" senza effetti collaterali e' pulito
+## in teoria; qui la cosa giusta e' accendere, e dirlo.
+func _accendi_se_spento() -> void:
+	if not LLMManager.mock_mode:
+		return
+	var modo := _opt_motore.get_item_id(_opt_motore.selected)
+	Impostazioni.scrivi("motore", modo)
+	motore_scelto.emit(modo)
+	_stato.text += "\n" + Testi.s("impostazioni/motore_acceso")
+
+## Riempie il menu coi soli modelli che sanno scrivere testo: l'endpoint dei provider
+## restituisce tutto il catalogo (voce, immagini, video, embedding) e offrirlo intero
+## significa proporre scelte che non possono funzionare.
+func _riempi_modelli(modelli: Array) -> void:
+	_opt_modello.clear()
+	var utili := LLMManager.solo_modelli_testuali(modelli, LLMManager.filtro_modelli())
+	for m in utili:
+		_opt_modello.add_item(LLMManager.nome_nudo(String(m)))
 
 func _verdetto(testo: String, buono: bool) -> void:
 	_stato.text = testo

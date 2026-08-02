@@ -89,3 +89,17 @@ func test_la_prova_guarda_il_profilo_scelto_non_quello_attivo():
 	assert_eq(String(cfg["model"]), String(LLMManager.profili_esterni[quanti - 1]["model"]))
 	assert_ne(String(cfg["base_url"]), String(LLMManager.config.get("base_url", "")),
 		"non deve cadere sul profilo locale")
+
+## L'avviso del motore simulato dev'essere nell'INTESTAZIONE e in rosso: quando stava in
+## fondo alla pagina, in colore tenue, si sono giocati quattro turni credendo di parlare
+## con gli dèi veri. Un avviso che non si vede non e' un avviso.
+func test_l_avviso_del_motore_simulato_si_vede():
+	LLMManager.mock_mode = true
+	var ui = load("res://scenes/Main.tscn").instantiate()
+	add_child_autofree(ui)
+	await wait_frames(2)
+	assert_string_contains(ui._lbl_motore.text.to_lower(), "simulato")
+	assert_eq(ui._lbl_motore.get_theme_color("font_color"), ui.C_OXBLOOD, "in rosso")
+	# Nell'intestazione, cioe' fra i primi nodi della pagina — non in fondo.
+	var testata: Control = ui._lbl_motore.get_parent()
+	assert_lt(testata.get_index(), 3, "dev'essere in cima, non sotto la piega")
