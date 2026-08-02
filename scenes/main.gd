@@ -7,7 +7,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "2.23"
+const VERSIONE := "2.24"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -795,9 +795,12 @@ func _mostra_spunti(spunti: Array) -> void:
 	# ogni strada, quindi qui si registra. NB: _pulisci_spunti() svuota solo i BOTTONI e non
 	# deve toccare la memoria — durante un turno i bottoni si tolgono subito, e se sparisse
 	# anche il ricordo lo spunto appena cliccato tornerebbe rifiutabile.
-	GameManager.ricorda_spunti(spunti)
+	var buoni := GameManager.filtra_spunti(spunti)
+	if buoni.is_empty():
+		buoni = GameManager.spunti_di_riserva()   # quelli della tappa, non i generici
+	GameManager.ricorda_spunti(buoni)
 	_pulisci_spunti()
-	for sp in spunti:
+	for sp in buoni:
 		_spunti_box.add_child(_cue(String(sp.get("testo", "")), bool(sp.get("rischio", false))))
 
 func _pulisci_spunti() -> void:

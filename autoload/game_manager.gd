@@ -499,12 +499,53 @@ func _vaglia_plausibilita(envelope: Dictionary, input_testo: String) -> void:
 			return
 	await _validazione.vaglia(envelope, input_testo)
 
-## Pubblica: la anche la schermata iniziale genera spunti (fuori da un turno), e anche
-## quelli il gioco non deve poterli rifiutare.
-func ricorda_spunti(spunti: Array) -> void:
-	stato.spunti_proposti.clear()
+## GLI SPUNTI SONO UNA PROMESSA: cio' che il gioco offre, il gioco lo accetta e lo sa
+## rendere. Sul campo la promessa si e' rotta in tre modi, tutti qui:
+##  - fra le frasi e' comparso «---SPUNTI», cioe' l'impalcatura del prompt;
+##  - sono arrivati anacronismi, che poi il gioco stesso avrebbe respinto;
+##  - all'isola di Eolo veniva proposto «apri l'otre», e Eolo l'otre non l'ha ancora dato.
+## Il prompt puo' chiedere tutto questo, ma resta una preghiera: questa e' la garanzia.
+func filtra_spunti(spunti: Array) -> Array:
+	var ep := episodi.get_episodio(_episodio_corrente()) if episodi else null
+	var vietate: Array = ep.non_ancora if ep else []
+	var out: Array = []
 	for s in spunti:
 		var t := String(s.get("testo", "")).strip_edges() if typeof(s) == TYPE_DICTIONARY else String(s).strip_edges()
+		if t == "" or _e_impalcatura(t):
+			continue
+		if _validazione and _validazione.e_anacronistico(t):
+			continue
+		var basso := t.to_lower()
+		var proibito := false
+		for v in vietate:
+			if basso.contains(String(v).to_lower()):
+				proibito = true
+				break
+		if not proibito:
+			out.append(s if typeof(s) == TYPE_DICTIONARY else {"testo": t, "rischio": false})
+	return out
+
+## Una riga di ponteggio scappata dal prompt (---SPUNTI, ORIENTAMENTO, soli trattini).
+func _e_impalcatura(t: String) -> bool:
+	var re := RegEx.new()
+	re.compile("(?i)^[ \\t-]*(spunti|orientamento)[ \\t:-]*$")
+	return re.search(t) != null or t.strip_edges().lstrip("-").strip_edges() == ""
+
+## Gli appigli quando non ne resta nessuno: prima quelli della TAPPA, che sanno dove ti
+## trovi; i generici solo come ultima spiaggia. I vecchi generici dicevano «piega ai remi e
+## prosegui la rotta» e comparivano anche chiusi nell'antro del Ciclope.
+func spunti_di_riserva() -> Array:
+	var ep := episodi.get_episodio(_episodio_corrente()) if episodi else null
+	if ep and not ep.spunti_di_riserva.is_empty():
+		return ep.spunti_di_riserva
+	return Lingua.spunti_generici()
+
+## Pubblica: anche la schermata iniziale genera spunti (fuori da un turno), e anche quelli
+## il gioco non deve poterli rifiutare. Si ricorda solo cio' che ha superato il filtro.
+func ricorda_spunti(spunti: Array) -> void:
+	stato.spunti_proposti.clear()
+	for s in filtra_spunti(spunti):
+		var t := String(s.get("testo", "")).strip_edges()
 		if t != "":
 			stato.spunti_proposti.append(t)
 

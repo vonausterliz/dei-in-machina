@@ -10,6 +10,12 @@ var scena: String = ""   # ancora di scena (luogo + chi e' presente): grounding 
 var mappa: Vector2 = Vector2(0.5, 0.5)  # posizione normalizzata (0..1) sulla carta del viaggio
 var dio_locale: Variant = null
 var eventi_attivi: Array[String] = []
+## Parole che NON possono comparire in uno spunto finche', in questa tappa, la cosa non e'
+## accaduta: all'isola di Eolo veniva proposto di aprire l'otre prima che Eolo lo desse.
+var non_ancora: Array[String] = []
+## Appigli su misura per la tappa, quando quelli generati vengono scartati. Meglio dei
+## generici, che non sanno dove ti trovi ("piega ai remi" chiuso nell'antro del Ciclope).
+var spunti_di_riserva: Array = []
 var avanza_su_tag: Variant = null
 var turni_massimi: int = 0
 
@@ -19,13 +25,27 @@ static func from_dict(d: Dictionary) -> Episodio:
 	e.nome = d.get("nome", "")
 	e.intro = d.get("intro", "")
 	e.scena = d.get("scena", "")
-	var m: Dictionary = d.get("mappa", {})
-	e.mappa = Vector2(float(m.get("x", 0.5)), float(m.get("y", 0.5)))
+	# La posizione accetta due forme: [x, y] (come la genera il riallineamento sulle
+	# coordinate reali) e {x, y} (la forma storica). Senza questo le tappe sarebbero
+	# finite tutte al centro della carta, in silenzio.
+	var m: Variant = d.get("mappa", null)
+	if typeof(m) == TYPE_ARRAY and m.size() >= 2:
+		e.mappa = Vector2(float(m[0]), float(m[1]))
+	elif typeof(m) == TYPE_DICTIONARY:
+		e.mappa = Vector2(float(m.get("x", 0.5)), float(m.get("y", 0.5)))
 	e.dio_locale = d.get("dio_locale", null)
 	var ev: Array[String] = []
 	for v in d.get("eventi_attivi", []):
 		ev.append(String(v))
 	e.eventi_attivi = ev
+	e.non_ancora = _stringhe_di(d.get("non_ancora", []))
+	e.spunti_di_riserva = d.get("spunti_di_riserva", [])
 	e.avanza_su_tag = d.get("avanza_su_tag", null)
 	e.turni_massimi = int(d.get("turni_massimi", 0))
 	return e
+
+static func _stringhe_di(sorgente: Array) -> Array[String]:
+	var out: Array[String] = []
+	for v in sorgente:
+		out.append(String(v))
+	return out

@@ -126,16 +126,17 @@
   ],
   "spunti_generici": [
     {
-      "testo": "Piega ai remi e prosegui la rotta.",
+      "testo": "Osserva in silenzio, e aspetta il momento.",
       "rischio": false
     },
     {
-      "testo": "Prega in silenzio chi veglia sugli astuti.",
+      "testo": "Parla ai tuoi uomini e tienili saldi.",
       "rischio": false
     },
     {
       "testo": "Alza la voce e sfida apertamente la sorte.",
       "rischio": true
     }
-  ]
+  ],
+  "_nota_spunti_generici": "Ripiego quando gli spunti veri mancano o vengono scartati. Devono valere OVUNQUE: i precedenti dicevano «piega ai remi e prosegui la rotta» e comparivano anche mentre Ulisse era chiuso nell'antro del Ciclope. Un ripiego che presuppone dove ti trovi non e' un ripiego."
 }
