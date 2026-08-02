@@ -14,6 +14,10 @@ const PROVIDERS_DIR := "res://config/providers"  # profili API esterni (un .json
 
 var mock_mode: bool = true
 var provider_esterno: bool = false   # false = Ollama locale; true = API esterna
+## Passare o no dalla coda locale del gateway. Ortogonale al provider scelto.
+var usa_gateway := false
+## Il profilo del trasporto (config/providers/ con "trasporto": true). Vuoto se assente.
+var gateway_cfg: Dictionary = {}
 var provider_esterno_idx: int = 0    # quale profilo esterno è selezionato
 var config: Dictionary = {}          # profilo locale (Ollama)
 var profili_esterni: Array = []      # profili API esterni caricati da config/providers/*.json
@@ -40,13 +44,51 @@ func _ready() -> void:
 ## client è provider-agnostico (formato chat-completions OpenAI).
 func _config_attiva() -> Dictionary:
 	if provider_esterno and provider_esterno_idx >= 0 and provider_esterno_idx < profili_esterni.size():
-		return profili_esterni[provider_esterno_idx]
+		return _attraverso_il_gateway(profili_esterni[provider_esterno_idx])
 	return config
 
-## Carica i profili esterni da config/providers/*.json (ordinati per nome file). Ogni
-## profilo ha almeno base_url e model; "nome" è l'etichetta mostrata nel menù.
+## IL GATEWAY E' UN TRASPORTO, NON UN PROVIDER.
+##
+## Prima era una voce dell'elenco dei provider: sceglierlo voleva dire NON scegliere
+## Gemini. Ma "con quale modello parlo" e "ci passo attraverso la coda che rispetta i
+## limiti del piano gratuito" sono due domande indipendenti, e mescolarle costringeva a
+## rinunciare all'una per avere l'altra.
+##
+## Qui il profilo scelto resta quello, e cambia solo la strada: si va a localhost e il
+## modello prende il prefisso d'instradamento («google/gemini-2.5-flash»). Le chiavi non
+## servono piu' al gioco: le tiene il gateway.
+func _attraverso_il_gateway(profilo: Dictionary) -> Dictionary:
+	if not usa_gateway or gateway_cfg.is_empty():
+		return profilo
+	var cfg := profilo.duplicate(true)
+	cfg["base_url"] = gateway_cfg.get("base_url", "http://localhost:8800")
+	cfg["chat_path"] = gateway_cfg.get("chat_path", "/v1/chat/completions")
+	cfg["models_path"] = gateway_cfg.get("models_path", "/v1/models")
+	cfg["timeout_sec"] = gateway_cfg.get("timeout_sec", 300)
+	cfg["api_key_env"] = ""
+	var provider := String(profilo.get("provider", ""))
+	var modello := String(profilo.get("model", ""))
+	if provider != "" and not modello.contains("/"):
+		cfg["model"] = "%s/%s" % [provider, modello]
+	return cfg
+
+## C'e' un gateway configurato (config/providers/ con "trasporto": true)?
+func gateway_disponibile() -> bool:
+	return not gateway_cfg.is_empty()
+
+## Accende/spegne il passaggio dal gateway senza toccare il provider scelto.
+func imposta_gateway(attivo: bool) -> void:
+	usa_gateway = attivo
+	if _client and provider_esterno:
+		var cfg := _config_attiva()
+		_client.configura(cfg, _leggi_chiave(cfg))
+
+## Carica config/providers/*.json (ordinati per nome file). Un file con "trasporto": true
+## NON e' un provider ma la strada per raggiungerli (il Gateway): finisce in gateway_cfg e
+## resta fuori dall'elenco fra cui si sceglie.
 func _carica_profili_esterni() -> Array:
 	var out: Array = []
+	gateway_cfg = {}
 	var dir := DirAccess.open(PROVIDERS_DIR)
 	if dir == null:
 		return out
@@ -56,11 +98,29 @@ func _carica_profili_esterni() -> Array:
 		if not f.to_lower().ends_with(".json"):
 			continue
 		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(PROVIDERS_DIR + "/" + f))
-		if typeof(parsed) == TYPE_DICTIONARY and parsed.has("base_url") and parsed.has("model"):
-			if not parsed.has("nome"):
-				parsed["nome"] = f
+		if typeof(parsed) != TYPE_DICTIONARY or not parsed.has("base_url"):
+			continue
+		if not parsed.has("nome"):
+			parsed["nome"] = f
+		if bool(parsed.get("trasporto", false)):
+			gateway_cfg = parsed
+		elif parsed.has("model"):
 			out.append(parsed)
 	return out
+
+## Indice del profilo dal NOME (come e' salvato nelle preferenze). -1 se non c'e' piu':
+## salvare il nome invece della posizione evita che aggiungere o togliere un file in
+## config/providers/ faccia scivolare la scelta su un altro provider.
+func indice_profilo(nome: String) -> int:
+	for i in profili_esterni.size():
+		if String(profili_esterni[i].get("nome", "")) == nome:
+			return i
+	return -1
+
+func nome_profilo_corrente() -> String:
+	if provider_esterno_idx < 0 or provider_esterno_idx >= profili_esterni.size():
+		return ""
+	return String(profili_esterni[provider_esterno_idx].get("nome", ""))
 
 ## Almeno un profilo esterno disponibile?
 func provider_esterno_disponibile() -> bool:
@@ -86,6 +146,8 @@ func imposta_profilo_esterno(idx: int) -> void:
 ## Un profilo che non dichiara api_key_env non ne ha bisogno (es. il Gateway locale, che
 ## tiene lui le chiavi, o un endpoint senza autenticazione): in quel caso va sempre bene.
 func chiave_esterno_presente() -> bool:
+	if usa_gateway and gateway_disponibile():
+		return true   # passando dal gateway le chiavi le tiene lui, non il gioco
 	if profili_esterni.is_empty():
 		return false
 	var idx := clampi(provider_esterno_idx, 0, profili_esterni.size() - 1)
@@ -93,6 +155,15 @@ func chiave_esterno_presente() -> bool:
 	if String(cfg.get("api_key_env", "")) == "":
 		return true
 	return _leggi_chiave(cfg) != ""
+
+## Il modello del profilo SELEZIONATO nel menu (col prefisso se si passa dal gateway).
+## Diverso da modello_atteso(): quello dice cosa parte davvero adesso, e all'avvio il
+## percorso esterno non e' ancora acceso — in Settings comparirebbe il modello di Ollama
+## mentre il menu mostra "Gemini". Qui si mostra cio' che si sta scegliendo.
+func modello_del_profilo() -> String:
+	if provider_esterno_idx < 0 or provider_esterno_idx >= profili_esterni.size():
+		return String(config.get("model", "?"))
+	return String(_attraverso_il_gateway(profili_esterni[provider_esterno_idx]).get("model", "?"))
 
 ## Modello atteso dal provider attivo (per messaggi/verifica).
 func modello_atteso() -> String:
@@ -110,7 +181,14 @@ func _applica_override_env() -> void:
 func imposta_modello(nome: String) -> void:
 	if nome.strip_edges() == "":
 		return
-	_config_attiva()["model"] = nome
+	# Va scritto sul profilo VERO, non su cio' che ritorna _config_attiva(): col gateway
+	# acceso quello e' una copia col prefisso d'instradamento, e la modifica si perderebbe.
+	# Il prefisso non appartiene al nome del modello: lo rimette il trasporto.
+	var pulito := nome.get_slice("/", 1) if nome.contains("/") else nome
+	if provider_esterno and provider_esterno_idx >= 0 and provider_esterno_idx < profili_esterni.size():
+		profili_esterni[provider_esterno_idx]["model"] = pulito
+	else:
+		config["model"] = pulito
 	if _client:
 		_client.model = nome
 	_reg("modello impostato: %s" % nome)

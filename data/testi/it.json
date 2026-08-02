@@ -79,7 +79,7 @@
     "provider": "Provider:",
     "modello": "Modello:",
     "aggiorna_elenco": "Aggiorna elenco",
-    "gateway": "Passa dal Gateway locale (limiti del piano gratuito: coda, throttling, cache)",
+    "gateway": "Passa dal Gateway locale (rispetta i limiti del piano gratuito: coda, cache, attese)",
     "chiavi": "CHIAVI API",
     "chiavi_nota": "Salvate nella cartella dati dell'utente, mai nel progetto. Una chiave già presente nell'ambiente ha la precedenza.",
     "chiave_placeholder": "incolla qui la chiave",
@@ -88,13 +88,14 @@
     "chiudi": "Chiudi",
     "salvato": "Salvato. Le chiavi valgono da subito (le nuove chiamate le useranno).",
     "salvataggio_fallito": "Impossibile salvare le impostazioni.",
-    "gateway_scelto": "Gateway selezionato. Ricorda di avviarlo: llm_gateway/gateway.sh start",
+    "gateway_scelto": "Gateway acceso: le richieste passano dalla coda locale. Avvialo con llm_gateway/gateway.sh start.",
     "interrogo": "Interrogo il provider…",
     "non_raggiungibile": "Provider non raggiungibile: %s",
     "modelli_trovati": "%d modelli disponibili.",
     "tooltip_esterno": "Usa un provider esterno (config/providers/*.json). La chiave si imposta qui in Settings.",
     "tooltip_provider": "Provider esterno da usare",
-    "tooltip_modello": "Modello del provider attivo"
+    "tooltip_modello": "Modello del provider attivo",
+    "gateway_spento": "Gateway spento: si va diritti al provider, senza rete di protezione sui limiti."
   },
   "ciurma": {
     "titolo": "Ciurma · i tuoi compagni",

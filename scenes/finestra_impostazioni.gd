@@ -217,30 +217,20 @@ func _salva() -> void:
 # --- reazioni ---
 
 func _on_provider(idx: int) -> void:
-	Impostazioni.scrivi("provider_idx", idx)
+	# Salvato per NOME: aggiungere o togliere un file in config/providers/ non deve far
+	# scivolare la scelta su un altro provider.
+	Impostazioni.scrivi("provider_nome", LLMManager.nomi_profili_esterni()[idx] if idx < LLMManager.nomi_profili_esterni().size() else "")
 	LLMManager.imposta_profilo_esterno(idx)
 	_sincronizza_modello()
 
+## La spunta e' ORTOGONALE al provider: dice solo se passare dalla coda locale. Prima
+## selezionava il "profilo gateway", e quindi accenderla voleva dire perdere il provider
+## scelto — si poteva avere il throttling del piano gratuito oppure Gemini, non entrambi.
 func _on_gateway(premuto: bool) -> void:
-	# Il Gateway è semplicemente uno dei profili: selezionarlo è "passare dal gateway".
-	var idx := _indice_gateway()
-	if premuto and idx >= 0:
-		_opt_provider.select(idx)
-		LLMManager.imposta_profilo_esterno(idx)
-		_sincronizza_modello()
-		_stato.text = Testi.s("impostazioni/gateway_scelto")
-	elif not premuto and _indice_gateway() == _opt_provider.selected:
-		var alt := 1 if LLMManager.profili_esterni.size() > 1 else 0
-		_opt_provider.select(alt)
-		LLMManager.imposta_profilo_esterno(alt)
-		_sincronizza_modello()
-
-func _indice_gateway() -> int:
-	var nomi: Array = LLMManager.nomi_profili_esterni()
-	for i in nomi.size():
-		if String(nomi[i]).to_lower().find("gateway") != -1:
-			return i
-	return -1
+	LLMManager.imposta_gateway(premuto)
+	Impostazioni.scrivi("usa_gateway", premuto)
+	_sincronizza_modello()
+	_stato.text = Testi.s("impostazioni/gateway_scelto" if premuto else "impostazioni/gateway_spento")
 
 ## Adegua la finestra alla scala, senza uscire dallo schermo.
 func adegua_a_scala(f: float) -> void:
@@ -254,12 +244,13 @@ func _sincronizza() -> void:
 	if LLMManager.profili_esterni.is_empty():
 		return
 	_opt_provider.select(LLMManager.provider_esterno_idx)
-	_chk_gateway.set_pressed_no_signal(LLMManager.provider_esterno_idx == _indice_gateway())
+	_chk_gateway.set_pressed_no_signal(LLMManager.usa_gateway)
+	_chk_gateway.disabled = not LLMManager.gateway_disponibile()
 	_sincronizza_modello()
 
 func _sincronizza_modello() -> void:
 	_opt_modello.clear()
-	_opt_modello.add_item(LLMManager.modello_atteso())
+	_opt_modello.add_item(LLMManager.modello_del_profilo())
 	_opt_modello.select(0)
 
 ## Chiede al provider l'elenco dei modelli disponibili.

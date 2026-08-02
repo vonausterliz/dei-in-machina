@@ -6,7 +6,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "2.13"
+const VERSIONE := "2.14"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -93,9 +93,7 @@ func _apri_sipario() -> void:
 ## motore. Cosi' non si riconfigura tutto a ogni avvio.
 func _ripristina_preferenze() -> void:
 	imposta_zoom(float(Impostazioni.leggi("zoom", 1.0)))
-	var idx := int(Impostazioni.leggi("provider_idx", 0))
-	if idx > 0:
-		LLMManager.imposta_profilo_esterno(idx)
+	_ripristina_provider()
 	var modello := String(Impostazioni.leggi("modello", ""))
 	if modello != "":
 		LLMManager.imposta_modello(modello)
@@ -103,6 +101,30 @@ func _ripristina_preferenze() -> void:
 	var motore := int(Impostazioni.leggi("motore", FinestraImpostazioni.MOTORE_MOCK))
 	if motore != FinestraImpostazioni.MOTORE_MOCK:
 		_motore_da_ripristinare = motore
+
+## Rimette il provider scelto e se passare o no dal gateway. Due preferenze distinte,
+## perché sono due scelte distinte.
+##
+## MIGRAZIONE: prima il gateway era una voce dell'elenco dei provider (la prima, dal file
+## 0_gateway.json) e si salvava la POSIZIONE. Ora non è più un provider, quindi le vecchie
+## posizioni sono tutte slittate di uno: la 0 voleva dire "gateway", le altre indicano il
+## provider precedente. Senza questa conversione chi riapre il gioco si ritroverebbe un
+## provider diverso da quello che aveva scelto, e senza capire perché.
+func _ripristina_provider() -> void:
+	var nome := String(Impostazioni.leggi("provider_nome", ""))
+	if nome == "" and Impostazioni.leggi("provider_idx", null) != null:
+		var vecchio := int(Impostazioni.leggi("provider_idx", 0))
+		if vecchio == 0:
+			Impostazioni.scrivi("usa_gateway", true)   # "0" era il gateway
+		var nomi: Array = LLMManager.nomi_profili_esterni()
+		var nuovo := clampi(vecchio - 1, 0, maxi(0, nomi.size() - 1))
+		nome = String(nomi[nuovo]) if not nomi.is_empty() else ""
+		Impostazioni.scrivi("provider_nome", nome)
+		Impostazioni.dimentica("provider_idx")         # la vecchia chiave non vale più
+	var idx := LLMManager.indice_profilo(nome)
+	if idx >= 0:
+		LLMManager.imposta_profilo_esterno(idx)
+	LLMManager.usa_gateway = bool(Impostazioni.leggi("usa_gateway", false))
 
 ## Riapre le viste che erano aperte, dove e come erano; poi riattiva il motore scelto.
 func _ripristina_finestre() -> void:

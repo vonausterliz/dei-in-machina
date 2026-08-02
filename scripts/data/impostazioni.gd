@@ -33,6 +33,13 @@ static func scrivi(chiave: String, valore: Variant) -> void:
 	_dati[chiave] = valore
 	salva()
 
+## Toglie una preferenza. Serve alle migrazioni: una chiave che non vale piu' va
+## rimossa, non messa a null — altrimenti resta li' a confondere chi legge il file.
+static func dimentica(chiave: String) -> void:
+	_carica()
+	if _dati.erase(chiave):
+		salva()
+
 static func salva() -> void:
 	var f := FileAccess.open(PERCORSO, FileAccess.WRITE)
 	if f == null:
