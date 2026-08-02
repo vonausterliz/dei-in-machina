@@ -101,7 +101,17 @@ const RE_SOLO_TRATTINI := "^[ \\t]*[-_—=]{3,}[ \\t]*$"
 ## Un'etichetta interna sfuggita nel testo: tutta maiuscola, senza minuscole, sulla sua riga.
 const RE_ETICHETTA := "^[ \\t]*[A-ZÀÈÉÌÒÙ][A-ZÀÈÉÌÒÙ '\\t]{3,}[ \\t]*:?[ \\t]*$"
 ## Marcatori con cui il modello apre uno spunto. Li combina anche fra loro ("- ! Getta…").
-const MARCATORI := ["-", "!", "•", "*", "–", "—"]
+##
+## NIENTE LINEETTE (– —): in italiano aprono il DIALOGO, non un elenco. Averle messe qui
+## faceva scambiare ogni battuta di Omero per uno spunto — tagliata dal racconto e messa
+## su un bottone. Con una scena molto dialogata (che il prompt gli chiede espressamente)
+## il racconto si svuotava.
+const MARCATORI := ["-", "!", "•", "*"]
+
+## Quanto puo' essere lunga una riga per passare da spunto: il prompt ne chiede di brevi
+## ("max ~12 parole"). Una riga lunga e' prosa, e nel dubbio la prosa vince — perdere due
+## suggerimenti si rimedia con quelli generici, perdere il racconto no.
+const SPUNTO_MAX_CARATTERI := 110
 
 ## Narrazione E spunti in UNA chiamata sola.
 ##
@@ -148,8 +158,13 @@ func _prosa(righe: Array) -> String:
 		out.append(r)
 	return "\n".join(out).strip_edges()
 
-## Dove comincia l'elenco finale di spunti, se il modello l'ha scritto senza intestazione.
-## -1 se in fondo non c'e' un elenco (almeno due righe).
+## Dove comincia l'elenco finale di spunti, se il modello l'ha scritto SENZA intestazione.
+## -1 se in fondo non c'e' un elenco.
+##
+## Riconoscimento severo — TRE righe brevi, quante il prompt ne chiede — perche' qui non
+## c'e' nessuna intestazione a fare da conferma: si sta indovinando su della prosa. Se
+## sbaglia, mangia il finale del racconto. Meglio non riconoscere degli spunti (ci sono
+## quelli generici di riserva) che amputare cio' che il giocatore deve leggere.
 func _inizio_coda_spunti(righe: Array) -> int:
 	var i := righe.size() - 1
 	while i >= 0 and String(righe[i]).strip_edges() == "":
@@ -157,11 +172,13 @@ func _inizio_coda_spunti(righe: Array) -> int:
 	var ultimo := i
 	while i >= 0 and _e_spunto(String(righe[i])):
 		i -= 1
-	return i + 1 if ultimo - i >= 2 else -1
+	return i + 1 if ultimo - i == 3 else -1
 
 func _e_spunto(riga: String) -> bool:
 	var r := riga.strip_edges()
-	return r != "" and MARCATORI.has(r.substr(0, 1))
+	if r == "" or not MARCATORI.has(r.substr(0, 1)):
+		return false
+	return r.length() <= SPUNTO_MAX_CARATTERI
 
 func _leggi_spunti(righe: Array) -> Array:
 	var out: Array = []

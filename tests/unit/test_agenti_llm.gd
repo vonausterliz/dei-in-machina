@@ -203,6 +203,49 @@ func test_l_invariante_vale_anche_sugli_spunti():
 	assert_true(nar.nomina_un_dio("Prega Poseidone perche' plachi le onde"))
 	assert_string_contains(nar.redigi("Prega Poseidone perche' plachi le onde").to_lower(), "un dio")
 
+## REGRESSIONE v2.10 -> v2.17. In italiano il DIALOGO si apre con la lineetta. Avendo
+## messo "—" fra i marcatori di elenco, ogni battuta di Omero veniva scambiata per uno
+## spunto: tagliata dal racconto e trasformata in un bottone. Con una scena molto dialogata
+## il racconto restava quasi vuoto — "Omero non scrive".
+## Il prompt gli CHIEDE dialoghi "con naturalezza drammatica": era un difetto garantito.
+func test_i_dialoghi_con_la_lineetta_restano_nel_racconto():
+	var nar := Narratore.new(_nomi())
+	var fake := FakeChat.new()
+	fake.risposte = [_ok("""Il re dei Ciconi scese dal colle e ti guardo' a lungo.
+
+— Chi sei tu, che vieni dal mare con le navi cariche?
+— Nessuno — rispondesti, e il vento porto' via la parola.""")]
+	var r := await nar.narra_e_suggerisci({"sintesi": "x"}, fake.chat)
+	assert_string_contains(r["narrazione"], "Chi sei tu", "la battuta e' racconto, non uno spunto")
+	assert_string_contains(r["narrazione"], "Nessuno", "e nemmeno la risposta si tocca")
+	assert_eq(r["spunti"].size(), 0, "qui di spunti non ce n'erano")
+
+## Una scena TUTTA di dialogo non deve sparire.
+func test_una_scena_tutta_dialogata_non_si_svuota():
+	var nar := Narratore.new(_nomi())
+	var fake := FakeChat.new()
+	fake.risposte = [_ok("""— Fermi ai remi! — gridasti.
+— E se ci inseguono? — chiese Euriloco.
+— Allora remeremo piu' forte.""")]
+	var testo := await nar.narra({"sintesi": "x"}, fake.chat)
+	assert_string_contains(testo, "Fermi ai remi")
+	assert_string_contains(testo, "remeremo piu' forte")
+
+## Gli spunti veri continuano a funzionare: quelli hanno l'intestazione.
+func test_gli_spunti_veri_si_riconoscono_ancora():
+	var nar := Narratore.new(_nomi())
+	var fake := FakeChat.new()
+	fake.risposte = [_ok("""Il mare si apri' davanti alle prue.
+
+---SPUNTI---
+- Vira verso la costa.
+- Tieni il largo e prosegui.
+! Sfida il vento gridando il tuo nome.""")]
+	var r := await nar.narra_e_suggerisci({"sintesi": "x"}, fake.chat)
+	assert_eq(r["spunti"].size(), 3)
+	assert_true(r["spunti"][2]["rischio"])
+	assert_false(r["narrazione"].contains("Vira verso"))
+
 # --- Regressione: impalcatura del prompt colata nel racconto (uscite VERE di Mistral) ---
 
 ## Il modello non ha scritto "---SPUNTI---" ma ha inventato la sua intestazione, ed e'
