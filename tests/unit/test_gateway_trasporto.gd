@@ -53,7 +53,9 @@ func test_col_gateway_acceso_ci_si_passa_attraverso_TENENDO_il_provider():
 	LLMManager.usa_gateway = true
 	var cfg := LLMManager._config_attiva()
 	assert_string_contains(String(cfg["base_url"]), "localhost", "si passa dalla coda locale")
-	assert_eq(String(cfg["model"]), "google/gemini-2.5-flash", "prefisso = instradamento")
+	# Il NOME del modello non si fissa nei test: e' esattamente la cosa che il provider
+	# cambia sotto i piedi. Si controlla il meccanismo — prefisso = provider del profilo.
+	assert_eq(String(cfg["model"]), "google/%s" % _modello_del_file(i), "prefisso = instradamento")
 	assert_eq(String(cfg.get("api_key_env", "")), "", "le chiavi le tiene il gateway")
 
 func test_il_prefisso_usa_il_provider_del_profilo_non_il_suo_nome():
@@ -84,6 +86,11 @@ func test_accendere_e_spegnere_il_gateway_non_cambia_provider():
 	LLMManager.usa_gateway = false
 	assert_eq(LLMManager.provider_esterno_idx, i, "il provider resta quello che avevi scelto")
 	assert_string_contains(String(LLMManager._config_attiva()["base_url"]), "googleapis")
+
+## Il modello come sta nel file del profilo: cosi' il test resta valido quando il modello
+## cambia (e cambiera').
+func _modello_del_file(idx: int) -> String:
+	return String(LLMManager.profili_esterni[idx].get("model", ""))
 
 func _indice_di(pezzo: String) -> int:
 	var nomi: Array = LLMManager.nomi_profili_esterni()
@@ -133,4 +140,4 @@ func test_settings_mostra_il_modello_del_profilo_scelto():
 	LLMManager.provider_esterno_idx = i
 	assert_string_contains(LLMManager.modello_del_profilo(), "gemini")
 	LLMManager.usa_gateway = true
-	assert_eq(LLMManager.modello_del_profilo(), "google/gemini-2.5-flash")
+	assert_eq(LLMManager.modello_del_profilo(), "google/%s" % _modello_del_file(i))

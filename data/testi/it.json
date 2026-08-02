@@ -56,7 +56,7 @@
     "manca_chiave": "Manca la chiave API per «%s»: impostala da Settings. Resto sui dèi simulati (mock).",
     "nome_ollama": "Ollama",
     "nome_esterno": "API esterna",
-    "non_genera": "Il modello «%s» risulta elencato da %s ma NON risponde: %s\nProbabilmente è stato ritirato dal provider. Cambialo in Settings → Modelli, oppure aggiorna config/providers/. Per ora resto sul motore simulato."
+    "non_genera": "Il modello «%s» risulta elencato da %s ma NON risponde: %s\nDi solito vuol dire che il provider l'ha ritirato (continuando a elencarlo). Il menu «Modello» in Settings ora contiene l'elenco che il provider ha appena restituito: scegline un altro da lì. Per ora resto sul motore simulato."
   },
   "finestre": {
     "log_titolo": "Log LLM · traffico verso il modello",

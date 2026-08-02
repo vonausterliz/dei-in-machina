@@ -1,11 +1,11 @@
 {
-  "nome": "Gemini 2.5 Flash",
+  "nome": "Gemini Flash",
   "provider": "google",
   "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
   "chat_path": "/chat/completions",
   "models_path": "/models",
-  "model": "gemini-2.5-flash",
+  "model": "gemini-flash-latest",
   "api_key_env": "GEMINI_API_KEY",
   "timeout_sec": 120,
-  "_nota": "Google RITIRA i modelli e continua a elencarli in /models: se torna 404, aggiorna 'model' qui. L'elenco vero: curl -s 'https://generativelanguage.googleapis.com/v1beta/models?key=$GEMINI_API_KEY' | grep -o '\"name\": \"models/[^\"]*\"'"
+  "_nota": "ALIAS MOBILE, non un modello fisso: 'gemini-flash-latest' punta sempre al Flash corrente. Google ritira i modelli in fretta (2.0-flash e 2.5-flash sono caduti nel giro di poco) e continua a ELENCARLI in /models anche dopo: inseguirli a mano con un nome fisso e' una battaglia persa. Se anche l'alias fallisse, l'elenco vero: curl -s 'https://generativelanguage.googleapis.com/v1beta/models?key=$GEMINI_API_KEY' | grep -o '\"name\": \"models/[^\"]*\"'"
 }
