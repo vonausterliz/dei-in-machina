@@ -47,6 +47,8 @@ var stato: StatoPartita = null
 
 ## Moduli estratti: la regola vive nel suo file, GameManager orchestra il turno.
 var _validazione: Validazione = null
+## Le conversazioni (vista Olimpo come chat, e in seguito la ciurma).
+var agora: Agora = null
 
 ## Ultima narrazione di Omero: la ripassiamo al turno dopo per la continuità del discorso.
 var _ultima_narrazione: String = ""
@@ -60,6 +62,8 @@ func nuova_partita(seed_partita: int = 0) -> void:
 	var s := seed_partita if seed_partita != 0 else randi()
 	stato = StatoPartita.nuova(PantheonManager.pantheon, s)
 	_validazione = Validazione.new(stato)
+	agora = Agora.new()
+	agora.canale(Agora.CANALE_OLIMPO, "Olimpo")
 	_ultima_narrazione = ""
 	_rng.seed = s  # riproducibilita': stessa run, stessi scavalcamenti
 	prob_scavalcamento = _PROB_SCAVALCAMENTO_DEFAULT
@@ -176,6 +180,8 @@ func carica_partita(path: String = SALVATAGGIO_DEFAULT) -> bool:
 		return false
 	stato = s
 	_validazione = Validazione.new(stato)  # i moduli lavorano sullo stato caricato
+	agora = Agora.new()
+	agora.canale(Agora.CANALE_OLIMPO, "Olimpo")
 	return true
 
 func salva_partita(path: String = SALVATAGGIO_DEFAULT) -> bool:
@@ -234,6 +240,7 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 		await _risolvi_invocazione(envelope, input_testo)
 		svegli = PantheonManager.risveglio(envelope, eventi_turno, _episodio_corrente())
 		_segna_in_gioco(svegli)
+		_annuncia_risvegli(svegli)
 
 		# L'azione cambia Ulisse comunque (hybris/metis), anche se nessun dio reagisce.
 		delta = Delta.da_azione(envelope)
@@ -374,12 +381,15 @@ func _delibera(svegli: Array, envelope: Dictionary) -> Dictionary:
 		return {"proposte": proposte, "conflitto": false, "verdetto": {}}
 	if attive.size() == 1 or not _in_conflitto(attive):
 		var prep := _prepara_per_arbitrato(attive)
-		return {"proposte": prep, "conflitto": false, "verdetto": _arbitra(prep)}
+		var v := _arbitra(prep)
+		_verdetto_in_chat(v, false)
+		return {"proposte": prep, "conflitto": false, "verdetto": v}
 
 	# CONFLITTO: i dei si ribattono, poi Zeus chiude.
 	var repliche := await _repliche(attive, envelope)
 	var prep_c := _prepara_per_arbitrato(repliche)
 	var verdetto: Dictionary = await LLMManager.verdetto_arbitro(prep_c)
+	_verdetto_in_chat(verdetto, true)
 	return {"proposte": prep_c, "conflitto": true, "verdetto": verdetto}
 
 ## Sfondo (fase 6-bis) sulle proposte prima del verdetto: strategie (piano) e peso di
@@ -406,7 +416,9 @@ func _modula_proposte_per_hybris(proposte: Array) -> Array:
 func _raccogli_proposte(svegli: Array, envelope: Dictionary, altri: Array) -> Array:
 	var out: Array = []
 	for id in svegli:
-		out.append(await LLMManager.proposta_dio(PantheonManager.get_dio(id), _contesto_dio(id, envelope, altri)))
+		var p: Dictionary = await LLMManager.proposta_dio(PantheonManager.get_dio(id), _contesto_dio(id, envelope, altri))
+		out.append(p)
+		_in_chat(p)
 	return out
 
 ## Round 2: ogni dio ribatte vedendo le proposte degli ALTRI.
@@ -415,7 +427,9 @@ func _repliche(attive: Array, envelope: Dictionary) -> Array:
 	for p in attive:
 		var id: String = p.get("dio", "")
 		var altri := _altri_dei(attive, id)
-		out.append(await LLMManager.proposta_dio(PantheonManager.get_dio(id), _contesto_dio(id, envelope, altri)))
+		var r: Dictionary = await LLMManager.proposta_dio(PantheonManager.get_dio(id), _contesto_dio(id, envelope, altri))
+		out.append(r)
+		_in_chat(r)   # e' il botta e risposta: il dio ribatte avendo sentito gli altri
 	return out
 
 func _contesto_dio(id: String, envelope: Dictionary, altri: Array) -> Dictionary:
@@ -494,6 +508,8 @@ func _aggiorna_coalizioni(proposte: Array) -> void:
 		c["coesione"] = int(c.get("coesione", 0)) - _COESIONE_DECADIMENTO
 		if int(c["coesione"]) > 0:
 			vive.append(c)
+		elif c.has("canale"):
+			agora.chiudi_gruppo(String(c["canale"]), stato.turno)  # il gruppo si scioglie
 	stato.coalizioni = vive
 
 	if stato.coalizioni.size() >= _MAX_COALIZIONI or prob_coalizione <= 0.0:
@@ -503,12 +519,18 @@ func _aggiorna_coalizioni(proposte: Array) -> void:
 		return
 	if prob_coalizione < 1.0 and _rng.randf() > prob_coalizione:
 		return
+	# Nasce l'intesa: e con lei un canale di gruppo, come una chat riservata.
+	var nomi: Array = []
+	for id in blocco:
+		var d := PantheonManager.get_dio(id)
+		nomi.append(d.nome if d else id)
 	stato.coalizioni.append({
 		"membri": blocco,
 		"obiettivo": "negare il ritorno a Ulisse",
 		"formata_al_turno": stato.turno,
 		"coesione": _COESIONE_INIZIALE,
 		"scadenza": "obiettivo_raggiunto_o_interessi_divergenti",
+		"canale": agora.apri_gruppo(blocco, nomi, stato.turno),
 	})
 
 ## Dei con proposta punitiva e stessa fazione contro-ritorno: la base di una coalizione.
@@ -698,6 +720,39 @@ func _ha_intento_invocazione(envelope: Dictionary) -> bool:
 	return tag.has("preghiera") or tag.has("supplica")
 
 ## Un dio che si sveglia entra "in gioco" (utile per i locali; i persistenti lo sono gia').
+## Chi si desta lo mostra nel canale: e' il momento in cui un dio "entra in chat".
+func _annuncia_risvegli(svegli: Array) -> void:
+	for id in svegli:
+		var dio := PantheonManager.get_dio(id)
+		if dio:
+			agora.scrivi(Agora.CANALE_OLIMPO, dio.nome, "si desta.", stato.turno, "azione")
+
+## Porta una proposta divina nel canale giusto: se il dio e' in coalizione parla anche
+## nel gruppo, come si fa in una chat quando si ha un tavolo riservato.
+func _in_chat(p: Dictionary) -> void:
+	var battuta := String(p.get("dice", "")).strip_edges()
+	if battuta == "":
+		return
+	var dio := PantheonManager.get_dio(String(p.get("dio", "")))
+	if dio == null:
+		return
+	agora.scrivi(Agora.CANALE_OLIMPO, dio.nome, battuta, stato.turno)
+	for c in stato.coalizioni:
+		if c.get("membri", []).has(dio.id) and c.has("canale"):
+			agora.scrivi(String(c["canale"]), dio.nome, battuta, stato.turno)
+
+## Il verdetto: se c'e' stato conflitto lo pronuncia Zeus, altrimenti prevale chi ha
+## spinto piu' forte. In chat si legge come la parola che chiude la discussione.
+func _verdetto_in_chat(verdetto: Dictionary, arbitrato: bool) -> void:
+	var attore := String(verdetto.get("attore", ""))
+	if attore == "":
+		return
+	var dio := PantheonManager.get_dio(attore)
+	var nome: String = dio.nome if dio else attore
+	var chi := "Zeus" if arbitrato else nome
+	var testo := "prevale %s: %s" % [nome, verdetto.get("registro", "?")]
+	agora.scrivi(Agora.CANALE_OLIMPO, chi, testo, stato.turno, "verdetto")
+
 func _segna_in_gioco(svegli: Array) -> void:
 	for id in svegli:
 		if stato.registro_divino.has(id):

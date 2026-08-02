@@ -6,7 +6,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "2.3"
+const VERSIONE := "2.4"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -780,8 +780,11 @@ func _aggiungi_diario() -> void:
 	if _diario_scroll:
 		_diario_scroll.set_deferred("scroll_vertical", 1_000_000)
 
+## La Vista Olimpo e' una CHAT in sola lettura: gli dei si parlano, e il giocatore assiste.
+## La traccia tecnica del turno resta in coda, per chi vuole guardare i numeri.
 func _aggiorna_olimpo(voce: Dictionary) -> void:
-	_fin_olimpo.imposta(TraceFormatter.intestazione(GameManager.stato) + "\n\n" + TraceFormatter.turno(voce))
+	var chat := GameManager.agora.trascrizione() if GameManager.agora else ""
+	_fin_olimpo.imposta(chat + "\n\n[color=#3f3a30]—————[/color]\n\n" + TraceFormatter.turno(voce))
 
 func _nome_tappa() -> String:
 	var ep := GameManager.episodi.get_episodio(GameManager.stato.viaggio["corrente"])
