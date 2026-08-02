@@ -203,6 +203,73 @@ func test_l_invariante_vale_anche_sugli_spunti():
 	assert_true(nar.nomina_un_dio("Prega Poseidone perche' plachi le onde"))
 	assert_string_contains(nar.redigi("Prega Poseidone perche' plachi le onde").to_lower(), "un dio")
 
+# --- Regressione: impalcatura del prompt colata nel racconto (uscite VERE di Mistral) ---
+
+## Il modello non ha scritto "---SPUNTI---" ma ha inventato la sua intestazione, ed e'
+## perfino rimbalzato l'etichetta ORIENTAMENTO del contesto come se fosse un titolo.
+## Col confronto letterale non trovavamo nulla e il blocco finiva a schermo, dentro il
+## racconto. Chi gioca legge una storia: li' non deve comparire nessuna impalcatura.
+func _uscita_vera_con_orientamento() -> String:
+	return """Poi il mare sputo' un pesce morto oltre la poppa, ventre in su.
+
+---
+ORIENTAMENTO
+Il ritorno si allontana, la spedizione si assottiglia.
+---
+- Prendi il pesce tra le mani.
+- ! Getta il pesce in mare senza toccarlo con le dita.
+- Sciacqua le mani nella scia."""
+
+func _uscita_vera_separatore_storto() -> String:
+	return """Il re dei Ciconi scende dal colle su un destriero nero. Poi sputa tra le onde.
+
+---
+SPUNTI---
+! SACRIFICA un capro nero sulle rive del fiume.
+- Manda un uomo a chiedere acqua dolce ai villaggi vicini.
+- Offri al re il tuo mantello di porpora, e taccia."""
+
+func test_separatore_storto_viene_riconosciuto_lo_stesso():
+	var nar := Narratore.new(_nomi())
+	var fake := FakeChat.new()
+	fake.risposte = [_ok(_uscita_vera_separatore_storto())]
+	var r := await nar.narra_e_suggerisci({"sintesi": "x"}, fake.chat)
+	assert_string_contains(r["narrazione"], "destriero nero")
+	assert_false(r["narrazione"].contains("SPUNTI"), "nel racconto non ci va")
+	assert_false(r["narrazione"].contains("capro nero"), "gli spunti non sono prosa")
+	assert_eq(r["spunti"].size(), 3)
+	assert_true(r["spunti"][0]["rischio"], "il '!' segna il rischioso")
+
+func test_etichetta_del_contesto_non_finisce_nel_racconto():
+	var nar := Narratore.new(_nomi())
+	var fake := FakeChat.new()
+	fake.risposte = [_ok(_uscita_vera_con_orientamento())]
+	var r := await nar.narra_e_suggerisci({"sintesi": "x"}, fake.chat)
+	assert_string_contains(r["narrazione"], "pesce morto")
+	assert_false(r["narrazione"].contains("ORIENTAMENTO"), "e' un'etichetta interna")
+	assert_false(r["narrazione"].contains("---"), "niente barre di separazione nel racconto")
+	assert_eq(r["spunti"].size(), 3, "gli spunti si riconoscono anche senza intestazione")
+
+## "- ! Getta..." — il modello combina i due marcatori. Vale come rischioso, e il testo
+## non deve conservare i simboli.
+func test_marcatori_combinati():
+	var nar := Narratore.new(_nomi())
+	var fake := FakeChat.new()
+	fake.risposte = [_ok(_uscita_vera_con_orientamento())]
+	var r := await nar.narra_e_suggerisci({"sintesi": "x"}, fake.chat)
+	assert_eq(r["spunti"][1]["testo"], "Getta il pesce in mare senza toccarlo con le dita.")
+	assert_true(r["spunti"][1]["rischio"])
+
+## Anche chi vuole la sola prosa (i passaggi fra le tappe) non deve vedere l'impalcatura.
+func test_la_prosa_da_sola_resta_pulita():
+	var nar := Narratore.new(_nomi())
+	var fake := FakeChat.new()
+	fake.risposte = [_ok(_uscita_vera_con_orientamento())]
+	var testo := await nar.narra({"passaggio": {"da": "Ismaro", "a": "Eea"}}, fake.chat)
+	assert_string_contains(testo, "pesce morto")
+	for scoria in ["ORIENTAMENTO", "SPUNTI", "---", "Prendi il pesce"]:
+		assert_false(testo.contains(scoria), "residuo nel racconto: %s" % scoria)
+
 # --- Suggeritore (spunti d'azione player-facing) ---
 
 func test_prompt_suggeritore_include_guardrail():

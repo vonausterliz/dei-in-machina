@@ -86,8 +86,22 @@ func costruisci_messaggi(contesto: Dictionary) -> Array:
 ## NOTA: i turni FUORI-MONDO non arrivano qui. Il GameManager non chiama affatto Omero
 ## quando l'azione è impossibile (anacronismo/nonsenso): al giocatore va solo il richiamo,
 ## mostrato dalla UI. Chiedere al modello di "non narrare" non funzionava: narrava lo stesso.
-## Il separatore con cui Omero chiude la narrazione e apre i tre spunti (vedi il prompt).
+## Il separatore che CHIEDIAMO a Omero (vedi il prompt). Non lo cerchiamo alla lettera:
+## un modello lo storpia. Visto sul campo con Mistral Small: "---\nSPUNTI---", e perfino
+## l'etichetta ORIENTAMENTO del contesto rimbalzata come titolo. Col confronto esatto
+## niente combaciava e l'impalcatura finiva dentro il racconto, sotto gli occhi di chi
+## gioca. Qui il riconoscimento e' tollerante e la prosa viene comunque ripulita: chi
+## gioca legge una storia, mai i ponteggi.
 const SEP_SPUNTI := "---SPUNTI---"
+
+## Righe che valgono come stacco fra il racconto e gli spunti: "SPUNTI" o "ORIENTAMENTO"
+## comunque vestiti di trattini, oppure una riga di soli trattini.
+const RE_INTESTAZIONE := "(?im)^[ \\t]*-*[ \\t]*(SPUNTI|ORIENTAMENTO)[ \\t]*:?[ \\t]*-*[ \\t]*$"
+const RE_SOLO_TRATTINI := "^[ \\t]*[-_—=]{3,}[ \\t]*$"
+## Un'etichetta interna sfuggita nel testo: tutta maiuscola, senza minuscole, sulla sua riga.
+const RE_ETICHETTA := "^[ \\t]*[A-ZÀÈÉÌÒÙ][A-ZÀÈÉÌÒÙ '\\t]{3,}[ \\t]*:?[ \\t]*$"
+## Marcatori con cui il modello apre uno spunto. Li combina anche fra loro ("- ! Getta…").
+const MARCATORI := ["-", "!", "•", "*", "–", "—"]
 
 ## Narrazione E spunti in UNA chiamata sola.
 ##
@@ -101,30 +115,76 @@ const SEP_SPUNTI := "---SPUNTI---"
 ## una riga separatrice e tre righe secche. Se non lo fa, spunti vuoti e il chiamante
 ## ripiega su quelli generici — la narrazione non si perde mai.
 func narra_e_suggerisci(contesto: Dictionary, chat_fn: Callable, seed: int = 0) -> Dictionary:
-	var grezzo := await narra(contesto, chat_fn, seed, false)
-	var i := grezzo.find(SEP_SPUNTI)
-	if i < 0:
-		return {"narrazione": grezzo, "spunti": []}
-	return {
-		"narrazione": grezzo.substr(0, i).strip_edges(),
-		"spunti": _leggi_spunti(grezzo.substr(i + SEP_SPUNTI.length())),
-	}
+	return _separa(await narra(contesto, chat_fn, seed, false))
 
-func _leggi_spunti(blocco: String) -> Array:
-	var out: Array = []
-	for riga in blocco.split("\n", false):
-		var r := String(riga).strip_edges()
-		if r == "":
+## Divide l'uscita grezza in racconto e spunti.
+##
+## Cerca la prima riga di stacco che abbia sotto almeno DUE righe-spunto: la doppia
+## condizione e' cio' che rende sicuro accettare separatori improvvisati (un "---" a meta'
+## racconto non taglia niente se non e' seguito da un elenco). Se nessuno stacco combacia,
+## guarda se il testo finisce comunque con una coda di righe-spunto.
+func _separa(grezzo: String) -> Dictionary:
+	var righe := grezzo.split("\n")
+	for i in righe.size():
+		if _e_stacco(righe[i]) and _leggi_spunti(righe.slice(i + 1)).size() >= 2:
+			return {"narrazione": _prosa(righe.slice(0, i)), "spunti": _leggi_spunti(righe.slice(i + 1))}
+	var da := _inizio_coda_spunti(righe)
+	if da >= 0:
+		return {"narrazione": _prosa(righe.slice(0, da)), "spunti": _leggi_spunti(righe.slice(da))}
+	return {"narrazione": _prosa(righe), "spunti": []}
+
+func _e_stacco(riga: String) -> bool:
+	return _combacia(RE_INTESTAZIONE, riga) or _combacia(RE_SOLO_TRATTINI, riga)
+
+## Il racconto: le righe ripulite dall'impalcatura (barre di separazione, etichette
+## interne rimaste in maiuscolo). Il prompt le vieta gia', ma il prompt e' una preghiera:
+## questa e' la garanzia.
+func _prosa(righe: Array) -> String:
+	var out: Array[String] = []
+	for riga in righe:
+		var r := String(riga)
+		if _combacia(RE_SOLO_TRATTINI, r) or _combacia(RE_ETICHETTA, r):
 			continue
-		var rischio := r.begins_with("!")
-		if not (rischio or r.begins_with("-") or r.begins_with("•")):
-			continue  # non e' uno spunto: coda di prosa o commento del modello
-		var testo := r.substr(1).strip_edges()
-		if testo != "":
-			out.append({"testo": testo, "rischio": rischio})
+		out.append(r)
+	return "\n".join(out).strip_edges()
+
+## Dove comincia l'elenco finale di spunti, se il modello l'ha scritto senza intestazione.
+## -1 se in fondo non c'e' un elenco (almeno due righe).
+func _inizio_coda_spunti(righe: Array) -> int:
+	var i := righe.size() - 1
+	while i >= 0 and String(righe[i]).strip_edges() == "":
+		i -= 1
+	var ultimo := i
+	while i >= 0 and _e_spunto(String(righe[i])):
+		i -= 1
+	return i + 1 if ultimo - i >= 2 else -1
+
+func _e_spunto(riga: String) -> bool:
+	var r := riga.strip_edges()
+	return r != "" and MARCATORI.has(r.substr(0, 1))
+
+func _leggi_spunti(righe: Array) -> Array:
+	var out: Array = []
+	for riga in righe:
+		var r := String(riga).strip_edges()
+		if not _e_spunto(r):
+			continue  # non e' uno spunto: coda di prosa, intestazione o commento
+		# Il modello combina i marcatori ("- ! Getta il pesce…"): li sbuccio tutti, e se
+		# fra questi c'e' un "!" lo spunto e' di quelli rischiosi.
+		var rischio := false
+		while r != "" and MARCATORI.has(r.substr(0, 1)):
+			rischio = rischio or r.begins_with("!")
+			r = r.substr(1).strip_edges()
+		if r != "":
+			out.append({"testo": r, "rischio": rischio})
 		if out.size() >= 3:
 			break
 	return out
+
+func _combacia(schema: String, testo: String) -> bool:
+	var re := RegEx.new()
+	re.compile(schema)
+	return re.search(testo) != null
 
 ## `taglia_spunti`: vero per chi vuole solo la prosa (i passaggi fra le tappe, la console).
 ## Il modello potrebbe aggiungere il blocco anche quando non serve: qui lo si taglia via,
@@ -152,8 +212,7 @@ func narra(contesto: Dictionary, chat_fn: Callable, seed: int = 0, taglia_spunti
 	return _senza_spunti(pulito) if taglia_spunti else pulito
 
 func _senza_spunti(testo: String) -> String:
-	var i := testo.find(SEP_SPUNTI)
-	return testo.substr(0, i).strip_edges() if i >= 0 else testo
+	return String(_separa(testo)["narrazione"])
 
 func _chiedi(messaggi: Array, chat_fn: Callable, opzioni: Dictionary) -> String:
 	var risposta = await chat_fn.call(messaggi, opzioni)
