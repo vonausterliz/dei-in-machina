@@ -42,6 +42,7 @@ func system_prompt(dio: Dio) -> String:
 	sp = sp.replace("{{TEMPERAMENTO}}", dio.temperamento)
 	sp = sp.replace("{{ANTI_PATTERN}}", dio.anti_pattern)
 	sp = sp.replace("{{ESEMPI}}", "\n".join(dio.esempi_voce))
+	sp = sp.replace("{{ANTEFATTO}}", dio.antefatto)
 	sp = sp.replace("{{REGISTRI}}", ", ".join(dio.registri))
 	_cache_prompt[dio.id] = sp
 	return sp
@@ -59,6 +60,11 @@ func costruisci_messaggi(dio: Dio, contesto: Dictionary) -> Array:
 	var detto: String = contesto.get("detto_ai_compagni", "")
 	if detto != "":
 		situazione += "\n\nPoco fa, ai suoi compagni, ha detto: «%s»" % detto
+	# Il suo taccuino: cio' che ha gia' voluto, e come e' finita. E' la differenza fra una
+	# potenza con una storia e un generatore di battute che ricomincia ogni turno da capo.
+	var ricordi: Array = contesto.get("memoria", [])
+	if not ricordi.is_empty():
+		situazione += "\n\nQUELLO CHE HAI GIA' FATTO in questo viaggio (lo ricordi bene):\n%s" % "\n".join(ricordi)
 	# Round di replica: il dio vede cosa hanno proposto gli ALTRI dei e puo' ribattere.
 	var altri: Array = contesto.get("altri_dei", [])
 	if not altri.is_empty():

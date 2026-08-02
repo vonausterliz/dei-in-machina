@@ -286,6 +286,11 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 				percorso.append(Fase.keys()[Fase.SCAVALCAMENTO])
 				delta = Delta.unisci(delta, scavalcamento["delta"])
 
+			# Ogni dio che ha agito se ne fa un ricordo. Va scritto QUI, quando il verdetto
+			# e' noto e l'eventuale scavalcamento e' avvenuto: prima non si saprebbe com'e'
+			# andata, e "come e' andata" e' meta' del ricordo.
+			_annota_nella_memoria(proposte, verdetto, scavalcamento, envelope)
+
 	# Coalizioni (fase 6-bis): decadono ogni turno e, raramente, se ne formano di nuove
 	# dal blocco di dei punitivi della stessa fazione (proposte vuote se nessuno ha reagito).
 	_politica.aggiorna_coalizioni(proposte)
@@ -424,6 +429,7 @@ func _contesto_dio(id: String, envelope: Dictionary, altri: Array) -> Dictionary
 		"altri_dei": altri,
 		"cronaca": stato.cronaca,  # anche i dei sanno cos'e' accaduto finora
 		"detto_ai_compagni": _parole_in_sospeso(),  # cio' che ha mormorato a bordo
+		"memoria": reg.get("memoria", []),          # il suo taccuino: cosa ha gia' fatto
 	}
 
 ## Le proposte degli altri dei (nome + registro + battuta), per la replica.
@@ -692,6 +698,55 @@ func _testo_per_interprete(input_testo: String) -> String:
 	if parole == "":
 		return input_testo
 	return "Poco fa ha detto ai compagni: «%s». Adesso: «%s»" % [parole, input_testo]
+
+## Quanti ricordi tiene un dio. A costo costante come la cronaca: un taccuino che cresce
+## all'infinito gonfia il prompt turno dopo turno, e quel conto lo paga l'utente.
+@onready var _RICORDI_PER_DIO: int = Bilanciamento.intero("memoria/ricordi_per_dio", 6)
+
+## Il taccuino privato degli dei. Ognuno annota cosa ha voluto e come e' finita: se ha
+## prevalso, se e' stato respinto, se ha agito di nascosto dopo il no di Zeus.
+##
+## Non basta la `cronaca` condivisa: quella e' ripulita dai nomi divini (finisce anche a
+## Omero, che non deve nominarli), quindi un dio non vi ritroverebbe nemmeno le proprie
+## opere. Senza questo, ogni turno una potenza millenaria riparte smemorata.
+func _annota_nella_memoria(proposte: Array, verdetto: Dictionary, scavalcamento: Dictionary,
+		envelope: Dictionary) -> void:
+	var luogo := _nome_tappa_corrente()
+	var vincitore := String(verdetto.get("attore", ""))
+	var fatto := String(envelope.get("sintesi", "qualcosa"))
+	for p in proposte:
+		var id := String(p.get("dio", ""))
+		if id == "" or not stato.registro_divino.has(id):
+			continue
+		var registro := String(p.get("registro", "silenzio"))
+		if registro == "silenzio":
+			continue  # tacere non lascia un ricordo
+		var esito := ""
+		if String(scavalcamento.get("colpevole", "")) == id:
+			esito = "Zeus ti nego', e agisti lo stesso di nascosto."
+		elif id == vincitore:
+			esito = "Hai prevalso."
+		elif vincitore != "":
+			esito = "Fosti respinto: prevalse %s." % _nome_dio(vincitore)
+		else:
+			esito = "Non se ne fece nulla."
+		# La sintesi arriva gia' come frase compiuta ("Ulisse grida il proprio nome…"):
+		# incastonarla fra virgolette evita di doverla cucire alla grammatica della riga.
+		_ricorda(id, "a %s — «%s» — volevi %s (forza %d). %s" % [
+			luogo, fatto.strip_edges().trim_suffix("."), registro,
+			int(p.get("intensita", 1)), esito])
+
+func _ricorda(id: String, riga: String) -> void:
+	var reg: Dictionary = stato.registro_divino[id]
+	var memoria: Array = reg.get("memoria", [])
+	memoria.append("- turno %d, %s" % [stato.turno, riga])
+	while memoria.size() > _RICORDI_PER_DIO:
+		memoria.pop_front()   # i ricordi piu' vecchi sbiadiscono per primi
+	reg["memoria"] = memoria
+
+func _nome_dio(id: String) -> String:
+	var d: Dio = PantheonManager.get_dio(id)
+	return d.nome if d != null else id
 
 ## Chi risponde: i compagni interpellati per nome, oppure (a rotazione) uno solo.
 ## Deterministico: niente casualita' non seminata, e la chat non si affolla.

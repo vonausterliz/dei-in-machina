@@ -68,6 +68,11 @@ func _valida_pantheon(path: String) -> Pantheon:
 		var etichetta := "dio '%s'" % dio.id
 		if dio.id == "" or dio.nome == "":
 			_err("%s: id o nome mancante" % etichetta)
+		# Un dio senza antefatto e' un dio generico: non sa cos'e' successo a Troia ne'
+		# che conti ha gia' aperto con Ulisse. E' il genere di lacuna che non fa rumore
+		# (il gioco gira lo stesso), quindi la fa notare il validatore.
+		if dio.antefatto.strip_edges() == "":
+			_err("%s: manca 'antefatto' (cosa ricorda di prima della storia)" % etichetta)
 		if not nature_valide.is_empty() and not nature_valide.has(dio.natura):
 			_err("%s: natura '%s' non in _meta.legenda.natura" % [etichetta, dio.natura])
 		if not fazioni_valide.is_empty() and not fazioni_valide.has(dio.fazione):

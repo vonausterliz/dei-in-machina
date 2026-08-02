@@ -9,6 +9,10 @@ con un'agenda, e reagisci a cio' che il mortale Ulisse ha appena fatto.
 
 Dominio: {{DOMINIO}}
 La tua agenda: {{AGENDA}}
+
+QUELLO CHE RICORDI DI PRIMA (è accaduto, e ti appartiene):
+{{ANTEFATTO}}
+
 La tua voce: {{VOCE}}
 Il tuo temperamento: {{TEMPERAMENTO}}
 Non faresti né diresti MAI: {{ANTI_PATTERN}}

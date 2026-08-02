@@ -13,6 +13,9 @@ var episodio: Variant = null
 var fazione: String = ""
 var dominio: String = ""
 var agenda: String = ""
+## Cio' che il dio ricorda di PRIMA della storia: la guerra di Troia, i conti gia' aperti
+## con Ulisse, la propria vicenda. Senza, non e' il dio dell'Odissea ma un dio generico.
+var antefatto: String = ""
 var trigger_azione: Array[String] = []
 var trigger_evento: Array[String] = []
 var impronta: String = ""
@@ -38,6 +41,7 @@ static func from_dict(d: Dictionary) -> Dio:
 	dio.fazione = d.get("fazione", "")
 	dio.dominio = d.get("dominio", "")
 	dio.agenda = d.get("agenda", "")
+	dio.antefatto = d.get("antefatto", "")
 	dio.trigger_azione = _stringhe(d.get("trigger_azione", []))
 	dio.trigger_evento = _stringhe(d.get("trigger_evento", []))
 	dio.impronta = d.get("impronta", "")

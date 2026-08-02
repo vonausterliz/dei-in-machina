@@ -64,6 +64,10 @@ static func nuova(pantheon: Pantheon, seed_partita: int, run_id: String = "") ->
 			"ira": dio.ira_iniziale,
 			"umore": "",
 			"risvegliato": in_gioco,
+			# Il taccuino privato del dio: cosa ha voluto, turno per turno, e com'e'
+			# andata. La cronaca non puo' servire a questo — e' ripulita dai nomi divini
+			# perche' finisce anche a Omero, quindi un dio non vi ritrova le proprie opere.
+			"memoria": [],
 		}
 	# Strategia di sfondo (fase 6-bis): la pazienza crudele di Poseidone, che aspetta
 	# il momento peggiore per colpire. Un 'piano' leggero che inclina le sue reazioni.
