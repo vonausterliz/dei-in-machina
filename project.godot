@@ -8,6 +8,13 @@ config_version=5
 config/name="Dei in machina"
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
+config/icon="res://assets/icona.png"
+; Immagine d'avvio del motore, al posto del logo di Godot: e' lo stesso marchio della
+; schermata d'apertura, generato da tools/genera_marchio.gd.
+boot_splash/image="res://assets/marchio.png"
+boot_splash/bg_color=Color(0.0745, 0.0627, 0.1255, 1)
+boot_splash/fullsize=false
+boot_splash/use_filter=true
 
 [autoload]
 

@@ -104,5 +104,8 @@
   "agora": {
     "olimpo_muto": "[i]Nessuna voce, per ora. Gli dèi tacciono.[/i]",
     "ciurma_muta": "[i]I tuoi uomini tacciono. Parla loro.[/i]"
+  },
+  "splash": {
+    "prosegui": "un tasto, e il viaggio comincia"
   }
 }

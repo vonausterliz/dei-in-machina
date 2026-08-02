@@ -6,7 +6,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "2.10"
+const VERSIONE := "2.11"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -78,6 +78,16 @@ func _ready() -> void:
 	GameManager.nuova_partita(0)
 	_apri_scena()
 	_ripristina_finestre()
+	_apri_sipario()
+
+## La schermata d'apertura sta SOPRA il gioco gia' pronto: mentre si guarda il marchio, la
+## partita e' stata avviata e la scena aperta. Cosi' non aggiunge un solo istante d'attesa,
+## copre quella che c'era. In headless (i test) non ha senso: non c'e' nessuno a guardarla.
+func _apri_sipario() -> void:
+	if _senza_schermo():
+		return
+	var s := Splash.new()
+	add_child(s)   # ultimo figlio: sta davanti a tutto il resto della schermata
 
 ## Rimette le scelte dell'ultima sessione: dimensione interfaccia, provider/modello e
 ## motore. Cosi' non si riconfigura tutto a ogni avvio.
