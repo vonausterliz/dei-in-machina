@@ -6,7 +6,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "2.5"
+const VERSIONE := "2.6"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")

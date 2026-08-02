@@ -30,7 +30,12 @@ enum Fase {
 @onready var _SOGLIA_SCOPERTA: int = Bilanciamento.intero("politica_divina/soglia_scoperta", 60)
 
 ## Probabilita' che un dio bocciato scavalchi Zeus. Sovrascrivibile nei test (0/1).
-var prob_scavalcamento := 0.35
+## Le probabilita' vivono nel modulo; questi restano come comodita' per i test, che le
+## impostano su GameManager. Il setter le inoltra dove servono davvero.
+var prob_scavalcamento := 0.35:
+	set(v):
+		prob_scavalcamento = v
+		if _politica: _politica.prob_scavalcamento = v
 var _rng := RandomNumberGenerator.new()
 
 ## Coalizioni & strategie (fase 6-bis), valori-seme. Rare e bounded per non annegare
@@ -41,7 +46,10 @@ var _rng := RandomNumberGenerator.new()
 @onready var _MAX_COALIZIONI: int = Bilanciamento.intero("coalizioni/massimo", 1)
 @onready var _PESO_COALIZIONE: int = Bilanciamento.intero("coalizioni/peso_intensita", 1)
 @onready var _SOGLIA_VULNERABILITA: int = Bilanciamento.intero("coalizioni/soglia_vulnerabilita", 40)
-var prob_coalizione := 0.4
+var prob_coalizione := 0.4:
+	set(v):
+		prob_coalizione = v
+		if _politica: _politica.prob_coalizione = v
 
 var stato: StatoPartita = null
 
@@ -51,6 +59,8 @@ var _validazione: Validazione = null
 var agora: Agora = null
 ## I compagni: hanno voce propria e possono morire (allora tacciono).
 var ciurma: Ciurma = null
+## Coalizioni, piani, scavalcamenti e resa dei conti: la politica dell'Olimpo.
+var _politica: PoliticaDivina = null
 
 ## Ultima narrazione di Omero: la ripassiamo al turno dopo per la continuità del discorso.
 var _ultima_narrazione: String = ""
@@ -68,6 +78,7 @@ func nuova_partita(seed_partita: int = 0) -> void:
 	agora.canale(Agora.CANALE_OLIMPO, "Olimpo")
 	ciurma = Ciurma.carica()
 	agora.canale(Agora.CANALE_CIURMA, "Ciurma")
+	_politica = PoliticaDivina.new(stato, agora, _rng)
 	_ultima_narrazione = ""
 	_rng.seed = s  # riproducibilita': stessa run, stessi scavalcamenti
 	prob_scavalcamento = _PROB_SCAVALCAMENTO_DEFAULT
@@ -214,7 +225,7 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	# RESA DEI CONTI — Zeus verifica gli scavalcamenti pendenti: il sospetto sale, e
 	# alla soglia scopre il colpevole (cova ira, e il conto rimbalza su Ulisse).
 	percorso.append(Fase.keys()[Fase.RESA_DEI_CONTI])
-	var resa := _resa_dei_conti()
+	var resa := _politica.resa_dei_conti()
 
 	# INTERPRETAZIONE — testo libero -> envelope (Interprete via LLMManager).
 	percorso.append(Fase.keys()[Fase.INTERPRETAZIONE])
@@ -269,14 +280,14 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 
 			# SCAVALCAMENTO — un dio punitivo bocciato puo' agire di nascosto (raro):
 			# applica il suo delta all'insaputa di Zeus e lascia una traccia (pendente).
-			scavalcamento = _tenta_scavalcamento(proposte, verdetto)
+			scavalcamento = _politica.tenta_scavalcamento(proposte, verdetto)
 			if not scavalcamento.is_empty():
 				percorso.append(Fase.keys()[Fase.SCAVALCAMENTO])
 				delta = Delta.unisci(delta, scavalcamento["delta"])
 
 	# Coalizioni (fase 6-bis): decadono ogni turno e, raramente, se ne formano di nuove
 	# dal blocco di dei punitivi della stessa fazione (proposte vuote se nessuno ha reagito).
-	_aggiorna_coalizioni(proposte)
+	_politica.aggiorna_coalizioni(proposte)
 
 	# La ripercussione della resa dei conti (rimbalzo su Ulisse) confluisce nel turno.
 	delta = Delta.unisci(delta, resa.get("delta", {}))
@@ -296,22 +307,8 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 			impronta = attore.impronta
 	var narrazione := ""
 	if in_mondo:
-		narrazione = await LLMManager.narrazione_omero({
-			"sintesi": envelope.get("sintesi", ""),
-			"azione": input_testo,      # le parole/gesto esatti: Omero deve rispondere a QUESTO
-			"scena": scena_corrente(),  # ancora: dove si trova Ulisse e chi c'e' (coerenza)
-			"cronaca": stato.cronaca,                # memoria della vicenda finora
-			"storia": _storia_recente(),             # i beat precedenti (continuita' del discorso)
-			"ultima_narrazione": _ultima_narrazione, # l'ultima voce di Omero (continuita' immediata)
-			"luogo": _nome_tappa_corrente(),         # per l'orientamento discreto
-			"progresso": _progresso_viaggio(),       # inizio / mezzo / vicino a Itaca
-			"morale": _morale_recente(),             # duro / bene / incerto (come sta andando)
-			"svegli": svegli,
-			"verdetto": verdetto,
-			"delta": delta,
-			"impronta": impronta,
-			"esito_segno": _segno_esito(delta),
-		})
+		narrazione = await LLMManager.narrazione_omero(
+			_contesto_omero(envelope, input_testo, svegli, verdetto, delta, impronta))
 		_ultima_narrazione = narrazione  # per la continuita' al turno successivo
 
 	# LA CIURMA: i compagni commentano cio' che e' successo. Se Ulisse si e' rivolto a
@@ -319,29 +316,8 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	await _fa_parlare_la_ciurma(input_testo, narrazione)
 
 	# Registrazioni: storico_olimpo (vista Olimpo/debug) + diario (player-facing).
-	var voce := {
-		"turno": turno,
-		"input": input_testo,
-		"envelope": envelope,
-		"svegli": svegli,
-		"episodio": _episodio_corrente(),
-		"eventi_emessi": eventi_turno,
-		"conflitto": conflitto if in_mondo else false,
-		"deliberazione": proposte,
-		"verdetto": verdetto,
-		"scavalcamento": scavalcamento,
-		"resa_dei_conti": resa,
-		"coalizioni": stato.coalizioni.duplicate(true),
-		"delta": delta,
-		"ammonizione": val["classe"],
-		"narrazione_omero": narrazione,
-	}
-	stato.storico_olimpo.append(voce)
-	stato.diario.append({
-		"turno": turno,
-		"voce": envelope.get("sintesi", input_testo),
-		"esito": Delta.marcatore_diario(delta) if in_mondo else "ill",
-	})
+	var voce := _registra(turno, input_testo, envelope, svegli, eventi_turno, conflitto,
+		proposte, verdetto, scavalcamento, resa, delta, val, narrazione, in_mondo)
 
 	# ESITO — la follia (ammonizione oltre soglia) chiude la partita; altrimenti
 	# valgono i controlli sulle stat (ciurma). Gli altri esiti con le loro fasi.
@@ -403,24 +379,12 @@ func _delibera(svegli: Array, envelope: Dictionary) -> Dictionary:
 ## Sfondo (fase 6-bis) sulle proposte prima del verdetto: strategie (piano) e peso di
 ## coalizione. Modulano l'intensita', non sostituiscono la scelta LLM del registro.
 func _prepara_per_arbitrato(proposte: Array) -> Array:
-	return _applica_peso_coalizioni(_modula_proposte_per_hybris(_modula_proposte_per_piano(proposte)))
+	return _politica.prepara_per_arbitrato(proposte)
 
 ## La TRACOTANZA si paga: oltre la soglia, chi punisce colpisce piu' forte. Prima la
 ## hybris saliva senza mai avere conseguenze — era un numero decorativo.
 @onready var _SOGLIA_HYBRIS: int = Bilanciamento.intero("ulisse/soglia_hybris", 50)
 
-func _modula_proposte_per_hybris(proposte: Array) -> Array:
-	if int(stato.ulisse.get("hybris", 0)) < _SOGLIA_HYBRIS:
-		return proposte
-	var out: Array = []
-	for p in proposte:
-		var q: Dictionary = p.duplicate()
-		if _REGISTRI_PUNITIVI.has(String(q.get("registro", ""))):
-			q["intensita"] = clampi(int(q.get("intensita", 1)) + 1, 1, 3)
-		out.append(q)
-	return out
-
-## Ogni dio in 'svegli' propone. 'altri' (opzionale) = proposte altrui da mostrargli (replica).
 func _raccogli_proposte(svegli: Array, envelope: Dictionary, altri: Array) -> Array:
 	var out: Array = []
 	for id in svegli:
@@ -469,87 +433,7 @@ func _attive(proposte: Array) -> Array:
 
 # --- Fase 6-bis: strategie (piano) ---
 
-## Un dio con un piano a orizzonte "lungo" (la pazienza di Poseidone) inclina la sua
-## reazione: aspetta (intensita' giu') finche' Ulisse e' saldo, colpisce piu' forte
-## (intensita' su) quando e' debole o vicino alla salvezza. Sfondo, non causa dominante.
-func _modula_proposte_per_piano(proposte: Array) -> Array:
-	var vulnerabile := _ulisse_vulnerabile()
-	var out: Array = []
-	for p in proposte:
-		var q: Dictionary = p.duplicate()
-		var reg: Dictionary = stato.registro_divino.get(p.get("dio", ""), {})
-		var piano = reg.get("piano", null)
-		if typeof(piano) == TYPE_DICTIONARY and String(piano.get("orizzonte", "")) == "lungo":
-			var delta_i := 1 if vulnerabile else -1
-			q["intensita"] = clampi(int(q.get("intensita", 1)) + delta_i, 1, 3)
-		out.append(q)
-	return out
-
-func _ulisse_vulnerabile() -> bool:
-	var animo := int(stato.ulisse.get("stat", {}).get("animo", 100))
-	var ep := _episodio_corrente()
-	return animo <= _SOGLIA_VULNERABILITA or ep == "naufragio" or ep == "scheria"
-
 # --- Fase 6-bis: coalizioni ---
-
-## Peso di blocco: chi e' in una coalizione attiva spinge con piu' forza (intensita' +).
-func _applica_peso_coalizioni(proposte: Array) -> Array:
-	var out: Array = []
-	for p in proposte:
-		var q: Dictionary = p.duplicate()
-		if _in_coalizione(p.get("dio", "")):
-			q["intensita"] = clampi(int(q.get("intensita", 1)) + _PESO_COALIZIONE, 1, 3)
-		out.append(q)
-	return out
-
-func _in_coalizione(id: String) -> bool:
-	for c in stato.coalizioni:
-		if c.get("membri", []).has(id):
-			return true
-	return false
-
-## Fine turno: le coalizioni attive perdono coesione (e si sciolgono a zero); poi, raro
-## e col tetto, un blocco di dei punitivi della stessa fazione puo' formarne una nuova.
-func _aggiorna_coalizioni(proposte: Array) -> void:
-	var vive: Array = []
-	for c in stato.coalizioni:
-		c["coesione"] = int(c.get("coesione", 0)) - _COESIONE_DECADIMENTO
-		if int(c["coesione"]) > 0:
-			vive.append(c)
-		elif c.has("canale"):
-			agora.chiudi_gruppo(String(c["canale"]), stato.turno)  # il gruppo si scioglie
-	stato.coalizioni = vive
-
-	if stato.coalizioni.size() >= _MAX_COALIZIONI or prob_coalizione <= 0.0:
-		return
-	var blocco := _blocco_punitivo_stessa_fazione(proposte)
-	if blocco.size() < 2:
-		return
-	if prob_coalizione < 1.0 and _rng.randf() > prob_coalizione:
-		return
-	# Nasce l'intesa: e con lei un canale di gruppo, come una chat riservata.
-	var nomi: Array = []
-	for id in blocco:
-		var d := PantheonManager.get_dio(id)
-		nomi.append(d.nome if d else id)
-	stato.coalizioni.append({
-		"membri": blocco,
-		"obiettivo": "negare il ritorno a Ulisse",
-		"formata_al_turno": stato.turno,
-		"coesione": _COESIONE_INIZIALE,
-		"scadenza": "obiettivo_raggiunto_o_interessi_divergenti",
-		"canale": agora.apri_gruppo(blocco, nomi, stato.turno),
-	})
-
-## Dei con proposta punitiva e stessa fazione contro-ritorno: la base di una coalizione.
-func _blocco_punitivo_stessa_fazione(proposte: Array) -> Array:
-	var membri: Array = []
-	for p in proposte:
-		if _REGISTRI_PUNITIVI.has(p.get("registro", "")):
-			var d: Dio = PantheonManager.get_dio(p.get("dio", ""))
-			if d != null and d.fazione == "contro-ritorno":
-				membri.append(p.get("dio", ""))
-	return membri
 
 func _in_conflitto(attive: Array) -> bool:
 	var punisce := false
@@ -582,58 +466,6 @@ func _vaglia_plausibilita(envelope: Dictionary, input_testo: String) -> void:
 
 func _valida(envelope: Dictionary, input_testo: String) -> Dictionary:
 	return _validazione.valida(envelope, input_testo)
-
-## SCAVALCAMENTO: se una proposta punitiva ha perso il verdetto, quel dio puo' (raro)
-## fare di testa sua alle spalle di Zeus. Applica il suo delta e registra un pendente.
-## Ritorna {} se nessuno scavalca, altrimenti {colpevole, delta, cosa}.
-func _tenta_scavalcamento(proposte: Array, verdetto: Dictionary) -> Dictionary:
-	var perdente := _perdente_punitivo(proposte, verdetto)
-	if perdente.is_empty() or prob_scavalcamento <= 0.0:
-		return {}
-	if prob_scavalcamento < 1.0 and _rng.randf() > prob_scavalcamento:
-		return {}
-	var d := Delta.da_reazione(perdente["dio"], perdente["registro"], int(perdente.get("intensita", 1)))
-	var cosa := "Oltre al verdetto, ha agito di nascosto: %s con intensita' %d." % [perdente["registro"], int(perdente.get("intensita", 1))]
-	stato.scavalcamenti_pendenti.append({
-		"turno": stato.turno,
-		"colpevole": perdente["dio"],
-		"cosa": cosa,
-		"sfrontatezza": int(perdente.get("intensita", 1)),
-		"sospetto_zeus": 0,
-		"soglia_scoperta": _SOGLIA_SCOPERTA,
-		"rilevato": false,
-	})
-	return {"colpevole": perdente["dio"], "delta": d, "cosa": cosa}
-
-## Una proposta con registro punitivo il cui dio NON e' l'attore del verdetto (ha perso).
-func _perdente_punitivo(proposte: Array, verdetto: Dictionary) -> Dictionary:
-	var vincitore: String = verdetto.get("attore", "")
-	for p in proposte:
-		if p.get("dio", "") != vincitore and _REGISTRI_PUNITIVI.has(p.get("registro", "")):
-			return p
-	return {}
-
-## RESA DEI CONTI (inizio turno): il sospetto di Zeus sale sui pendenti; alla soglia
-## scopre il colpevole, cova ira (relazioni.zeus_verso) e il conto rimbalza su Ulisse.
-## Ritorna {} o {scoperti: [id...], delta} (rimbalzo da applicare nel turno).
-func _resa_dei_conti() -> Dictionary:
-	var scoperti: Array = []
-	var delta: Dictionary = {}
-	for sc in stato.scavalcamenti_pendenti:
-		if sc.get("rilevato", false):
-			continue
-		sc["sospetto_zeus"] = int(sc.get("sospetto_zeus", 0)) + _RATE_SOSPETTO
-		if int(sc["sospetto_zeus"]) >= int(sc.get("soglia_scoperta", _SOGLIA_SCOPERTA)):
-			sc["rilevato"] = true
-			var colpevole: String = sc.get("colpevole", "")
-			var zv: Dictionary = stato.relazioni.get("zeus_verso", {})
-			if zv.has(colpevole):
-				zv[colpevole] = int(zv[colpevole]) + _IRA_ZEUS_SCOPERTA
-			scoperti.append(colpevole)
-			delta = Delta.unisci(delta, {"ulisse.animo": -_RIMBALZO_ULISSE})
-	if scoperti.is_empty():
-		return {}
-	return {"scoperti": scoperti, "delta": delta}
 
 func _episodio_corrente() -> String:
 	var ep: Variant = stato.ulisse.get("episodio_corrente", null)
@@ -761,6 +593,59 @@ func _verdetto_in_chat(verdetto: Dictionary, arbitrato: bool) -> void:
 	var chi := "Zeus" if arbitrato else nome
 	var testo := "prevale %s: %s" % [nome, verdetto.get("registro", "?")]
 	agora.scrivi(Agora.CANALE_OLIMPO, chi, testo, stato.turno, "verdetto")
+
+## Registra il turno nei due archivi: storico_olimpo (tutto, per la vista dietro le quinte)
+## e diario (reticente, per il giocatore). Ritorna la voce appena scritta.
+func _registra(turno: int, input_testo: String, envelope: Dictionary, svegli: Array,
+		eventi_turno: Array, conflitto: bool, proposte: Array, verdetto: Dictionary,
+		scavalcamento: Dictionary, resa: Dictionary, delta: Dictionary, val: Dictionary,
+		narrazione: String, in_mondo: bool) -> Dictionary:
+	var voce := {
+		"turno": turno,
+		"input": input_testo,
+		"envelope": envelope,
+		"svegli": svegli,
+		"episodio": _episodio_corrente(),
+		"eventi_emessi": eventi_turno,
+		"conflitto": conflitto if in_mondo else false,
+		"deliberazione": proposte,
+		"verdetto": verdetto,
+		"scavalcamento": scavalcamento,
+		"resa_dei_conti": resa,
+		"coalizioni": stato.coalizioni.duplicate(true),
+		"delta": delta,
+		"ammonizione": val["classe"],
+		"narrazione_omero": narrazione,
+	}
+	stato.storico_olimpo.append(voce)
+	stato.diario.append({
+		"turno": turno,
+		"voce": envelope.get("sintesi", input_testo),
+		"esito": Delta.marcatore_diario(delta) if in_mondo else "ill",
+	})
+	return voce
+
+## Tutto cio' che Omero deve sapere per narrare un turno: l'azione, l'ancora di scena, la
+## memoria del discorso e i segnali d'orientamento. Raccolto qui perche' esegui_turno resti
+## leggibile come sequenza di fasi, invece di un muro di dizionario in mezzo.
+func _contesto_omero(envelope: Dictionary, input_testo: String, svegli: Array,
+		verdetto: Dictionary, delta: Dictionary, impronta: String) -> Dictionary:
+	return {
+		"sintesi": envelope.get("sintesi", ""),
+		"azione": input_testo,      # le parole/gesto esatti: Omero deve rispondere a QUESTO
+		"scena": scena_corrente(),  # ancora: dove si trova Ulisse e chi c'e' (coerenza)
+		"cronaca": stato.cronaca,                # memoria della vicenda finora
+		"storia": _storia_recente(),             # i beat precedenti (continuita' del discorso)
+		"ultima_narrazione": _ultima_narrazione, # l'ultima voce di Omero (continuita' immediata)
+		"luogo": _nome_tappa_corrente(),         # per l'orientamento discreto
+		"progresso": _progresso_viaggio(),       # inizio / mezzo / vicino a Itaca
+		"morale": _morale_recente(),             # duro / bene / incerto (come sta andando)
+		"svegli": svegli,
+		"verdetto": verdetto,
+		"delta": delta,
+		"impronta": impronta,
+		"esito_segno": _segno_esito(delta),
+	}
 
 ## Chi risponde: i compagni interpellati per nome, oppure (a rotazione) uno solo.
 ## Deterministico: niente casualita' non seminata, e la chat non si affolla.
