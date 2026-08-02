@@ -30,6 +30,16 @@ const _TINTE := [
 
 var canali: Dictionary = {}   # id canale -> {titolo, membri: Array, messaggi: Array}
 
+## Cosa e' successo a ogni turno: turno -> {azione, momento}. E' il COLLANTE fra le viste.
+## Tolte le etichette «— turno N —» le chat erano rimaste senza scansione, e si leggevano
+## le reazioni degli dèi senza sapere a cosa reagissero. Il collante non e' un numero: e'
+## l'azione di Ulisse, piu' il momento del giorno.
+var intestazioni: Dictionary = {}
+
+## Registra cosa ha fatto Ulisse in questo turno, e quando.
+func segna_turno(turno: int, azione: String, momento: String) -> void:
+	intestazioni[turno] = {"azione": azione.strip_edges(), "momento": momento}
+
 ## Apre (o ritrova) un canale. 'membri' serve ai gruppi: chi ne fa parte.
 ## La vista si deduce dall'id (solo la ciurma sta sul ponte; tutto il resto e' Olimpo,
 ## comprese le coalizioni), cosi' nessun chiamante deve ricordarsi di dichiararla.
@@ -86,6 +96,10 @@ func trascrizione(vista: String = VISTA_OLIMPO, solo_da_turno: int = 0) -> Strin
 	if attivi.is_empty():
 		return _silenzio(vista)
 	var pezzi: Array[String] = []
+	# L'intestazione segna il TEMPO, e il tempo e' uno solo per tutta la vista: se un turno
+	# e' gia' stato annunciato non si ripete quando comincia un secondo canale (le
+	# coalizioni ne aprono uno). Vale per la trascrizione intera, non per canale.
+	var gia_annunciati := {}
 	for c in attivi:
 		# L'intestazione serve solo a distinguere piu' conversazioni: con una sola e'
 		# rumore (la finestra ha gia' il suo titolo).
@@ -98,12 +112,33 @@ func trascrizione(vista: String = VISTA_OLIMPO, solo_da_turno: int = 0) -> Strin
 			var t: int = int(m["turno"])
 			if t < solo_da_turno:
 				continue
-			if ultimo_turno != -1 and t != ultimo_turno:
-				pezzi.append("")
+			if t != ultimo_turno:
+				if ultimo_turno != -1:
+					pezzi.append("")
+				if not gia_annunciati.has(t):
+					gia_annunciati[t] = true
+					var testa := _intestazione(t)
+					if testa != "":
+						pezzi.append(testa)
 			ultimo_turno = t
 			pezzi.append(_riga(m))
 		pezzi.append("")
 	return "\n".join(pezzi)
+
+## La riga che apre un gruppo di battute: il momento del giorno e cio' che Ulisse ha fatto.
+## La stessa in tutte le viste — e' proprio quello il punto.
+func _intestazione(turno: int) -> String:
+	var i: Dictionary = intestazioni.get(turno, {})
+	var momento := String(i.get("momento", ""))
+	var azione := String(i.get("azione", ""))
+	if momento == "" and azione == "":
+		return ""
+	var righe: Array[String] = []
+	if momento != "":
+		righe.append("[color=#5c5548]≈ %s ≈[/color]" % momento)
+	if azione != "":
+		righe.append("[color=#6f6857]› %s[/color]" % azione)
+	return "\n".join(righe)
 
 func _silenzio(vista: String) -> String:
 	return Testi.s("agora/ciurma_muta" if vista == VISTA_CIURMA else "agora/olimpo_muto")

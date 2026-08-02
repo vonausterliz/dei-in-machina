@@ -72,6 +72,9 @@ func costruisci_messaggi(contesto: Dictionary) -> Array:
 	var detto: String = contesto.get("detto_ai_compagni", "")
 	if detto != "":
 		pezzi.append("POCO PRIMA, AI SUOI COMPAGNI, HA DETTO: «%s» (sfondo: puoi lasciarne un'eco, non ripeterlo)." % detto)
+	var momento: String = contesto.get("momento", "")
+	if momento != "":
+		pezzi.append("QUANDO: siamo %s. Fallo sentire con naturalezza, senza annunciarlo." % momento)
 	var segno: String = contesto.get("esito_segno", "")
 	if segno != "":
 		pezzi.append("La piega delle cose: %s." % segno)

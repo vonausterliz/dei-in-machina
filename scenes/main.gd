@@ -7,7 +7,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "2.24"
+const VERSIONE := "2.25"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -35,6 +35,8 @@ var _serif_italic: FontFile
 var _narrazione: RichTextLabel
 var _spunti_box: VBoxContainer
 var _ultima_narrazione: String = ""
+## L'ultimo momento del giorno mostrato: il marcatore compare solo quando cambia.
+var _ultimo_momento: String = ""
 var _diario_box: VBoxContainer
 var _diario_scroll: ScrollContainer
 var _mappa: MappaViaggio
@@ -713,6 +715,12 @@ func _on_agisci() -> void:
 	_input.editable = false
 	_btn_agisci.text = Testi.s("gioco/attesa")
 	_btn_agisci.disabled = true
+	# Lo stesso marcatore che apre il gruppo nelle chat: e' il collante fra le tre viste.
+	# Compare solo quando il momento cambia, altrimenti diventerebbe un orologio.
+	var momento := GameManager.momento_corrente()
+	if momento != _ultimo_momento:
+		_ultimo_momento = momento
+		_narrazione.append_text("\n[color=#5c5548]≈ %s ≈[/color]\n" % momento)
 	_narrazione.append_text("[color=#8a9bb0]› %s[/color]\n" % testo)
 	_input.text = ""
 	if not LLMManager.mock_mode:

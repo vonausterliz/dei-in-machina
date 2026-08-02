@@ -138,5 +138,13 @@
       "rischio": true
     }
   ],
-  "_nota_spunti_generici": "Ripiego quando gli spunti veri mancano o vengono scartati. Devono valere OVUNQUE: i precedenti dicevano «piega ai remi e prosegui la rotta» e comparivano anche mentre Ulisse era chiuso nell'antro del Ciclope. Un ripiego che presuppone dove ti trovi non e' un ripiego."
+  "_nota_spunti_generici": "Ripiego quando gli spunti veri mancano o vengono scartati. Devono valere OVUNQUE: i precedenti dicevano «piega ai remi e prosegui la rotta» e comparivano anche mentre Ulisse era chiuso nell'antro del Ciclope. Un ripiego che presuppone dove ti trovi non e' un ripiego.",
+  "_nota_momenti": "Il momento del giorno avanza di uno a ogni turno e ricomincia: e' il battito che tiene insieme narrazione, Vista Olimpo e Ciurma da quando non si scrive piu' «turno N». Scandisce senza numerare, e Omero puo' usarlo nella prosa.",
+  "momenti_del_giorno": [
+    "all'alba",
+    "nel pieno mattino",
+    "a mezzogiorno",
+    "verso sera",
+    "nella notte"
+  ]
 }

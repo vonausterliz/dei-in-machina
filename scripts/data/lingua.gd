@@ -52,6 +52,13 @@ static func cue_invocazione() -> Array:
 	return _dati.get("cue_invocazione", [])
 
 ## Spunti d'azione di ripiego (mock e fallback), sempre 3.
+## I momenti del giorno, in ordine. Sono testo, quindi stanno nei dati: si traducono con
+## tutto il resto.
+static func momenti_del_giorno() -> Array:
+	_assicura()
+	var m: Array = _dati.get("momenti_del_giorno", [])
+	return m if not m.is_empty() else ["all'alba", "a mezzogiorno", "nella notte"]
+
 static func spunti_generici() -> Array:
 	_assicura()
 	return _dati.get("spunti_generici", []).duplicate(true)

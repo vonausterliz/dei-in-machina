@@ -103,6 +103,16 @@ func _entra_in_episodio(id: String) -> String:
 	_ultima_narrazione = intro  # continuita': il primo turno prosegue dall'intro della tappa
 	return intro
 
+## Il momento del giorno, che avanza di uno a ogni turno e ricomincia. Deterministico:
+## dipende solo dal numero del turno, quindi due partite con lo stesso seme scandiscono il
+## tempo allo stesso modo. E' il battito che tiene insieme le tre viste da quando non si
+## scrive piu' «turno N» — scandisce senza numerare.
+func momento_corrente() -> String:
+	var m: Array = Lingua.momenti_del_giorno()
+	if m.is_empty() or stato == null:
+		return ""
+	return String(m[maxi(0, stato.turno) % m.size()])
+
 ## Intro della tappa corrente (per aprire la scena).
 func intro_corrente() -> String:
 	var ep := episodi.get_episodio(_episodio_corrente())
@@ -227,6 +237,10 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	# alla soglia scopre il colpevole (cova ira, e il conto rimbalza su Ulisse).
 	percorso.append(Fase.keys()[Fase.RESA_DEI_CONTI])
 	var resa := _politica.resa_dei_conti()
+
+	# Il collante fra le viste: cosa e' successo, e quando. Va segnato PRIMA che chiunque
+	# scriva in chat, o le prime battute del turno resterebbero senza intestazione.
+	agora.segna_turno(turno, input_testo, momento_corrente())
 
 	# INTERPRETAZIONE — testo libero -> envelope (Interprete via LLMManager).
 	percorso.append(Fase.keys()[Fase.INTERPRETAZIONE])
@@ -746,6 +760,7 @@ func _contesto_omero(envelope: Dictionary, input_testo: String, svegli: Array,
 		"impronta": impronta,
 		"esito_segno": _segno_esito(delta),
 		"detto_ai_compagni": _parole_in_sospeso(),
+		"momento": momento_corrente(),   # «il sole gia' calava»: la prosa se ne serve
 	}
 
 ## Un BEAT: Ulisse scambia due parole coi suoi senza che il mondo giri.
