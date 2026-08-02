@@ -321,6 +321,8 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 		narrazione = String(r.get("narrazione", ""))
 		spunti = r.get("spunti", [])
 		_ultima_narrazione = narrazione  # per la continuita' al turno successivo
+	# Si ricorda cosa si e' offerto: al turno dopo non lo si potra' rifiutare.
+	ricorda_spunti(spunti)
 
 	# LA CIURMA: i compagni commentano cio' che e' successo. Se Ulisse si e' rivolto a
 	# qualcuno per nome, risponde lui; altrimenti parla al piu' uno, per non affollare.
@@ -480,8 +482,43 @@ func _arbitra(proposte: Array) -> Dictionary:
 
 ## Validazione/ammonizione e vaglio della plausibilita' vivono in Validazione (scripts/).
 ## Qui restano solo i due punti di ingresso, per non spargere la regola in due posti.
+## IL GIOCO NON PUO' RIFIUTARE CIO' CHE HA APPENA PROPOSTO.
+##
+## Successo sul campo: fra i tre spunti c'era «Sguaina il bronzo e rispondi all'affronto
+## con il ferro che i Ciconi rispettano» — perfettamente omerica — e cliccarla dava «Quel
+## gesto non appartiene a questo mondo». Il vaglio passa da un LLM, quindi sbaglia: e'
+## inevitabile. Ma su un testo che ha scritto Omero non c'e' niente da vagliare, e' in
+## mondo per costruzione. Saltarlo toglie la contraddizione E una chiamata.
+##
+## La salvaguardia deterministica (i marcatori) NON si scavalca: se qualcuno mettesse un
+## anacronismo vero fra gli spunti, quello resta fuori.
 func _vaglia_plausibilita(envelope: Dictionary, input_testo: String) -> void:
+	if gia_proposto(input_testo):
+		if not _validazione.e_anacronistico(input_testo):
+			envelope["plausibilita"] = "in_mondo"
+			return
 	await _validazione.vaglia(envelope, input_testo)
+
+## Pubblica: la anche la schermata iniziale genera spunti (fuori da un turno), e anche
+## quelli il gioco non deve poterli rifiutare.
+func ricorda_spunti(spunti: Array) -> void:
+	stato.spunti_proposti.clear()
+	for s in spunti:
+		var t := String(s.get("testo", "")).strip_edges() if typeof(s) == TYPE_DICTIONARY else String(s).strip_edges()
+		if t != "":
+			stato.spunti_proposti.append(t)
+
+## Vero se il testo e' uno degli spunti che il gioco sta mostrando adesso. Confronto
+## tollerante su spazi e maiuscole: il bottone incolla il testo nel campo, e da li' puo'
+## passare di tutto.
+func gia_proposto(testo: String) -> bool:
+	var t := testo.strip_edges().to_lower()
+	if t == "":
+		return false
+	for s in stato.spunti_proposti:
+		if String(s).strip_edges().to_lower() == t:
+			return true
+	return false
 
 func _valida(envelope: Dictionary, input_testo: String) -> Dictionary:
 	return _validazione.valida(envelope, input_testo)

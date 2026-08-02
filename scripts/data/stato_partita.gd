@@ -36,6 +36,11 @@ var cronaca_turno: int = 0  # ultimo turno gia' incluso nella cronaca
 ## (hanno orecchie) e a Omero. Poi si svuota.
 var parole_ai_compagni: Array[String] = []
 
+## I tre spunti mostrati al giocatore in questo momento. Servono a una regola sola ma
+## importante: il gioco non puo' rifiutare cio' che ha appena proposto (vedi
+## GameManager.gia_proposto).
+var spunti_proposti: Array[String] = []
+
 ## Il condensato di partenza: nessun ricordo antico, nessun conto aperto.
 static func memoria_vuota() -> Dictionary:
 	return {
@@ -144,6 +149,8 @@ static func from_dict(d: Dictionary) -> StatoPartita:
 	s.cronaca_turno = int(d.get("cronaca_turno", 0))
 	for p in d.get("parole_ai_compagni", []):
 		s.parole_ai_compagni.append(String(p))
+	for p in d.get("spunti_proposti", []):
+		s.spunti_proposti.append(String(p))
 	return s
 
 func to_dict() -> Dictionary:
@@ -172,6 +179,7 @@ func to_dict() -> Dictionary:
 		"cronaca": cronaca,
 		"cronaca_turno": cronaca_turno,
 		"parole_ai_compagni": parole_ai_compagni,
+		"spunti_proposti": spunti_proposti,
 	}
 
 func salva(path: String) -> bool:
