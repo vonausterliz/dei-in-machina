@@ -26,6 +26,7 @@ var _narratore: Narratore = null
 var _arbitro: Arbitro = null
 var _suggeritore: Suggeritore = null
 var _cronista: Cronista = null
+var _compagno: Compagno = null
 
 func _ready() -> void:
 	config = _carica_config()
@@ -142,6 +143,7 @@ func _inizializza_reale() -> void:
 	_arbitro = Arbitro.new(PantheonManager.pantheon)
 	_suggeritore = Suggeritore.new()
 	_cronista = Cronista.new()
+	_compagno = Compagno.new()
 
 ## La chiave API sta fuori dal repo: variabile d'ambiente il cui nome e' in config.
 func _leggi_chiave(cfg: Dictionary) -> String:
@@ -242,6 +244,19 @@ func verifica_plausibilita(testo_libero: String, seed: int = 0) -> String:
 	var classe := await _interprete.verifica_plausibilita(testo_libero, _client.chat, seed)
 	_reg("← Vaglio: %s · %d ms" % [classe if classe != "" else "(incerto)", Time.get_ticks_msec() - t0])
 	return classe
+
+## La battuta di un compagno di ciurma. In mock ne usa una dai suoi esempi (deterministico
+## e senza rete), cosi' la chat della ciurma vive anche a LLM spento.
+func parla_compagno(c: Dictionary, contesto: Dictionary, seed: int = 0) -> String:
+	if mock_mode:
+		var esempi: Array = c.get("esempi", [])
+		return String(esempi[0]) if not esempi.is_empty() else "…"
+	var nome := String(c.get("nome", "?"))
+	_reg("→ %s (ciurma) risponde…" % nome)
+	var t0 := Time.get_ticks_msec()
+	var battuta := await _compagno.parla(c, contesto, _client.chat, seed)
+	_reg("← %s: «%s» · %d ms" % [nome, battuta, Time.get_ticks_msec() - t0])
+	return battuta
 
 ## Ibrido: riconoscimento LLM del dio invocato quando il deterministico non trova nulla.
 ## In mock ritorna "" (i test restano deterministici: il risveglio nei test non dipende

@@ -12,7 +12,8 @@
     "settings": "Settings",
     "vista_olimpo": "Vista Olimpo",
     "log_llm": "Log LLM",
-    "impostazioni": "Modelli e chiavi API…"
+    "impostazioni": "Modelli e chiavi API…",
+    "ciurma": "Ciurma"
   },
   "gioco": {
     "domanda": "Cosa fai, Ulisse?",
@@ -93,5 +94,11 @@
     "tooltip_esterno": "Usa un provider esterno (config/providers/*.json). La chiave si imposta qui in Settings.",
     "tooltip_provider": "Provider esterno da usare",
     "tooltip_modello": "Modello del provider attivo"
+  },
+  "ciurma": {
+    "titolo": "Ciurma · i tuoi compagni",
+    "placeholder": "Parla ai tuoi uomini (scrivi @nome per rivolgerti a uno)…",
+    "invia": "Parla",
+    "vuota": "Nessuno risponde piu'."
   }
 }

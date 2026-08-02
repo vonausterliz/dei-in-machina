@@ -13,6 +13,11 @@ const C_GOLD := Color("cba24b")
 const C_VERDIGRIS := Color("4e9a8e")
 
 var testo: RichTextLabel
+## Barra d'invio: presente solo nelle chat INTERATTIVE (la ciurma). L'Olimpo si legge
+## soltanto — gli dei non si possono interpellare.
+var interattiva := false
+var campo: LineEdit
+signal inviato(testo: String)
 var dimensione_testo: int = 18   # leggibile anche su Retina; regolabile con A+/A−
 var _accodante: bool = true      # true = log (si accoda), false = vista (si sostituisce)
 
@@ -80,6 +85,26 @@ func _ready() -> void:
 	testo.add_theme_font_size_override("bold_font_size", dimensione_testo)
 	testo.add_theme_font_size_override("italics_font_size", dimensione_testo)
 	v.add_child(testo)
+
+	if interattiva:
+		var riga := HBoxContainer.new()
+		riga.add_theme_constant_override("separation", 8)
+		v.add_child(riga)
+		campo = LineEdit.new()
+		campo.placeholder_text = Testi.s("ciurma/placeholder")
+		campo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		campo.add_theme_font_size_override("font_size", dimensione_testo)
+		campo.text_submitted.connect(_invia)
+		riga.add_child(campo)
+		var b := _bottone(Testi.s("ciurma/invia"), func(): _invia(campo.text))
+		riga.add_child(b)
+
+func _invia(t: String) -> void:
+	var pulito := t.strip_edges()
+	if pulito == "":
+		return
+	campo.text = ""
+	inviato.emit(pulito)
 
 func _bottone(etichetta: String, azione: Callable) -> Button:
 	var b := Button.new()

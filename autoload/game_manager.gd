@@ -49,6 +49,8 @@ var stato: StatoPartita = null
 var _validazione: Validazione = null
 ## Le conversazioni (vista Olimpo come chat, e in seguito la ciurma).
 var agora: Agora = null
+## I compagni: hanno voce propria e possono morire (allora tacciono).
+var ciurma: Ciurma = null
 
 ## Ultima narrazione di Omero: la ripassiamo al turno dopo per la continuità del discorso.
 var _ultima_narrazione: String = ""
@@ -64,6 +66,8 @@ func nuova_partita(seed_partita: int = 0) -> void:
 	_validazione = Validazione.new(stato)
 	agora = Agora.new()
 	agora.canale(Agora.CANALE_OLIMPO, "Olimpo")
+	ciurma = Ciurma.carica()
+	agora.canale(Agora.CANALE_CIURMA, "Ciurma")
 	_ultima_narrazione = ""
 	_rng.seed = s  # riproducibilita': stessa run, stessi scavalcamenti
 	prob_scavalcamento = _PROB_SCAVALCAMENTO_DEFAULT
@@ -309,6 +313,10 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 			"esito_segno": _segno_esito(delta),
 		})
 		_ultima_narrazione = narrazione  # per la continuita' al turno successivo
+
+	# LA CIURMA: i compagni commentano cio' che e' successo. Se Ulisse si e' rivolto a
+	# qualcuno per nome, risponde lui; altrimenti parla al piu' uno, per non affollare.
+	await _fa_parlare_la_ciurma(input_testo, narrazione)
 
 	# Registrazioni: storico_olimpo (vista Olimpo/debug) + diario (player-facing).
 	var voce := {
@@ -658,6 +666,7 @@ func _avanza_episodio(envelope: Dictionary) -> Dictionary:
 	if not (per_tag or per_cap):
 		return fermo
 
+	_fai_cadere_i_destinati(String(v["corrente"]))
 	v["completati"].append(v["corrente"])
 	var da_nome := ep.nome
 	var prossimo := episodi.successivo(String(v["corrente"]))
@@ -752,6 +761,46 @@ func _verdetto_in_chat(verdetto: Dictionary, arbitrato: bool) -> void:
 	var chi := "Zeus" if arbitrato else nome
 	var testo := "prevale %s: %s" % [nome, verdetto.get("registro", "?")]
 	agora.scrivi(Agora.CANALE_OLIMPO, chi, testo, stato.turno, "verdetto")
+
+## Chi risponde: i compagni interpellati per nome, oppure (a rotazione) uno solo.
+## Deterministico: niente casualita' non seminata, e la chat non si affolla.
+func _fa_parlare_la_ciurma(input_testo: String, narrazione: String) -> void:
+	if ciurma == null:
+		return
+	var vivi: Array = ciurma.vivi()
+	if vivi.is_empty():
+		return
+	var interpellati: Array = ciurma.destinatari_in(input_testo)
+	var parlanti: Array = []
+	if not interpellati.is_empty():
+		for id in interpellati:
+			parlanti.append(ciurma.get_compagno(id))
+	else:
+		parlanti.append(vivi[stato.turno % vivi.size()])  # a turno, uno per volta
+	var contesto := {
+		"scena": scena_corrente(),
+		"cronaca": stato.cronaca,
+		"accaduto": narrazione,
+		"ulisse_dice": input_testo,
+	}
+	# Ulisse compare in chat solo se sta parlando ai suoi.
+	if not interpellati.is_empty():
+		agora.scrivi(Agora.CANALE_CIURMA, "Ulisse", input_testo, stato.turno)
+	for c in parlanti:
+		var ctx := contesto.duplicate()
+		ctx["interpellato"] = not interpellati.is_empty()
+		var battuta: String = await LLMManager.parla_compagno(c, ctx)
+		if battuta != "":
+			agora.scrivi(Agora.CANALE_CIURMA, String(c.get("nome", "")), battuta, stato.turno)
+
+## Chi muore secondo il poema esce di scena quando la tappa si chiude: la sua voce tace.
+func _fai_cadere_i_destinati(episodio: String) -> void:
+	if ciurma == null:
+		return
+	for id in ciurma.destinati_a_cadere(episodio):
+		var nome := ciurma.fai_cadere(id)
+		if nome != "":
+			agora.scrivi(Agora.CANALE_CIURMA, "", "%s non risponde piu'." % nome, stato.turno, "sistema")
 
 func _segna_in_gioco(svegli: Array) -> void:
 	for id in svegli:

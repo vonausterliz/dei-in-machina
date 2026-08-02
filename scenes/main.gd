@@ -6,7 +6,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "2.4"
+const VERSIONE := "2.5"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -24,6 +24,7 @@ const PLACEHOLDER := ""  # dal file testi (vedi _colonna_rapsodia)
 # id delle voci di menu
 const VOCE_OLIMPO := 0
 const VOCE_LOG := 1
+const VOCE_CIURMA := 2
 const VOCE_IMPOSTAZIONI := 10
 
 var _serif: FontFile
@@ -40,6 +41,8 @@ var _input: LineEdit
 var _episodio: Label
 var _fin_olimpo: FinestraTesto   # finestra separata: traccia dell'ultimo turno
 var _fin_log: FinestraTesto      # finestra separata: log delle chiamate LLM
+var _fin_ciurma: FinestraTesto   # chat INTERATTIVA coi compagni
+var _btn_ciurma: Button
 var _menu_view: PopupMenu
 var _lbl_motore: Label
 var _scala_schermo: float = 1.0
@@ -302,6 +305,7 @@ func _barra_menu() -> Control:
 	_menu_view = PopupMenu.new()
 	_menu_view.name = Testi.s("menu/view")
 	_menu_view.add_check_item(Testi.s("menu/vista_olimpo"), VOCE_OLIMPO)
+	_menu_view.add_check_item(Testi.s("menu/ciurma"), VOCE_CIURMA)
 	_menu_view.add_check_item(Testi.s("menu/log_llm"), VOCE_LOG)
 	_menu_view.id_pressed.connect(_on_menu_view)
 	barra.add_child(_menu_view)
@@ -348,10 +352,10 @@ func _on_menu_view(id: int) -> void:
 	var i := _menu_view.get_item_index(id)
 	var acceso := not _menu_view.is_item_checked(i)
 	_menu_view.set_item_checked(i, acceso)
-	if id == VOCE_OLIMPO:
-		_btn_olimpo.button_pressed = acceso
-	else:
-		_btn_log.button_pressed = acceso
+	match id:
+		VOCE_OLIMPO: _btn_olimpo.button_pressed = acceso
+		VOCE_CIURMA: _btn_ciurma.button_pressed = acceso
+		_: _btn_log.button_pressed = acceso
 
 ## Tiene la spunta del menu allineata allo stato reale della finestra.
 func _spunta_view(id: int, acceso: bool) -> void:
@@ -456,6 +460,11 @@ func _colonna_rapsodia() -> Control:
 	_btn_log.add_theme_stylebox_override("normal", _sfondo(8, C_SEA2, _line()))
 	_btn_log.add_theme_stylebox_override("hover", _sfondo(8, C_SEA2, C_GOLD))
 	_btn_log.add_theme_stylebox_override("pressed", _sfondo(8, C_GOLD_DEEP, C_GOLD))
+	_btn_ciurma = Button.new()
+	_btn_ciurma.toggle_mode = true
+	_btn_ciurma.visible = false
+	_btn_ciurma.toggled.connect(_on_toggle_ciurma)
+	opz.add_child(_btn_ciurma)
 	_btn_log.toggled.connect(_on_toggle_log)
 	opz.add_child(_btn_log)     # idem: comandato dal menu View
 	_chk_ollama = CheckButton.new()
@@ -591,6 +600,7 @@ func _apri_scena() -> void:
 	_narrazione.append_text("[i]" + Testi.s("gioco/omero") + "[/i] %s\n\n" % _ultima_narrazione)
 	_aggiorna_stats()
 	_aggiorna_mappa()
+	_aggiorna_ciurma()
 	_aggiorna_indicatore_motore()
 	_input.grab_focus()
 	await _rigenera_spunti()
@@ -638,6 +648,7 @@ func _on_agisci() -> void:
 	_aggiorna_stats()
 	if _fin_olimpo.visible:
 		_aggiorna_olimpo(esito["voce"])
+	_aggiorna_ciurma()
 
 	# Traversata verso la nuova tappa: il beat di partenza/viaggio, così non ci si
 	# "teletrasporta" da un luogo all'altro.
@@ -801,6 +812,41 @@ func _on_toggle_olimpo(premuto: bool) -> void:
 			_aggiorna_olimpo(GameManager.stato.storico_olimpo[-1])
 	else:
 		_fin_olimpo.hide()
+
+## La chat della ciurma: si apre come le altre, ma qui si puo' scrivere.
+func _on_toggle_ciurma(premuto: bool) -> void:
+	if premuto:
+		_fin_ciurma.mostra()
+		_aggiorna_ciurma()
+	else:
+		_fin_ciurma.hide()
+
+func _aggiorna_ciurma() -> void:
+	if _fin_ciurma == null or GameManager.agora == null:
+		return
+	var c: Dictionary = GameManager.agora.canali.get(Agora.CANALE_CIURMA, {})
+	var messaggi: Array = c.get("messaggi", [])
+	if messaggi.is_empty():
+		_fin_ciurma.imposta("[i]I tuoi uomini tacciono. Parla loro.[/i]")
+		return
+	var righe: Array[String] = []
+	var ultimo := -1
+	for m in messaggi:
+		var t: int = int(m["turno"])
+		if t != ultimo:
+			righe.append("[color=#5c5548]— turno %d —[/color]" % t)
+			ultimo = t
+		righe.append(GameManager.agora._riga(m))
+	_fin_ciurma.imposta("\n".join(righe))
+
+## Ulisse parla ai compagni: e' un TURNO DI GIOCO a tutti gli effetti (gli dei ascoltano
+## le parole, non solo i gesti). Passa quindi dallo stesso percorso dell'input principale.
+func _on_ciurma_invio(testo: String) -> void:
+	if _busy or _finita:
+		return
+	_input.text = testo
+	await _on_agisci()
+	_aggiorna_ciurma()
 
 func _on_toggle_log(premuto: bool) -> void:
 	if premuto:

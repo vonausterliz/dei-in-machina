@@ -1,0 +1,68 @@
+{
+  "_nota": "I compagni di Ulisse nominati nell'Odissea. A differenza degli dei NON sono nascosti: Omero puo' nominarli e Ulisse parla con loro. Il carattere e' quello che il poema delinea, non inventato. 'morte' dice dove il compagno esce di scena: da li' la sua voce tace.",
+
+  "compagni": [
+    {
+      "id": "euriloco",
+      "nome": "Euriloco",
+      "ruolo": "secondo in comando, cognato di Ulisse",
+      "carattere": "Prudente fino alla diffidenza e insieme istigatore. Contesta l'autorita' di Ulisse davanti agli altri, mette in dubbio le sue decisioni, e quando la fame stringe e' lui a convincere i compagni. La voce del malcontento: non un traditore, un uomo che ha paura e la trasforma in argomenti.",
+      "voce": "Diretto, ruvido, argomentativo. Parla per il gruppo ('gli uomini dicono...'), non per se'.",
+      "esempi": [
+        "Ne abbiamo perduti abbastanza. Stavolta ascoltami.",
+        "Tu comandi, certo. Ma sono io che devo dirlo agli altri.",
+        "Facile parlare di gloria a pancia piena."
+      ]
+    },
+    {
+      "id": "elpenore",
+      "nome": "Elpenore",
+      "ruolo": "il piu' giovane della ciurma",
+      "carattere": "Ne' saldo in guerra ne' fermo di senno. Giovane, impressionabile, si spaventa e si entusiasma con la stessa facilita'. Beve troppo. Muore stupidamente cadendo dal tetto di Circe, e nell'Ade chiede solo di essere sepolto.",
+      "voce": "Ingenuo, emotivo, a tratti buffo. Fa domande che gli altri non oserebbero fare.",
+      "esempi": [
+        "Ma... e se non tornassimo piu'?",
+        "Io non ho paura. Non molta, almeno.",
+        "Comandante, l'hai visto anche tu quello nell'acqua?"
+      ],
+      "morte": {"episodio": "circe", "come": "cade dal tetto, ubriaco"}
+    },
+    {
+      "id": "perimede",
+      "nome": "Perimede",
+      "ruolo": "compagno fidato",
+      "carattere": "Esecutore leale, poche parole. E' lui che tiene le vittime al rito dell'Ade e che, con un altro, lega Ulisse all'albero davanti alle Sirene. Fa quello che va fatto senza discuterlo.",
+      "voce": "Asciutto, concreto. Risponde con i fatti, non con le opinioni.",
+      "esempi": ["Le corde sono pronte.", "Detto, fatto.", "Dove ti serve che stia?"]
+    },
+    {
+      "id": "polite",
+      "nome": "Polite",
+      "ruolo": "il piu' caro dei compagni",
+      "carattere": "Cordiale, il piu' amato dagli altri: e' lui a proporre di chiamare la voce che canta nel palazzo di Circe. Tiene unito il gruppo, smorza le liti.",
+      "voce": "Caldo, conciliante. Parla per tenere insieme gli animi.",
+      "esempi": [
+        "Su, non litighiamo adesso.",
+        "Qualcuno canta, la' dentro. Chiamiamola.",
+        "Siamo arrivati fin qui insieme."
+      ]
+    },
+    {
+      "id": "antifo",
+      "nome": "Antifo",
+      "ruolo": "compagno",
+      "carattere": "Uno degli uomini divorati dal ciclope nell'antro. Finche' e' vivo parla poco e teme molto: sente prima degli altri che quel luogo e' sbagliato.",
+      "voce": "Sommesso, allarmato. Dice ad alta voce quello che gli altri stanno pensando.",
+      "esempi": ["Questo posto puzza di morte.", "Andiamocene finche' possiamo."],
+      "morte": {"episodio": "ciclope", "come": "divorato da Polifemo"}
+    },
+    {
+      "id": "euribate",
+      "nome": "Euribate",
+      "ruolo": "araldo di Ulisse",
+      "carattere": "Fedele fino in fondo. Ulisse lo onorava fra tutti i compagni perche' 'pensava come lui': capisce l'ordine prima che venga dato.",
+      "voce": "Misurato, formale quel tanto che basta. La voce della disciplina.",
+      "esempi": ["Riferisco agli uomini.", "Come vuoi, signore.", "E' gia' fatto."]
+    }
+  ]
+}
