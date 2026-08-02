@@ -1,3 +1,4 @@
+class_name Main
 extends Control
 
 ## Fase 8 — Interfaccia grafica, stile "epico" dai mockup (odissea_interfaccia.html):
@@ -6,7 +7,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "2.20"
+const VERSIONE := "2.21"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -98,10 +99,11 @@ func _ripristina_preferenze() -> void:
 	# nei profili direttamente: qui il percorso esterno non e' ancora acceso, e passare da
 	# imposta_modello() manderebbe la scelta sul provider locale (era il difetto).
 	LLMManager.applica_modelli_ricordati()
-	LLMManager.mock_mode = true  # il motore reale si attiva dopo, senza bloccare l'avvio
-	var motore := int(Impostazioni.leggi("motore", FinestraImpostazioni.MOTORE_MOCK))
-	if motore != FinestraImpostazioni.MOTORE_MOCK:
-		_motore_da_ripristinare = motore
+	# Si parte tecnicamente sul simulato solo per non bloccare l'avvio con una chiamata di
+	# rete; il motore vero si accende subito dopo. Il valore predefinito e' il PROVIDER
+	# ESTERNO, non il simulato: quello non e' una modalita' di gioco.
+	LLMManager.mock_mode = true
+	_motore_da_ripristinare = int(Impostazioni.leggi("motore", FinestraImpostazioni.MOTORE_ESTERNO))
 
 ## Rimette il provider scelto e se passare o no dal gateway. Due preferenze distinte,
 ## perché sono due scelte distinte.
@@ -378,14 +380,10 @@ func _barra_menu() -> Control:
 	barra.add_child(menu_set)
 	return barra
 
-## Scelta del motore dal menu Settings: mock / Ollama locale / provider esterno.
+## Scelta del motore dal menu Settings: Ollama locale o provider esterno.
+## Il simulato NON e' fra le scelte: non e' una modalita' di gioco (vedi blocca_simulato).
 func _on_motore_scelto(modo: int) -> void:
 	match modo:
-		FinestraImpostazioni.MOTORE_MOCK:
-			_chk_ollama.set_pressed_no_signal(false)
-			_chk_esterno.set_pressed_no_signal(false)
-			LLMManager.mock_mode = true
-			_narrazione.append_text("[color=%s]%s[/color]\n" % [C_VERDIGRIS.to_html(), Testi.s("motore/dei_simulati")])
 		FinestraImpostazioni.MOTORE_OLLAMA:
 			_chk_esterno.set_pressed_no_signal(false)
 			_chk_ollama.set_pressed_no_signal(true)
@@ -396,10 +394,31 @@ func _on_motore_scelto(modo: int) -> void:
 			await _attiva_reale(true)
 	_aggiorna_indicatore_motore()
 
+## IL SIMULATO NON E' UNA MODALITA' DI GIOCO.
+##
+## Il mock resta — ci girano i 227 test e la console headless, ed e' l'unico modo di
+## verificare la macchina del turno senza rete ne' token. Ma davanti a una finestra aperta
+## non e' una partita: con dèi finti e la stessa frase di Omero a ogni turno si continua a
+## giocare senza accorgersene. E' successo. Meglio un gioco che si ferma e spiega.
+##
+## Puro apposta: cosi' si puo' verificare anche il ramo "con schermo", che nei test
+## headless non si presenterebbe mai.
+static func blocca_simulato(simulato: bool, con_schermo: bool) -> bool:
+	return simulato and con_schermo
+
+func _simulato_blocca() -> bool:
+	return blocca_simulato(LLMManager.mock_mode, not _senza_schermo())
+
 ## Riga discreta sotto l'input: quale motore sta dando voce agli dèi.
 func _aggiorna_indicatore_motore() -> void:
 	if _lbl_motore == null:
 		return
+	var bloccato := _simulato_blocca()
+	if _input:
+		_input.editable = not bloccato
+		_input.placeholder_text = Testi.s("motore/serve_un_motore") if bloccato else Testi.s("gioco/placeholder")
+	if _btn_agisci:
+		_btn_agisci.disabled = bloccato
 	if LLMManager.mock_mode:
 		_lbl_motore.text = Testi.s("motore/simulato")
 		_lbl_motore.add_theme_color_override("font_color", C_OXBLOOD)
@@ -684,6 +703,9 @@ func _on_invio(_t: String) -> void:
 func _on_agisci() -> void:
 	if _busy or _finita:
 		return
+	if _simulato_blocca():
+		_narrazione.append_text("[color=%s]%s[/color]\n" % [C_OXBLOOD.to_html(), Testi.s("motore/serve_un_motore")])
+		return
 	var testo := _input.text.strip_edges()
 	if testo == "":
 		return
@@ -911,7 +933,7 @@ func _aggiorna_ciurma() -> void:
 ## nove — gli dei non convocano l'assemblea per ogni frase detta a bordo. Le parole non
 ## si perdono: il prossimo turno vero le consegna all'Interprete, agli dei e a Omero.
 func _on_ciurma_invio(testo: String) -> void:
-	if _busy or _finita:
+	if _busy or _finita or _simulato_blocca():
 		return
 	_busy = true
 	await GameManager.esegui_beat(testo)

@@ -45,18 +45,18 @@
   "motore": {
     "in_uso": "motore: %s · %s",
     "simulato": "⚠ SIMULATO — gli dèi non pensano · Settings › Prova il modello",
-    "dei_simulati": "[dèi simulati: nessuna chiamata al modello]",
     "attivo": "[modalità %s: dèi e narratore reali (%s). Guarda il log a destra.]",
-    "non_risponde": "%s non risponde (%s): %s. Resto sui dèi simulati (mock).",
+    "non_risponde": "%s non risponde (%s): %s. Il gioco resta in attesa: senza un motore gli dèi non possono rispondere.",
     "aiuto_ollama": "avvialo con «ollama serve» (o rilancia ./avvia.sh)",
     "aiuto_esterno": "controlla la chiave API e la rete",
-    "niente_modelli": "%s non elenca modelli disponibili. Resto sui dèi simulati (mock).",
+    "niente_modelli": "%s non elenca modelli disponibili. Il gioco resta in attesa: senza un motore gli dèi non possono rispondere.",
     "modello_assente": "Attenzione: «%s» non compare tra i modelli offerti dal provider. Lo uso lo stesso; se le chiamate falliscono, scegline un altro da Settings.",
-    "nessun_profilo": "Nessun provider esterno configurato (config/providers/). Resto sui dèi simulati (mock).",
-    "manca_chiave": "Manca la chiave API per «%s»: impostala da Settings. Resto sui dèi simulati (mock).",
+    "nessun_profilo": "Nessun provider esterno configurato (config/providers/). Il gioco resta in attesa: senza un motore gli dèi non possono rispondere.",
+    "manca_chiave": "Manca la chiave API per «%s»: impostala da Settings. Il gioco resta in attesa: senza un motore gli dèi non possono rispondere.",
     "nome_ollama": "Ollama",
     "nome_esterno": "API esterna",
-    "non_genera": "Il modello «%s» risulta elencato da %s ma NON risponde: %s\nDi solito vuol dire che il provider l'ha ritirato (continuando a elencarlo). Il menu «Modello» in Settings ora contiene l'elenco che il provider ha appena restituito: scegline un altro da lì. Per ora resto sul motore simulato."
+    "non_genera": "Il modello «%s» risulta elencato da %s ma NON risponde: %s\nDi solito vuol dire che il provider l'ha ritirato (continuando a elencarlo). Il menu «Modello» in Settings ora contiene l'elenco che il provider ha appena restituito: scegline un altro da lì e premi «Prova il modello». Il gioco resta in attesa: senza un motore gli dèi non possono rispondere.",
+    "serve_un_motore": "Nessun motore attivo: gli dèi non possono rispondere. Apri Settings › Prova il modello e scegline uno che funzioni."
   },
   "finestre": {
     "log_titolo": "Log LLM · traffico verso il modello",

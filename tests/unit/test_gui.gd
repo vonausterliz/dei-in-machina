@@ -103,3 +103,27 @@ func test_l_avviso_del_motore_simulato_si_vede():
 	# Nell'intestazione, cioe' fra i primi nodi della pagina — non in fondo.
 	var testata: Control = ui._lbl_motore.get_parent()
 	assert_lt(testata.get_index(), 3, "dev'essere in cima, non sotto la piega")
+
+# --- Il simulato non e' uno stato in cui si possa GIOCARE ---
+
+## Il mock resta (ci girano i test e la console headless), ma con una finestra aperta non
+## dev'essere una partita: si sono giocati quattro turni con dèi finti credendo fossero
+## veri. Meglio un gioco che si ferma e spiega, di uno che finge.
+func test_col_simulato_e_una_finestra_aperta_il_gioco_si_ferma():
+	assert_true(Main.blocca_simulato(true, true), "motore finto + schermo = non si gioca")
+
+func test_senza_schermo_il_simulato_resta_permesso():
+	assert_false(Main.blocca_simulato(true, false), "headless: test e console devono girare")
+
+func test_col_motore_vero_non_si_blocca_nulla():
+	assert_false(Main.blocca_simulato(false, true))
+	assert_false(Main.blocca_simulato(false, false))
+
+## Guardia effettiva: in headless (dove girano i test) non deve MAI scattare, altrimenti
+## si bloccherebbero da soli.
+func test_la_guardia_non_scatta_nei_test():
+	LLMManager.mock_mode = true
+	var ui = load("res://scenes/Main.tscn").instantiate()
+	add_child_autofree(ui)
+	await wait_frames(2)
+	assert_false(ui._simulato_blocca(), "i test girano sul mock: non devono autobloccarsi")

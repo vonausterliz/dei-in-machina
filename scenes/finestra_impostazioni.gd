@@ -25,6 +25,8 @@ signal zoom_scelto(fattore: float)
 ## con content_scale_factor 2 (Retina) il contenuto occupa il doppio dei pixel.
 const DIM_BASE := Vector2i(860, 760)
 
+## Il simulato NON e' una scelta di gioco: esiste solo come stato tecnico di partenza e
+## per i test/console headless. Non compare nel menu e nessuno puo' selezionarlo.
 const MOTORE_MOCK := 0
 const MOTORE_OLLAMA := 1
 const MOTORE_ESTERNO := 2
