@@ -165,6 +165,48 @@ func modello_del_profilo() -> String:
 		return String(config.get("model", "?"))
 	return String(_attraverso_il_gateway(profili_esterni[provider_esterno_idx]).get("model", "?"))
 
+## La configurazione del profilo SELEZIONATO (col trasporto applicato), a prescindere da
+## quale motore stia girando adesso. Serve alla prova in Settings: si sta configurando
+## Gemini col gioco ancora su simulato, e provare "il provider attivo" proverebbe Ollama.
+func config_del_profilo() -> Dictionary:
+	if provider_esterno_idx < 0 or provider_esterno_idx >= profili_esterni.size():
+		return config
+	return _attraverso_il_gateway(profili_esterni[provider_esterno_idx])
+
+## PROVA IL MODELLO CONFIGURATO, senza accendere niente e senza disturbare la partita.
+##
+## Due domande separate, perche' falliscono in modi diversi e si rimediano in modi diversi:
+##  - il server risponde?      (indirizzo sbagliato, gateway spento, rete)
+##  - il modello genera?       (nome ritirato, chiave mancante, quota finita)
+## Un modello puo' comparire nell'elenco ed essere morto: e' successo due volte in una
+## sera con Gemini. Per questo si tenta una generazione vera da un token.
+func prova_profilo() -> Dictionary:
+	if _client == null:
+		_inizializza_reale()
+	var cfg := config_del_profilo()
+	var atteso := String(cfg.get("model", "?"))
+	_client.configura(cfg, _leggi_chiave(cfg))
+	var t0 := Time.get_ticks_msec()
+	var elenco: Dictionary = await _client.elenca_modelli()
+	var esito := {
+		"atteso": atteso, "dove": String(cfg.get("base_url", "?")),
+		"raggiungibile": bool(elenco.get("ok", false)),
+		"modelli": elenco.get("modelli", []),
+		"elencato": false, "genera": false, "errore": String(elenco.get("errore", "")),
+		"ms": 0,
+	}
+	if esito["raggiungibile"]:
+		esito["elencato"] = _modello_presente(atteso, esito["modelli"])
+		var prova := await _prova_generazione()
+		esito["genera"] = prova["ok"]
+		if not prova["ok"]:
+			esito["errore"] = prova["errore"]
+	esito["ms"] = Time.get_ticks_msec() - t0
+	# La partita non deve accorgersi della prova: il client torna com'era.
+	var attuale := _config_attiva()
+	_client.configura(attuale, _leggi_chiave(attuale))
+	return esito
+
 ## Modello atteso dal provider attivo (per messaggi/verifica).
 func modello_atteso() -> String:
 	return String(_config_attiva().get("model", "?"))

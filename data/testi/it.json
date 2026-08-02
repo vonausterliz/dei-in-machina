@@ -95,7 +95,13 @@
     "tooltip_esterno": "Usa un provider esterno (config/providers/*.json). La chiave si imposta qui in Settings.",
     "tooltip_provider": "Provider esterno da usare",
     "tooltip_modello": "Modello del provider attivo",
-    "gateway_spento": "Gateway spento: si va diritti al provider, senza rete di protezione sui limiti."
+    "gateway_spento": "Gateway spento: si va diritti al provider, senza rete di protezione sui limiti.",
+    "prova": "Prova il modello",
+    "provo": "Provo «%s»… (elenco + una generazione vera)",
+    "prova_ok": "✓ «%s» risponde. Tutto a posto — %d ms.",
+    "prova_ok_non_elencato": "✓ «%s» risponde (%d ms). Non compare nell'elenco del provider, ma genera: succede con gli alias tipo *-latest. Va bene così.",
+    "prova_irraggiungibile": "✗ Non raggiungo %s — %s\nControlla la rete; se hai acceso il Gateway, avvialo con llm_gateway/gateway.sh start.",
+    "prova_non_genera": "✗ «%s» non genera — %s\nDi solito il provider l'ha ritirato (continuando a elencarlo) o manca la chiave. Il menu «Modello» qui sopra ha appena ricevuto l'elenco vero: scegline un altro."
   },
   "ciurma": {
     "titolo": "Ciurma · i tuoi compagni",

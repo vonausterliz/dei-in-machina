@@ -12,6 +12,7 @@ const C_BONE := Color("eadfc7")
 const C_BONE_DIM := Color("b4a98d")
 const C_GOLD := Color("cba24b")
 const C_VERDIGRIS := Color("4e9a8e")
+const C_OXBLOOD := Color("b04a34")
 
 signal applicate
 ## Il motore scelto: chi dà voce agli dèi. La GUI principale reagisce attivando il
@@ -33,6 +34,7 @@ var _opt_motore: OptionButton
 var _opt_provider: OptionButton
 var _opt_modello: OptionButton
 var _chk_gateway: CheckBox
+var _btn_prova: Button
 var _stato: Label
 
 func _init() -> void:
@@ -120,6 +122,10 @@ func _ready() -> void:
 	btn_agg.text = Testi.s("impostazioni/aggiorna_elenco")
 	btn_agg.pressed.connect(_aggiorna_modelli)
 	riga.add_child(btn_agg)
+	_btn_prova = Button.new()
+	_btn_prova.text = Testi.s("impostazioni/prova")
+	_btn_prova.pressed.connect(_prova_modello)
+	riga.add_child(_btn_prova)
 
 	_chk_gateway = CheckBox.new()
 	_chk_gateway.text = Testi.s("impostazioni/gateway")
@@ -268,3 +274,37 @@ func _aggiorna_modelli() -> void:
 		if _opt_modello.get_item_text(i) == atteso:
 			_opt_modello.select(i)
 	_stato.text = Testi.s("impostazioni/modelli_trovati", [v["modelli"].size()])
+
+
+## Prova il modello configurato QUI, non quello che sta girando: si sta configurando
+## Gemini mentre il gioco e' ancora sul motore simulato, e provare "il provider attivo"
+## proverebbe Ollama. Verdetto in chiaro, coi colori: verde funziona, rosso no.
+func _prova_modello() -> void:
+	_btn_prova.disabled = true
+	_stato.text = Testi.s("impostazioni/provo", [LLMManager.modello_del_profilo()])
+	_stato.add_theme_color_override("font_color", C_BONE_DIM)
+	var v: Dictionary = await LLMManager.prova_profilo()
+	_btn_prova.disabled = false
+
+	# L'elenco appena arrivato dal provider: se qualcosa non va, le alternative sono li'.
+	if not v["modelli"].is_empty():
+		_opt_modello.clear()
+		for m in v["modelli"]:
+			_opt_modello.add_item(String(m))
+		for i in _opt_modello.item_count:
+			if _opt_modello.get_item_text(i) == String(v["atteso"]):
+				_opt_modello.select(i)
+
+	if not v["raggiungibile"]:
+		_verdetto(Testi.s("impostazioni/prova_irraggiungibile", [v["dove"], v["errore"]]), false)
+	elif not v["genera"]:
+		_verdetto(Testi.s("impostazioni/prova_non_genera", [v["atteso"], v["errore"]]), false)
+	elif not v["elencato"]:
+		# Genera ma non compare in elenco: funziona, quindi va bene — capita con gli alias.
+		_verdetto(Testi.s("impostazioni/prova_ok_non_elencato", [v["atteso"], v["ms"]]), true)
+	else:
+		_verdetto(Testi.s("impostazioni/prova_ok", [v["atteso"], v["ms"]]), true)
+
+func _verdetto(testo: String, buono: bool) -> void:
+	_stato.text = testo
+	_stato.add_theme_color_override("font_color", C_VERDIGRIS if buono else C_OXBLOOD)

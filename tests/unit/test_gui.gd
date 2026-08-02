@@ -66,3 +66,26 @@ func test_la_vista_olimpo_resta_una_chat():
 	var t: String = ui._fin_olimpo.testo.get_parsed_text()
 	assert_false(t.contains("Envelope:"), "la traccia tecnica appartiene al Log LLM")
 	assert_false(t.contains("# Ciurma"), "la ciurma ha la sua finestra")
+
+## Il bottone per provare il modello dev'essere costruito e collegato: e' l'unico modo
+## per sapere se una configurazione funziona SENZA cominciare una partita.
+func test_settings_ha_il_bottone_prova_collegato():
+	var ui = load("res://scenes/Main.tscn").instantiate()
+	add_child_autofree(ui)
+	await wait_frames(2)
+	var f = ui._fin_impostazioni
+	assert_not_null(f._btn_prova, "il bottone dev'essere costruito, non solo dichiarato")
+	assert_true(f._btn_prova.pressed.is_connected(f._prova_modello), "e collegato")
+
+## La prova deve guardare il profilo SCELTO, non quello che sta girando: si configura
+## Gemini mentre il gioco e' ancora sul simulato, e provare "l'attivo" proverebbe Ollama.
+func test_la_prova_guarda_il_profilo_scelto_non_quello_attivo():
+	LLMManager.provider_esterno = false          # com'e' all'avvio
+	var quanti: int = LLMManager.profili_esterni.size()
+	if quanti == 0:
+		pending("nessun profilo esterno"); return
+	LLMManager.provider_esterno_idx = quanti - 1
+	var cfg := LLMManager.config_del_profilo()
+	assert_eq(String(cfg["model"]), String(LLMManager.profili_esterni[quanti - 1]["model"]))
+	assert_ne(String(cfg["base_url"]), String(LLMManager.config.get("base_url", "")),
+		"non deve cadere sul profilo locale")
