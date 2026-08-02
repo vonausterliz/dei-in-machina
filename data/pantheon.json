@@ -2,7 +2,7 @@
   "_meta": {
     "gioco": "Dei in machina",
     "versione_schema": "0.3",
-    "note": "Pantheon completo dell'Odissea, allineato al Contratto dell'Interprete v0.1. 'attivo' e' l'interruttore per il rollout a stadi: stadio 2 = solo i persistenti; stadio 3 = si accendono i locali, un episodio alla volta. 'disposizione_iniziale' e' solo il seme: il favore/ira corrente vive nello stato di partita. Esclusi di proposito gli dei dei racconti incassati (Afrodite/Ares/Efesto nel canto di Demodoco, Proteo nel racconto di Menelao): non agiscono nella linea di Ulisse. Aggiunti per ogni dio 'esempi_voce' (battute-campione in carattere: la leva piu' forte per distinguere le voci) e 'anti_pattern' (cio' che quel dio non direbbe/farebbe mai). Alimentano il blocco statico del system prompt del dio-agente. Ogni dio ha un 'antefatto': cio' che ricorda di PRIMA della storia (la guerra di Troia, i conti gia' aperti con Ulisse, la propria vicenda). Senza, un dio non e' il dio dell'Odissea ma un dio generico.",
+    "note": "Pantheon completo dell'Odissea, allineato al Contratto dell'Interprete v0.1. 'attivo' e' l'interruttore per il rollout a stadi: stadio 2 = solo i persistenti; stadio 3 = si accendono i locali, un episodio alla volta. 'disposizione_iniziale' e' solo il seme: il favore/ira corrente vive nello stato di partita. Esclusi di proposito gli dei dei racconti incassati (Afrodite/Ares/Efesto nel canto di Demodoco, Proteo nel racconto di Menelao): non agiscono nella linea di Ulisse. Aggiunti per ogni dio 'esempi_voce' (battute-campione in carattere: la leva piu' forte per distinguere le voci) e 'anti_pattern' (cio' che quel dio non direbbe/farebbe mai). Alimentano il blocco statico del system prompt del dio-agente. Ogni dio ha un 'antefatto': cio' che ricorda di PRIMA della storia (la guerra di Troia, i conti gia' aperti con Ulisse, la propria vicenda). Senza, un dio non e' il dio dell'Odissea ma un dio generico. 'simbolo': il distintivo mostrato accanto al nome nella Vista Olimpo. Lettere GRECHE e non emoji: il font dell'interfaccia non ha glifi emoji e le disegnerebbe come quadratini vuoti (verificato). Poseidone fa eccezione con Ψ, che e' un tridente.",
     "trigger_azione_vs_evento": "trigger_azione = tag dal vocabolario chiuso dell'Interprete, estratti da cio' che Ulisse scrive. trigger_evento = condizioni di mondo accese dal GameManager, non dall'input. Un dio locale e' comunque gia' vincolato al suo 'episodio': i trigger_evento servono per attivazioni che non coincidono col semplice ingresso nell'episodio.",
     "vocabolario_eventi": [
       "volere_di_zeus",
@@ -42,6 +42,7 @@
     {
       "id": "atena",
       "nome": "Atena",
+      "simbolo": "ΑΘ",
       "epiteti": [
         "atena",
         "athena",
@@ -88,6 +89,7 @@
     {
       "id": "poseidone",
       "nome": "Poseidone",
+      "simbolo": "Ψ",
       "epiteti": [
         "poseidone",
         "poseidon",
@@ -138,6 +140,7 @@
     {
       "id": "zeus",
       "nome": "Zeus",
+      "simbolo": "Ζ",
       "epiteti": [
         "zeus",
         "capo dell'olimpo",
@@ -187,6 +190,7 @@
     {
       "id": "polifemo",
       "nome": "Polifemo",
+      "simbolo": "ΚΥ",
       "epiteti": [
         "polifemo",
         "il ciclope",
@@ -231,6 +235,7 @@
     {
       "id": "eolo",
       "nome": "Eolo",
+      "simbolo": "ΑΙ",
       "epiteti": [
         "eolo",
         "signore dei venti",
@@ -274,6 +279,7 @@
     {
       "id": "circe",
       "nome": "Circe",
+      "simbolo": "ΚΙ",
       "epiteti": [
         "circe",
         "maga circe",
@@ -317,6 +323,7 @@
     {
       "id": "ermes",
       "nome": "Ermes",
+      "simbolo": "ΕΡ",
       "epiteti": [
         "ermes",
         "messaggero degli dei",
@@ -358,6 +365,7 @@
     {
       "id": "tiresia",
       "nome": "Tiresia",
+      "simbolo": "ΤΕ",
       "epiteti": [
         "tiresia",
         "indovino cieco",
@@ -400,6 +408,7 @@
     {
       "id": "sirene",
       "nome": "Sirene",
+      "simbolo": "ΣΕ",
       "epiteti": [
         "sirene",
         "le sirene",
@@ -440,6 +449,7 @@
     {
       "id": "scilla",
       "nome": "Scilla",
+      "simbolo": "ΣΚ",
       "epiteti": [
         "scilla",
         "il mostro dello stretto"
@@ -479,6 +489,7 @@
     {
       "id": "elio",
       "nome": "Elio",
+      "simbolo": "ΗΛ",
       "epiteti": [
         "elio",
         "dio del sole",
@@ -520,6 +531,7 @@
     {
       "id": "calipso",
       "nome": "Calipso",
+      "simbolo": "ΚΑ",
       "epiteti": [
         "calipso",
         "ninfa di ogigia",
@@ -565,6 +577,7 @@
     {
       "id": "ino_leucotea",
       "nome": "Ino Leucotea",
+      "simbolo": "ΛΕ",
       "epiteti": [
         "ino leucotea",
         "leucotea",

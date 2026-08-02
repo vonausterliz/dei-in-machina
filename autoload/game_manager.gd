@@ -622,7 +622,7 @@ func _annuncia_risvegli(svegli: Array) -> void:
 	for id in svegli:
 		var dio := PantheonManager.get_dio(id)
 		if dio:
-			agora.scrivi(Agora.CANALE_OLIMPO, dio.nome, "si desta.", stato.turno, "azione")
+			agora.scrivi(Agora.CANALE_OLIMPO, dio.nome, "si desta.", stato.turno, "azione", dio.simbolo)
 
 ## Porta una proposta divina nel canale giusto: se il dio e' in coalizione parla anche
 ## nel gruppo, come si fa in una chat quando si ha un tavolo riservato.
@@ -633,10 +633,10 @@ func _in_chat(p: Dictionary) -> void:
 	var dio := PantheonManager.get_dio(String(p.get("dio", "")))
 	if dio == null:
 		return
-	agora.scrivi(Agora.CANALE_OLIMPO, dio.nome, battuta, stato.turno)
+	agora.scrivi(Agora.CANALE_OLIMPO, dio.nome, battuta, stato.turno, "voce", dio.simbolo)
 	for c in stato.coalizioni:
 		if c.get("membri", []).has(dio.id) and c.has("canale"):
-			agora.scrivi(String(c["canale"]), dio.nome, battuta, stato.turno)
+			agora.scrivi(String(c["canale"]), dio.nome, battuta, stato.turno, "voce", dio.simbolo)
 
 ## Il verdetto: se c'e' stato conflitto lo pronuncia Zeus, altrimenti prevale chi ha
 ## spinto piu' forte. In chat si legge come la parola che chiude la discussione.
@@ -648,7 +648,10 @@ func _verdetto_in_chat(verdetto: Dictionary, arbitrato: bool) -> void:
 	var nome: String = dio.nome if dio else attore
 	var chi := "Zeus" if arbitrato else nome
 	var testo := "prevale %s: %s" % [nome, verdetto.get("registro", "?")]
-	agora.scrivi(Agora.CANALE_OLIMPO, chi, testo, stato.turno, "verdetto")
+	# Il distintivo e' di CHI parla: Zeus se ha arbitrato, altrimenti il dio che ha vinto.
+	var zeus: Dio = PantheonManager.get_dio("zeus")
+	var simbolo := (zeus.simbolo if zeus else "") if arbitrato else (dio.simbolo if dio else "")
+	agora.scrivi(Agora.CANALE_OLIMPO, chi, testo, stato.turno, "verdetto", simbolo)
 
 ## Registra il turno nei due archivi: storico_olimpo (tutto, per la vista dietro le quinte)
 ## e diario (reticente, per il giocatore). Ritorna la voce appena scritta.
@@ -883,13 +886,14 @@ func _fa_parlare_la_ciurma(input_testo: String, narrazione: String, alla_ciurma:
 	# la spada") non e' una frase detta a qualcuno e non gli va messo in bocca.
 	var parla_ai_suoi := alla_ciurma or not interpellati.is_empty()
 	if parla_ai_suoi:
-		agora.scrivi(Agora.CANALE_CIURMA, "Ulisse", input_testo, stato.turno)
+		agora.scrivi(Agora.CANALE_CIURMA, "Ulisse", input_testo, stato.turno, "voce", "ΟΔ")
 	for c in parlanti:
 		var ctx := contesto.duplicate()
 		ctx["interpellato"] = parla_ai_suoi
 		var battuta: String = await LLMManager.parla_compagno(c, ctx)
 		if battuta != "":
-			agora.scrivi(Agora.CANALE_CIURMA, String(c.get("nome", "")), battuta, stato.turno)
+			agora.scrivi(Agora.CANALE_CIURMA, String(c.get("nome", "")), battuta, stato.turno,
+				"voce", String(c.get("simbolo", "")))
 
 ## Chi muore secondo il poema esce di scena quando la tappa si chiude: la sua voce tace.
 func _fai_cadere_i_destinati(episodio: String) -> void:

@@ -132,10 +132,24 @@ func aggiungi(riga: String) -> void:
 	if testo:
 		testo.append_text("%s\n" % riga)
 
-## Sostituisce il contenuto (finestre-vista).
+## Sostituisce il contenuto (finestre-vista) e scorre in fondo.
+##
+## `scroll_following` vale solo per chi ACCODA: qui il testo si sostituisce in blocco, e
+## senza questo la chat restava ferma in cima mentre le battute nuove si accumulavano piu'
+## giu' — bisognava trascinare la barra a ogni turno. Il rimando a fine frame serve perche'
+## l'altezza totale si conosce solo dopo che il testo e' stato impaginato.
 func imposta(contenuto: String) -> void:
-	if testo:
-		testo.text = contenuto
+	if testo == null:
+		return
+	testo.text = contenuto
+	_in_fondo.call_deferred()
+
+func _in_fondo() -> void:
+	if testo == null:
+		return
+	var barra := testo.get_v_scroll_bar()
+	if barra:
+		barra.value = barra.max_value
 
 func _ridimensiona(passo: int) -> void:
 	dimensione_testo = clampi(dimensione_testo + passo * 2, 10, 36)  # passo di 2: si vede

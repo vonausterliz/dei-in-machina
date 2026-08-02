@@ -5,6 +5,9 @@ extends RefCounted
 
 var id: String = ""
 var nome: String = ""
+## Distintivo accanto al nome nella Vista Olimpo. Lettere GRECHE, non emoji: il font
+## dell'interfaccia non ha glifi emoji e le disegnerebbe come quadratini vuoti.
+var simbolo: String = ""
 var epiteti: Array[String] = []
 var natura: String = ""
 var fascia: String = ""
@@ -33,6 +36,7 @@ static func from_dict(d: Dictionary) -> Dio:
 	var dio := Dio.new()
 	dio.id = d.get("id", "")
 	dio.nome = d.get("nome", "")
+	dio.simbolo = d.get("simbolo", "")
 	dio.epiteti = _stringhe(d.get("epiteti", []))
 	dio.natura = d.get("natura", "")
 	dio.fascia = d.get("fascia", "")

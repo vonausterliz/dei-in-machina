@@ -96,12 +96,14 @@ func proponi(dio: Dio, contesto: Dictionary, chat_fn: Callable, seed: int = 0) -
 		return _silenzio(dio)
 
 	var registro := String(grezzo.get("registro", "silenzio"))
-	# Vincolo ai registri ammessi del dio: niente registri inventati.
-	if registro != "silenzio" and not dio.registri.has(registro):
-		return _silenzio(dio)
-
 	var intensita: int = clampi(int(grezzo.get("intensita", 1)), 1, 3)
 	var dice := String(grezzo.get("dice", "")).strip_edges()
+	# Vincolo ai registri ammessi: un registro inventato non si applica. Ma la BATTUTA
+	# resta: prima si ripiegava su _silenzio(), che azzera anche `dice`, e la voce del dio
+	# spariva per un errore di etichetta — nella Vista Olimpo restava solo «si desta.».
+	# Agire e parlare sono due cose diverse anche quando il modello sbaglia.
+	if registro != "silenzio" and not dio.registri.has(registro):
+		return {"dio": dio.id, "registro": "silenzio", "intensita": 1, "dice": dice}
 	return {"dio": dio.id, "registro": registro, "intensita": intensita, "dice": dice}
 
 func _silenzio(dio: Dio) -> Dictionary:

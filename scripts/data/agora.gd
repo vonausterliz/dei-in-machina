@@ -47,11 +47,12 @@ func canale(id: String, titolo: String = "", membri: Array = []) -> Dictionary:
 
 ## Scrive un messaggio. tipo: "voce" (una battuta), "azione" (un gesto: *si desta*),
 ## "verdetto", "sistema" (nascita del canale, esiti).
-func scrivi(id_canale: String, autore: String, testo: String, turno: int, tipo: String = "voce") -> void:
+func scrivi(id_canale: String, autore: String, testo: String, turno: int,
+		tipo: String = "voce", simbolo: String = "") -> void:
 	if testo.strip_edges() == "" and tipo == "voce":
 		return  # il silenzio non si scrive
 	canale(id_canale)["messaggi"].append({
-		"autore": autore, "testo": testo, "turno": turno, "tipo": tipo,
+		"autore": autore, "testo": testo, "turno": turno, "tipo": tipo, "simbolo": simbolo,
 	})
 
 ## Canale di gruppo per una coalizione: nasce quando gli dei fanno blocco.
@@ -110,12 +111,22 @@ func _silenzio(vista: String) -> String:
 func _riga(m: Dictionary) -> String:
 	var autore := String(m["autore"])
 	var testo := String(m["testo"])
+	var d := distintivo(autore, String(m.get("simbolo", "")))
 	match String(m["tipo"]):
 		"sistema":
 			return "  [i][color=#6f6857]%s[/color][/i]" % testo
 		"azione":
-			return "  [i][color=%s]%s[/color] %s[/i]" % [tinta(autore), autore, testo]
+			return "  %s[i][color=%s]%s[/color] %s[/i]" % [d, tinta(autore), autore, testo]
 		"verdetto":
-			return "  [b][color=#cba24b]%s[/color][/b] — %s" % [autore, testo]
+			return "  %s[b][color=#cba24b]%s[/color][/b] — %s" % [d, autore, testo]
 		_:
-			return "  [b][color=%s]%s[/color][/b]  %s" % [tinta(autore), autore, testo]
+			return "  %s[b][color=%s]%s[/color][/b]  %s" % [d, tinta(autore), autore, testo]
+
+## Il distintivo: due lettere greche su fondo colorato, come un avatar. Niente emoji —
+## il font dell'interfaccia non le ha e uscirebbero quadratini vuoti (verificato).
+## Il colore e' lo stesso, stabile, gia' assegnato alla voce: distintivo e nome si
+## riconoscono insieme.
+static func distintivo(autore: String, simbolo: String) -> String:
+	if autore == "" or simbolo == "":
+		return ""
+	return "[bgcolor=%s][color=#12101f] %s [/color][/bgcolor] " % [tinta(autore), simbolo]

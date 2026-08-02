@@ -412,3 +412,27 @@ func test_arbitro_malformato_va_in_fallback():
 	var v := await arb.decidi(_proposte_conflitto(), fake.chat)
 	assert_eq(v["attore"], "poseidone")
 	assert_eq(v["registro"], "castigo")
+
+# --- Un dio che si desta deve almeno COMMENTARE ---
+
+## «Gli dèi tendono a destarsi ma dire poco»: nella Vista Olimpo comparivano righe come
+## «Poseidone si desta.» e nient'altro. Due cause, entrambe nostre.
+##
+## La prima: se il modello sbaglia il registro (ne inventa uno, o non e' fra i suoi), si
+## ripiegava su silenzio BUTTANDO VIA la battuta. Il dio aveva parlato benissimo e la sua
+## voce spariva per un errore di etichetta.
+func test_una_battuta_buona_non_si_perde_per_un_registro_sbagliato():
+	var ag := DioAgente.new()
+	var dio := PantheonManager.get_dio("poseidone")
+	var fake := FakeChat.new()
+	fake.risposte = [_ok('{"registro":"maremoto","intensita":2,"dice":"Il mare non dimentica."}')]
+	var p := await ag.proponi(dio, {}, fake.chat)
+	assert_eq(String(p["registro"]), "silenzio", "un registro inventato non si applica")
+	assert_eq(String(p["dice"]), "Il mare non dimentica.", "ma la voce resta")
+
+## La seconda: il prompt invitava a tacere («dice: "" se taci»). Ora distingue AGIRE dal
+## PARLARE — si puo' non agire e commentare lo stesso.
+func test_il_prompt_chiede_sempre_una_battuta():
+	var sp := DioAgente.new().system_prompt(PantheonManager.get_dio("atena"))
+	assert_false(sp.contains('"" se taci'), "non si invita piu' al silenzio muto")
+	assert_string_contains(sp.to_lower(), "commenta", "anche chi non agisce dice la sua")
