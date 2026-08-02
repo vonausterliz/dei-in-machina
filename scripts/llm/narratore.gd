@@ -67,6 +67,11 @@ func costruisci_messaggi(contesto: Dictionary) -> Array:
 		pezzi.append("ULISSE HA APPENA, con queste parole o questo gesto: «%s» (in sintesi: %s). Rendi la scena e la sua RISPOSTA CONCRETA nel mondo — cosa accade come diretta conseguenza di ciò che Ulisse ha fatto o detto (se chiede udienza, mostra la risposta; se offre qualcosa, mostra chi lo accoglie o lo rifiuta) — e solo dopo, con misura, l'impronta del divino." % [azione, contesto.get("sintesi", "qualcosa")])
 	else:
 		pezzi.append("Ulisse ha appena: %s" % contesto.get("sintesi", "qualcosa"))
+	# Le parole scambiate coi compagni fra un'azione e l'altra: sono accadute anche quelle,
+	# e Omero puo' raccoglierne l'eco senza doverle ripetere.
+	var detto: String = contesto.get("detto_ai_compagni", "")
+	if detto != "":
+		pezzi.append("POCO PRIMA, AI SUOI COMPAGNI, HA DETTO: «%s» (sfondo: puoi lasciarne un'eco, non ripeterlo)." % detto)
 	var segno: String = contesto.get("esito_segno", "")
 	if segno != "":
 		pezzi.append("La piega delle cose: %s." % segno)
@@ -81,7 +86,50 @@ func costruisci_messaggi(contesto: Dictionary) -> Array:
 ## NOTA: i turni FUORI-MONDO non arrivano qui. Il GameManager non chiama affatto Omero
 ## quando l'azione è impossibile (anacronismo/nonsenso): al giocatore va solo il richiamo,
 ## mostrato dalla UI. Chiedere al modello di "non narrare" non funzionava: narrava lo stesso.
-func narra(contesto: Dictionary, chat_fn: Callable, seed: int = 0) -> String:
+## Il separatore con cui Omero chiude la narrazione e apre i tre spunti (vedi il prompt).
+const SEP_SPUNTI := "---SPUNTI---"
+
+## Narrazione E spunti in UNA chiamata sola.
+##
+## Prima erano due: Omero narrava, poi il Suggeritore rileggeva la stessa scena per
+## proporre tre azioni. Sotto il free tier di Mistral ogni chiamata e' ~1 secondo di
+## pavimento imposto dal limitatore, quindi la seconda si sentiva tutta — e per giunta
+## arrivava DOPO che il testo era gia' a schermo. Gli spunti nascono comunque dalla
+## narrazione: chiederli a chi l'ha appena scritta e' anche piu' coerente.
+##
+## La prosa resta libera (niente JSON, che peggiora la scrittura): il modello chiude con
+## una riga separatrice e tre righe secche. Se non lo fa, spunti vuoti e il chiamante
+## ripiega su quelli generici — la narrazione non si perde mai.
+func narra_e_suggerisci(contesto: Dictionary, chat_fn: Callable, seed: int = 0) -> Dictionary:
+	var grezzo := await narra(contesto, chat_fn, seed, false)
+	var i := grezzo.find(SEP_SPUNTI)
+	if i < 0:
+		return {"narrazione": grezzo, "spunti": []}
+	return {
+		"narrazione": grezzo.substr(0, i).strip_edges(),
+		"spunti": _leggi_spunti(grezzo.substr(i + SEP_SPUNTI.length())),
+	}
+
+func _leggi_spunti(blocco: String) -> Array:
+	var out: Array = []
+	for riga in blocco.split("\n", false):
+		var r := String(riga).strip_edges()
+		if r == "":
+			continue
+		var rischio := r.begins_with("!")
+		if not (rischio or r.begins_with("-") or r.begins_with("•")):
+			continue  # non e' uno spunto: coda di prosa o commento del modello
+		var testo := r.substr(1).strip_edges()
+		if testo != "":
+			out.append({"testo": testo, "rischio": rischio})
+		if out.size() >= 3:
+			break
+	return out
+
+## `taglia_spunti`: vero per chi vuole solo la prosa (i passaggi fra le tappe, la console).
+## Il modello potrebbe aggiungere il blocco anche quando non serve: qui lo si taglia via,
+## cosi' non finisce mai a schermo come se fosse narrazione.
+func narra(contesto: Dictionary, chat_fn: Callable, seed: int = 0, taglia_spunti: bool = true) -> String:
 	var opzioni := {"temperature": 0.9}
 	if seed != 0:
 		opzioni["seed"] = seed
@@ -89,18 +137,23 @@ func narra(contesto: Dictionary, chat_fn: Callable, seed: int = 0) -> String:
 
 	var testo := await _chiedi(messaggi, chat_fn, opzioni)
 	if testo != "" and not nomina_un_dio(testo):
-		return testo
+		return _senza_spunti(testo) if taglia_spunti else testo
 
 	# Ritenta una volta con richiamo severo.
 	var messaggi2 := messaggi.duplicate(true)
 	messaggi2.append({"role": "system", "content": "Hai nominato un dio: VIETATO. Riscrivi senza alcun nome divino, solo l'impronta."})
 	var testo2 := await _chiedi(messaggi2, chat_fn, opzioni)
 	if testo2 != "" and not nomina_un_dio(testo2):
-		return testo2
+		return _senza_spunti(testo2) if taglia_spunti else testo2
 
 	# Ultima difesa: redigi i nomi. La proprieta' vale comunque.
 	var base := testo2 if testo2 != "" else testo
-	return redigi(base)
+	var pulito := redigi(base)
+	return _senza_spunti(pulito) if taglia_spunti else pulito
+
+func _senza_spunti(testo: String) -> String:
+	var i := testo.find(SEP_SPUNTI)
+	return testo.substr(0, i).strip_edges() if i >= 0 else testo
 
 func _chiedi(messaggi: Array, chat_fn: Callable, opzioni: Dictionary) -> String:
 	var risposta = await chat_fn.call(messaggi, opzioni)

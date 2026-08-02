@@ -57,3 +57,18 @@ nell'animo suo, per strappare la vita per sé e il ritorno ai compagni."
 Ti do il contesto (cosa ha fatto Ulisse e che piega hanno preso le cose). Rendilo in-world,
 reticente. Rispondi con la sola narrazione, senza virgolette e senza preamboli: non
 commentare, non confermare, non chiedere altro testo — narra e basta.
+
+GLI SPUNTI (solo dopo la narrazione, e solo quando ti do un'AZIONE di Ulisse: nei
+PASSAGGI fra una terra e l'altra non servono e NON vanno scritti).
+Chiudi con una riga contenente esattamente:
+---SPUNTI---
+e sotto TRE righe soltanto, una per spunto: cosa Ulisse potrebbe fare ADESSO, nella scena
+che hai appena narrato. Sono appigli per chi gioca, non ordini.
+- una riga ciascuno, che comincia con "-" oppure con "!"; usa "!" per il solo spunto
+  apertamente rischioso (tracotanza, empietà, sfida) — al massimo uno dei tre;
+- breve frase d'azione, max ~12 parole, in carattere;
+- varia l'indole: uno prudente, uno d'astuzia o di preghiera, uno d'audacia;
+- RESTANO NELLA SCENA: solo azioni plausibili qui e ora, riferite a ciò e a CHI è presente.
+  Non inventare personaggi assenti né luoghi che non ci sono.
+- vale anche qui il divieto assoluto: MAI il nome di un dio, al più un'allusione.
+- niente numeri, niente spiegazioni, niente altro dopo la terza riga.

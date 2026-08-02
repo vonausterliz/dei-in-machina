@@ -6,7 +6,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "2.8"
+const VERSIONE := "2.9"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -639,10 +639,9 @@ func _aggiorna_mappa() -> void:
 func _on_invio(_t: String) -> void:
 	_on_agisci()
 
-## Un turno di gioco. `alla_ciurma` dice da DOVE arriva l'input: dal campo di gioco (un
-## gesto) o dalla chat dei compagni (parole rivolte a loro). Senza questa distinzione
-## cio' che Ulisse scriveva ai suoi uomini non compariva nella loro chat.
-func _on_agisci(alla_ciurma: bool = false) -> void:
+## Un turno di gioco pieno: il mondo gira e gli dei deliberano. Le parole scambiate coi
+## compagni passano invece da _on_ciurma_invio, che costa una chiamata sola.
+func _on_agisci() -> void:
 	if _busy or _finita:
 		return
 	var testo := _input.text.strip_edges()
@@ -659,7 +658,7 @@ func _on_agisci(alla_ciurma: bool = false) -> void:
 
 	# Mentre il turno gira, gli spunti vecchi non valgono piu': li svuoto.
 	_pulisci_spunti()
-	var esito: Dictionary = await GameManager.esegui_turno(testo, [], alla_ciurma)
+	var esito: Dictionary = await GameManager.esegui_turno(testo)
 
 	_ultima_narrazione = String(esito["voce"].get("narrazione_omero", ""))
 	if _ultima_narrazione != "":
@@ -699,7 +698,13 @@ func _on_agisci(alla_ciurma: bool = false) -> void:
 		else:
 			_narrazione.append_text("\n[b][color=%s]%s[/color][/b]\n" % [C_OXBLOOD.to_html(), Testi.s("gioco/fine", [esito["esito"]])])
 	else:
-		await _rigenera_spunti()  # nuovi spunti sulla scena aggiornata (busy: nessun conflitto)
+		# Gli spunti arrivano gia' insieme alla narrazione: nessuna seconda chiamata.
+		# Eccezione: se la tappa e' cambiata si riferirebbero alla scena vecchia, e allora
+		# vale la pena rigenerarli sulla nuova.
+		if esito.get("avanzato", false):
+			await _rigenera_spunti()
+		else:
+			_mostra_spunti(esito.get("spunti", []))
 		_input.editable = true
 		_input.grab_focus()
 	_btn_agisci.text = Testi.s("gioco/agisci")
@@ -718,7 +723,12 @@ func _rigenera_spunti() -> void:
 		"cronaca": GameManager.stato.cronaca,  # memoria: spunti coerenti col già accaduto
 		"narrazione": _ultima_narrazione,
 	}
-	var spunti: Array = await LLMManager.suggerisci(contesto)
+	_mostra_spunti(await LLMManager.suggerisci(contesto))
+
+## Mette a schermo tre appigli. Separata dalla generazione perche' gli spunti possono
+## arrivare da due strade: insieme alla narrazione di Omero (il caso normale, gratis) o
+## dal Suggeritore (all'apertura di una scena, dove Omero non e' stato chiamato).
+func _mostra_spunti(spunti: Array) -> void:
 	_pulisci_spunti()
 	for sp in spunti:
 		_spunti_box.add_child(_cue(String(sp.get("testo", "")), bool(sp.get("rischio", false))))
@@ -857,13 +867,15 @@ func _aggiorna_ciurma() -> void:
 		return
 	_fin_ciurma.imposta(GameManager.agora.trascrizione(Agora.VISTA_CIURMA))
 
-## Ulisse parla ai compagni: e' un TURNO DI GIOCO a tutti gli effetti (gli dei ascoltano
-## le parole, non solo i gesti). Passa quindi dallo stesso percorso dell'input principale.
+## Ulisse parla ai compagni: e' un BEAT, non un turno. Costa una chiamata sola invece di
+## nove — gli dei non convocano l'assemblea per ogni frase detta a bordo. Le parole non
+## si perdono: il prossimo turno vero le consegna all'Interprete, agli dei e a Omero.
 func _on_ciurma_invio(testo: String) -> void:
 	if _busy or _finita:
 		return
-	_input.text = testo
-	await _on_agisci(true)   # viene dalla chat: sono parole dette ai compagni, non un gesto
+	_busy = true
+	await GameManager.esegui_beat(testo)
+	_busy = false
 	_aggiorna_ciurma()
 
 func _on_toggle_log(premuto: bool) -> void:

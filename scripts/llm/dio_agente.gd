@@ -54,6 +54,11 @@ func costruisci_messaggi(dio: Dio, contesto: Dictionary) -> Array:
 		env.get("sintesi", "qualcosa"), env.get("tag", []), env.get("tono", "?"),
 		env.get("intensita", 1), contesto.get("favore", 0), contesto.get("ira", 0),
 	]
+	# Cio' che Ulisse ha mormorato ai suoi uomini fra un'azione e l'altra. Un dio ha
+	# orecchie: un proposito detto a voce pesa quanto un gesto, a volte di piu'.
+	var detto: String = contesto.get("detto_ai_compagni", "")
+	if detto != "":
+		situazione += "\n\nPoco fa, ai suoi compagni, ha detto: «%s»" % detto
 	# Round di replica: il dio vede cosa hanno proposto gli ALTRI dei e puo' ribattere.
 	var altri: Array = contesto.get("altri_dei", [])
 	if not altri.is_empty():

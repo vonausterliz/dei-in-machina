@@ -208,12 +208,10 @@ func salva_partita(path: String = SALVATAGGIO_DEFAULT) -> bool:
 ## Esegue un turno completo (fino a Omero) sull'input libero di Ulisse.
 ## `eventi`: condizioni di mondo attive questo turno (di norma vuote finche' gli
 ## episodi non le generano, fase 7); passabili per test e per usi futuri.
-## `alla_ciurma`: l'input arriva dalla chat dei compagni invece che dal campo di gioco.
-## Cambia una cosa sola ma importante: li' Ulisse sta PARLANDO ai suoi uomini (il canale
-## e' gia' il destinatario), mentre nel campo di gioco compie un'azione.
+## Le parole scambiate coi compagni NON passano di qui: sono beat (vedi esegui_beat).
 ## Ritorna un dizionario di esito: {voce, svegli, in_mondo, esito, fsm_path}.
 ## 'voce' e' anche appesa a stato.storico_olimpo (schema letto dal trace dumper).
-func esegui_turno(input_testo: String, eventi: Array = [], alla_ciurma: bool = false) -> Dictionary:
+func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	if stato == null:
 		push_error("GameManager: nessuna partita attiva.")
 		return {}
@@ -232,7 +230,7 @@ func esegui_turno(input_testo: String, eventi: Array = [], alla_ciurma: bool = f
 
 	# INTERPRETAZIONE — testo libero -> envelope (Interprete via LLMManager).
 	percorso.append(Fase.keys()[Fase.INTERPRETAZIONE])
-	var envelope: Dictionary = await LLMManager.interpreta(input_testo)
+	var envelope: Dictionary = await LLMManager.interpreta(_testo_per_interprete(input_testo))
 
 	# VAGLIO — secondo parere dedicato sulla plausibilita' (vedi _vaglia_plausibilita).
 	await _vaglia_plausibilita(envelope, input_testo)
@@ -309,14 +307,22 @@ func esegui_turno(input_testo: String, eventi: Array = [], alla_ciurma: bool = f
 		if attore != null:
 			impronta = attore.impronta
 	var narrazione := ""
+	# Gli spunti per il prossimo passo arrivano nella STESSA chiamata di Omero: nascono
+	# dalla scena che ha appena narrato, e cosi' costano zero.
+	var spunti: Array = []
 	if in_mondo:
-		narrazione = await LLMManager.narrazione_omero(
+		var r: Dictionary = await LLMManager.narrazione_e_spunti(
 			_contesto_omero(envelope, input_testo, svegli, verdetto, delta, impronta))
+		narrazione = String(r.get("narrazione", ""))
+		spunti = r.get("spunti", [])
 		_ultima_narrazione = narrazione  # per la continuita' al turno successivo
 
 	# LA CIURMA: i compagni commentano cio' che e' successo. Se Ulisse si e' rivolto a
 	# qualcuno per nome, risponde lui; altrimenti parla al piu' uno, per non affollare.
-	await _fa_parlare_la_ciurma(input_testo, narrazione, alla_ciurma)
+	await _fa_parlare_la_ciurma(input_testo, narrazione)
+	# Le parole dette a bordo sono state consegnate (Interprete, dei, Omero): il conto e'
+	# saldato e si riparte puliti per il prossimo tratto di conversazione.
+	stato.parole_ai_compagni.clear()
 
 	# Registrazioni: storico_olimpo (vista Olimpo/debug) + diario (player-facing).
 	var voce := _registra(turno, input_testo, envelope, svegli, eventi_turno, conflitto,
@@ -350,6 +356,7 @@ func esegui_turno(input_testo: String, eventi: Array = [], alla_ciurma: bool = f
 		"avanzato": avanzamento["avanzato"],
 		"intro": avanzamento["intro"],
 		"transizione": avanzamento.get("transizione", ""),  # traversata verso la nuova tappa
+		"spunti": spunti,   # gia' pronti: nessuna seconda chiamata dopo la narrazione
 		"fsm_path": percorso,
 	}
 
@@ -416,6 +423,7 @@ func _contesto_dio(id: String, envelope: Dictionary, altri: Array) -> Dictionary
 		"envelope": envelope,
 		"altri_dei": altri,
 		"cronaca": stato.cronaca,  # anche i dei sanno cos'e' accaduto finora
+		"detto_ai_compagni": _parole_in_sospeso(),  # cio' che ha mormorato a bordo
 	}
 
 ## Le proposte degli altri dei (nome + registro + battuta), per la replica.
@@ -648,13 +656,49 @@ func _contesto_omero(envelope: Dictionary, input_testo: String, svegli: Array,
 		"delta": delta,
 		"impronta": impronta,
 		"esito_segno": _segno_esito(delta),
+		"detto_ai_compagni": _parole_in_sospeso(),
 	}
+
+## Un BEAT: Ulisse scambia due parole coi suoi senza che il mondo giri.
+##
+## Costa UNA chiamata (la risposta di un compagno) invece delle nove di un turno pieno:
+## gli dei non convocano l'assemblea per ogni frase detta a bordo. Le parole pero' non si
+## perdono — restano in sospeso e il prossimo turno vero le consegna all'Interprete
+## (perche' i trigger scattino lo stesso), agli dei e a Omero.
+func esegui_beat(testo: String) -> Dictionary:
+	if stato == null or stato.stato != "in_corso":
+		return {"ok": false}
+	var pulito := testo.strip_edges()
+	if pulito == "":
+		return {"ok": false}
+	# Il giro di parola avanza a ogni beat: due frasi di fila non hanno lo stesso
+	# interlocutore. Deterministico, come tutto il resto.
+	var giro := stato.turno + stato.parole_ai_compagni.size()
+	stato.parole_ai_compagni.append(pulito)
+	await _fa_parlare_la_ciurma(pulito, "", true, giro)
+	return {"ok": true}
+
+## Cio' che Ulisse ha detto ai compagni dall'ultimo turno pieno, in una riga.
+func _parole_in_sospeso() -> String:
+	if stato == null or stato.parole_ai_compagni.is_empty():
+		return ""
+	return " ".join(stato.parole_ai_compagni)
+
+## Il testo che vede l'Interprete: l'azione, preceduta da cio' che Ulisse ha detto ai suoi.
+## Cosi' un proposito espresso a voce ("mangiamo le vacche del Sole") produce comunque i
+## suoi tag e sveglia chi di dovere — senza costare una seconda chiamata.
+func _testo_per_interprete(input_testo: String) -> String:
+	var parole := _parole_in_sospeso()
+	if parole == "":
+		return input_testo
+	return "Poco fa ha detto ai compagni: «%s». Adesso: «%s»" % [parole, input_testo]
 
 ## Chi risponde: i compagni interpellati per nome, oppure (a rotazione) uno solo.
 ## Deterministico: niente casualita' non seminata, e la chat non si affolla.
 ## `alla_ciurma`: Ulisse ha scritto NELLA chat dei compagni. Allora sta parlando a loro
 ## anche se non nomina nessuno — il canale e' il destinatario.
-func _fa_parlare_la_ciurma(input_testo: String, narrazione: String, alla_ciurma: bool = false) -> void:
+## `giro`: chi tocca nella rotazione (i beat avanzano anche a turno fermo).
+func _fa_parlare_la_ciurma(input_testo: String, narrazione: String, alla_ciurma: bool = false, giro: int = -1) -> void:
 	if ciurma == null:
 		return
 	var vivi: Array = ciurma.vivi()
@@ -666,7 +710,7 @@ func _fa_parlare_la_ciurma(input_testo: String, narrazione: String, alla_ciurma:
 		for id in interpellati:
 			parlanti.append(ciurma.get_compagno(id))
 	else:
-		parlanti.append(vivi[stato.turno % vivi.size()])  # a turno, uno per volta
+		parlanti.append(vivi[(giro if giro >= 0 else stato.turno) % vivi.size()])
 	var contesto := {
 		"scena": scena_corrente(),
 		"cronaca": stato.cronaca,

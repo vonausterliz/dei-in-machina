@@ -306,6 +306,26 @@ func suggerisci(contesto: Dictionary = {}, seed: int = 0) -> Array:
 	_reg("← Suggeritore: %d spunti · %d ms" % [sp.size(), Time.get_ticks_msec() - t0])
 	return sp
 
+## Narrazione E tre spunti in UNA chiamata (vedi Narratore.narra_e_suggerisci): sotto il
+## free tier ogni chiamata costa ~1 secondo di pavimento, e questa ne toglie una a ogni
+## turno. Se il modello non produce spunti usabili, si ripiega su quelli generici: in UI
+## ce ne sono sempre tre.
+func narrazione_e_spunti(contesto: Dictionary, seed: int = 0) -> Dictionary:
+	if mock_mode:
+		await get_tree().process_frame
+		return {"narrazione": _mock.narrazione_omero(contesto), "spunti": Lingua.spunti_generici()}
+	_reg("→ Omero narra (e propone gli spunti)…")
+	var t0 := Time.get_ticks_msec()
+	var r := await _narratore.narra_e_suggerisci(contesto, _client.chat, seed)
+	var spunti: Array = r.get("spunti", [])
+	for s in spunti:
+		if _narratore.nomina_un_dio(s["testo"]):
+			s["testo"] = _narratore.redigi(s["testo"])  # invariante: mai un nome di dio
+	if spunti.is_empty():
+		spunti = Lingua.spunti_generici()
+	_reg("← Omero + %d spunti · %d ms" % [spunti.size(), Time.get_ticks_msec() - t0])
+	return {"narrazione": String(r.get("narrazione", "")), "spunti": spunti}
+
 func narrazione_omero(contesto: Dictionary, seed: int = 0) -> String:
 	if mock_mode:
 		await get_tree().process_frame

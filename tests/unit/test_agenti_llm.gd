@@ -152,6 +152,57 @@ func test_redazione_ultima_difesa():
 	assert_false(nar.nomina_un_dio(testo), "il nome va redatto: %s" % testo)
 	assert_string_contains(testo.to_lower(), "un dio")
 
+# --- Omero + spunti in UNA chiamata (il pezzo che risparmia una chiamata per turno) ---
+
+func _risposta_con_spunti() -> String:
+	return """Il fumo saliva dalle capanne e il vento lo portava verso il mare.
+Nessuno ti fermo', ma qualcosa, in alto, prese nota.
+
+---SPUNTI---
+- Richiama i compagni alle navi e riparti
+- Offri parte del bottino a chi resta sulla riva
+! Grida il tuo nome perche' tutti lo ricordino"""
+
+func test_omero_narra_e_propone_in_una_sola_chiamata():
+	var nar := Narratore.new(_nomi())
+	var fake := FakeChat.new()
+	fake.risposte = [_ok(_risposta_con_spunti())]
+	var r := await nar.narra_e_suggerisci({"sintesi": "x"}, fake.chat)
+	assert_eq(fake.chiamate, 1, "UNA chiamata: e' tutto il punto")
+	assert_string_contains(r["narrazione"], "Il fumo saliva")
+	assert_false(r["narrazione"].contains("SPUNTI"), "il separatore non va a schermo")
+	assert_false(r["narrazione"].contains("Richiama i compagni"), "gli spunti non sono prosa")
+	assert_eq(r["spunti"].size(), 3)
+	assert_eq(r["spunti"][0]["testo"], "Richiama i compagni alle navi e riparti")
+	assert_false(r["spunti"][0]["rischio"])
+	assert_true(r["spunti"][2]["rischio"], "il '!' segna lo spunto rischioso")
+
+## Se il modello dimentica il blocco, la narrazione non deve andare persa: gli spunti
+## restano vuoti e il LLMManager ripiega su quelli generici.
+func test_senza_blocco_resta_la_narrazione():
+	var nar := Narratore.new(_nomi())
+	var fake := FakeChat.new()
+	fake.risposte = [_ok("Il mare si gonfio' senza ragione.")]
+	var r := await nar.narra_e_suggerisci({"sintesi": "x"}, fake.chat)
+	assert_string_contains(r["narrazione"], "mare")
+	assert_eq(r["spunti"].size(), 0)
+
+## Chi vuole solo la prosa (i passaggi fra le tappe) non deve ritrovarsi il blocco a
+## schermo se il modello lo aggiunge lo stesso.
+func test_narra_taglia_il_blocco_quando_non_serve():
+	var nar := Narratore.new(_nomi())
+	var fake := FakeChat.new()
+	fake.risposte = [_ok(_risposta_con_spunti())]
+	var testo := await nar.narra({"passaggio": {"da": "Ismaro", "a": "Eea"}}, fake.chat)
+	assert_false(testo.contains("SPUNTI"))
+	assert_false(testo.contains("Richiama i compagni"))
+
+## L'invariante vale anche negli spunti: un nome divino li' sarebbe player-facing.
+func test_l_invariante_vale_anche_sugli_spunti():
+	var nar := Narratore.new(_nomi())
+	assert_true(nar.nomina_un_dio("Prega Poseidone perche' plachi le onde"))
+	assert_string_contains(nar.redigi("Prega Poseidone perche' plachi le onde").to_lower(), "un dio")
+
 # --- Suggeritore (spunti d'azione player-facing) ---
 
 func test_prompt_suggeritore_include_guardrail():

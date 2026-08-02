@@ -30,6 +30,12 @@ var coalizioni: Array = []
 var cronaca: String = ""
 var cronaca_turno: int = 0  # ultimo turno gia' incluso nella cronaca
 
+## Cio' che Ulisse ha detto ai compagni fuori da un turno pieno (i "beat" della chat della
+## ciurma). Non costa una deliberazione divina: resta qui in sospeso e viene consegnato al
+## prossimo turno vero — all'Interprete (perche' i trigger scattino lo stesso), agli dei
+## (hanno orecchie) e a Omero. Poi si svuota.
+var parole_ai_compagni: Array[String] = []
+
 static func nuova(pantheon: Pantheon, seed_partita: int, run_id: String = "") -> StatoPartita:
 	var s := StatoPartita.new()
 	s.run_id = run_id if run_id != "" else "run-%d" % Time.get_ticks_usec()
@@ -120,6 +126,8 @@ static func from_dict(d: Dictionary) -> StatoPartita:
 	s.coalizioni = d.get("coalizioni", [])
 	s.cronaca = String(d.get("cronaca", ""))
 	s.cronaca_turno = int(d.get("cronaca_turno", 0))
+	for p in d.get("parole_ai_compagni", []):
+		s.parole_ai_compagni.append(String(p))
 	return s
 
 func to_dict() -> Dictionary:
@@ -147,6 +155,7 @@ func to_dict() -> Dictionary:
 		"coalizioni": coalizioni,
 		"cronaca": cronaca,
 		"cronaca_turno": cronaca_turno,
+		"parole_ai_compagni": parole_ai_compagni,
 	}
 
 func salva(path: String) -> bool:

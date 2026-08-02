@@ -90,14 +90,16 @@ func trascrizione(vista: String = VISTA_OLIMPO, solo_da_turno: int = 0) -> Strin
 		# rumore (la finestra ha gia' il suo titolo).
 		if attivi.size() > 1:
 			pezzi.append("[b][color=#cba24b]# %s[/color][/b]" % c["titolo"])
+		# I turni si separano con una riga vuota, non con un'etichetta "— turno N —":
+		# il respiro si vede, il meccanismo no. Una conversazione non e' un tabellone.
 		var ultimo_turno := -1
 		for m in c["messaggi"]:
-			if int(m["turno"]) < solo_da_turno:
-				continue
 			var t: int = int(m["turno"])
-			if t != ultimo_turno:
-				pezzi.append("[color=#5c5548]— turno %d —[/color]" % t)
-				ultimo_turno = t
+			if t < solo_da_turno:
+				continue
+			if ultimo_turno != -1 and t != ultimo_turno:
+				pezzi.append("")
+			ultimo_turno = t
 			pezzi.append(_riga(m))
 		pezzi.append("")
 	return "\n".join(pezzi)
