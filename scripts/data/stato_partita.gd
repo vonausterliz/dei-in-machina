@@ -36,6 +36,15 @@ var cronaca_turno: int = 0  # ultimo turno gia' incluso nella cronaca
 ## (hanno orecchie) e a Omero. Poi si svuota.
 var parole_ai_compagni: Array[String] = []
 
+## Il condensato di partenza: nessun ricordo antico, nessun conto aperto.
+static func memoria_vuota() -> Dictionary:
+	return {
+		"quanti": 0, "dal_turno": 0, "al_turno": 0,
+		"registri": {},   # registro -> quante volte l'ha voluto
+		"prevalso": 0, "respinto": 0, "nascosto": 0,
+		"luoghi": [],     # dove e' passato, in ordine, senza ripetizioni
+	}
+
 static func nuova(pantheon: Pantheon, seed_partita: int, run_id: String = "") -> StatoPartita:
 	var s := StatoPartita.new()
 	s.run_id = run_id if run_id != "" else "run-%d" % Time.get_ticks_usec()
@@ -67,7 +76,10 @@ static func nuova(pantheon: Pantheon, seed_partita: int, run_id: String = "") ->
 			# Il taccuino privato del dio: cosa ha voluto, turno per turno, e com'e'
 			# andata. La cronaca non puo' servire a questo — e' ripulita dai nomi divini
 			# perche' finisce anche a Omero, quindi un dio non vi ritrova le proprie opere.
+			# Gli ultimi ricordi stanno per esteso in 'memoria'; i piu' vecchi non si
+			# buttano, si condensano in 'memoria_vecchia'. Un dio non dimentica.
 			"memoria": [],
+			"memoria_vecchia": StatoPartita.memoria_vuota(),
 		}
 	# Strategia di sfondo (fase 6-bis): la pazienza crudele di Poseidone, che aspetta
 	# il momento peggiore per colpire. Un 'piano' leggero che inclina le sue reazioni.

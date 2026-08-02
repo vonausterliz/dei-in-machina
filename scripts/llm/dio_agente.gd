@@ -63,8 +63,13 @@ func costruisci_messaggi(dio: Dio, contesto: Dictionary) -> Array:
 	# Il suo taccuino: cio' che ha gia' voluto, e come e' finita. E' la differenza fra una
 	# potenza con una storia e un generatore di battute che ricomincia ogni turno da capo.
 	var ricordi: Array = contesto.get("memoria", [])
-	if not ricordi.is_empty():
-		situazione += "\n\nQUELLO CHE HAI GIA' FATTO in questo viaggio (lo ricordi bene):\n%s" % "\n".join(ricordi)
+	var riassunto: String = contesto.get("memoria_riassunto", "")
+	if not ricordi.is_empty() or riassunto != "":
+		situazione += "\n\nQUELLO CHE HAI GIA' FATTO in questo viaggio (lo ricordi bene):"
+		if riassunto != "":
+			situazione += "\n" + riassunto   # il condensato di cio' che e' piu' lontano
+		if not ricordi.is_empty():
+			situazione += "\n" + "\n".join(ricordi)
 	# Round di replica: il dio vede cosa hanno proposto gli ALTRI dei e puo' ribattere.
 	var altri: Array = contesto.get("altri_dei", [])
 	if not altri.is_empty():

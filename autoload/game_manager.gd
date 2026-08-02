@@ -429,7 +429,9 @@ func _contesto_dio(id: String, envelope: Dictionary, altri: Array) -> Dictionary
 		"altri_dei": altri,
 		"cronaca": stato.cronaca,  # anche i dei sanno cos'e' accaduto finora
 		"detto_ai_compagni": _parole_in_sospeso(),  # cio' che ha mormorato a bordo
-		"memoria": reg.get("memoria", []),          # il suo taccuino: cosa ha gia' fatto
+		# Il suo taccuino: i recenti per esteso, il resto condensato in una frase.
+		"memoria": ricordi_recenti(id),
+		"memoria_riassunto": riassunto_memoria(id),
 	}
 
 ## Le proposte degli altri dei (nome + registro + battuta), per la replica.
@@ -699,9 +701,11 @@ func _testo_per_interprete(input_testo: String) -> String:
 		return input_testo
 	return "Poco fa ha detto ai compagni: «%s». Adesso: «%s»" % [parole, input_testo]
 
-## Quanti ricordi tiene un dio. A costo costante come la cronaca: un taccuino che cresce
-## all'infinito gonfia il prompt turno dopo turno, e quel conto lo paga l'utente.
-@onready var _RICORDI_PER_DIO: int = Bilanciamento.intero("memoria/ricordi_per_dio", 6)
+## Quanti ricordi restano PER ESTESO. Oltre questo non si cancella nulla: i piu' vecchi
+## si condensano in `memoria_vecchia`. Cosi' il prompt resta a dimensione costante — un
+## taccuino che cresce all'infinito lo paga l'utente a ogni turno — ma un dio non
+## dimentica: una potenza millenaria che perde il conto dei propri torti non e' credibile.
+@onready var _RICORDI_PER_DIO: int = Bilanciamento.intero("memoria/ricordi_per_dio", 5)
 
 ## Il taccuino privato degli dei. Ognuno annota cosa ha voluto e come e' finita: se ha
 ## prevalso, se e' stato respinto, se ha agito di nascosto dopo il no di Zeus.
@@ -721,28 +725,93 @@ func _annota_nella_memoria(proposte: Array, verdetto: Dictionary, scavalcamento:
 		var registro := String(p.get("registro", "silenzio"))
 		if registro == "silenzio":
 			continue  # tacere non lascia un ricordo
-		var esito := ""
+		var esito := "nulla"
 		if String(scavalcamento.get("colpevole", "")) == id:
-			esito = "Zeus ti nego', e agisti lo stesso di nascosto."
+			esito = "nascosto"
 		elif id == vincitore:
-			esito = "Hai prevalso."
+			esito = "prevalso"
 		elif vincitore != "":
-			esito = "Fosti respinto: prevalse %s." % _nome_dio(vincitore)
-		else:
-			esito = "Non se ne fece nulla."
-		# La sintesi arriva gia' come frase compiuta ("Ulisse grida il proprio nome…"):
-		# incastonarla fra virgolette evita di doverla cucire alla grammatica della riga.
-		_ricorda(id, "a %s — «%s» — volevi %s (forza %d). %s" % [
-			luogo, fatto.strip_edges().trim_suffix("."), registro,
-			int(p.get("intensita", 1)), esito])
+			esito = "respinto"
+		_ricorda(id, {
+			"t": stato.turno,
+			"luogo": luogo,
+			"fatto": fatto.strip_edges().trim_suffix("."),
+			"registro": registro,
+			"intensita": int(p.get("intensita", 1)),
+			"esito": esito,
+			"contro": _nome_dio(vincitore) if esito == "respinto" else "",
+		})
 
-func _ricorda(id: String, riga: String) -> void:
+## Il ricordo si conserva STRUTTURATO, non gia' impaginato: e' cio' che permette di
+## riassumerlo davvero quando invecchia (contare i registri, gli esiti, i luoghi) invece
+## di dover rileggere delle frasi. La prosa si compone al momento di darla al dio.
+func _ricorda(id: String, ricordo: Dictionary) -> void:
 	var reg: Dictionary = stato.registro_divino[id]
 	var memoria: Array = reg.get("memoria", [])
-	memoria.append("- turno %d, %s" % [stato.turno, riga])
+	memoria.append(ricordo)
 	while memoria.size() > _RICORDI_PER_DIO:
-		memoria.pop_front()   # i ricordi piu' vecchi sbiadiscono per primi
+		_condensa(reg, memoria.pop_front())   # non si butta: si sedimenta
 	reg["memoria"] = memoria
+
+## Un ricordo che esce dai recenti entra nel condensato. Nulla si perde: cambia la grana.
+func _condensa(reg: Dictionary, ricordo: Dictionary) -> void:
+	var v: Dictionary = reg.get("memoria_vecchia", StatoPartita.memoria_vuota())
+	v["quanti"] = int(v["quanti"]) + 1
+	var t := int(ricordo["t"])
+	v["dal_turno"] = t if int(v["dal_turno"]) == 0 else mini(int(v["dal_turno"]), t)
+	v["al_turno"] = maxi(int(v["al_turno"]), t)
+	var registri: Dictionary = v["registri"]
+	var r := String(ricordo["registro"])
+	registri[r] = int(registri.get(r, 0)) + 1
+	var esito := String(ricordo["esito"])
+	if v.has(esito):
+		v[esito] = int(v[esito]) + 1
+	var luoghi: Array = v["luoghi"]
+	var luogo := String(ricordo["luogo"])
+	if luogo != "" and not luoghi.has(luogo):
+		luoghi.append(luogo)
+	reg["memoria_vecchia"] = v
+
+## Il condensato reso in una frase, per il prompt del dio. "" se non c'e' ancora nulla
+## di vecchio. Deterministico: nessuna chiamata LLM per riassumere (sarebbe una chiamata
+## per dio ogni N turni, e sotto il free tier si sentirebbe).
+func riassunto_memoria(id: String) -> String:
+	var reg: Dictionary = stato.registro_divino.get(id, {}) if stato else {}
+	var v: Dictionary = reg.get("memoria_vecchia", {})
+	if v.is_empty() or int(v.get("quanti", 0)) == 0:
+		return ""
+	var voleri: Array[String] = []
+	for r in v["registri"]:
+		var n := int(v["registri"][r])
+		voleri.append("%s %d volte" % [r, n] if n > 1 else String(r))
+	var esiti: Array[String] = []
+	if int(v["prevalso"]) > 0:
+		esiti.append("prevalso %d volte" % int(v["prevalso"]))
+	if int(v["respinto"]) > 0:
+		esiti.append("respinto %d volte" % int(v["respinto"]))
+	if int(v["nascosto"]) > 0:
+		esiti.append("%d volte hai agito di nascosto dopo un no di Zeus" % int(v["nascosto"]))
+	var dove := " (%s)" % ", ".join(v["luoghi"]) if not v["luoghi"].is_empty() else ""
+	return "Prima, dal turno %d al %d%s sei intervenuto %d volte: hai voluto %s; hai %s." % [
+		int(v["dal_turno"]), int(v["al_turno"]), dove, int(v["quanti"]),
+		", ".join(voleri), " e ".join(esiti) if not esiti.is_empty() else "lasciato correre",
+	]
+
+## I ricordi recenti, per esteso, nella forma che legge il dio.
+func ricordi_recenti(id: String) -> Array:
+	var out: Array = []
+	var reg: Dictionary = stato.registro_divino.get(id, {}) if stato else {}
+	for r in reg.get("memoria", []):
+		var coda := "Hai prevalso."
+		match String(r["esito"]):
+			"nascosto": coda = "Zeus ti nego', e agisti lo stesso di nascosto."
+			"respinto": coda = "Fosti respinto: prevalse %s." % r.get("contro", "un altro")
+			"nulla": coda = "Non se ne fece nulla."
+		# La sintesi arriva gia' come frase compiuta ("Ulisse grida il proprio nome…"):
+		# incastonarla fra virgolette evita di doverla cucire alla grammatica della riga.
+		out.append("- turno %d, a %s — «%s» — volevi %s (forza %d). %s" % [
+			int(r["t"]), r["luogo"], r["fatto"], r["registro"], int(r["intensita"]), coda])
+	return out
 
 func _nome_dio(id: String) -> String:
 	var d: Dio = PantheonManager.get_dio(id)
