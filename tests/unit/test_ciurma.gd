@@ -28,7 +28,7 @@ func test_chi_muore_tace():
 	GameManager.vai_a_tappa("ciclope")
 	await GameManager.esegui_turno("fuggo dall'antro")   # tag fuga: chiude la tappa
 	assert_false(GameManager.ciurma.nomi_vivi().has("Antifo"), "Antifo non parla piu'")
-	assert_string_contains(GameManager.agora.trascrizione(), "non risponde")
+	assert_string_contains(GameManager.agora.trascrizione(Agora.VISTA_CIURMA), "non risponde")
 
 func test_destinatari_riconosciuti_con_chiocciola():
 	assert_eq(GameManager.ciurma.risolvi_destinatario("@euriloco"), "euriloco")

@@ -100,5 +100,9 @@
     "placeholder": "Parla ai tuoi uomini (scrivi @nome per rivolgerti a uno)…",
     "invia": "Parla",
     "vuota": "Nessuno risponde piu'."
+  },
+  "agora": {
+    "olimpo_muto": "[i]Nessuna voce, per ora. Gli dèi tacciono.[/i]",
+    "ciurma_muta": "[i]I tuoi uomini tacciono. Parla loro.[/i]"
   }
 }

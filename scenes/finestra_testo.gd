@@ -29,10 +29,6 @@ func _init(titolo_finestra: String, accodante: bool = true, dimensione := Vector
 		position = posizione  # finestre distinte: ognuna col suo posto, non sovrapposte
 	unresizable = false
 	visible = false
-	# Restano davanti al gioco mentre si legge. In headless (i test) non esiste un vero
-	# server finestre e la chiamata fallirebbe.
-	if DisplayServer.get_name() != "headless":
-		always_on_top = true
 
 ## Le finestre secondarie NON ereditano il content_scale_factor della principale: su uno
 ## schermo Retina il testo verrebbe disegnato a pixel nativi, cioè minuscolo (ed è il
@@ -46,6 +42,17 @@ func _ready() -> void:
 	# La connessione va qui, non in _init: _init puo' essere eseguito piu' volte.
 	if not close_requested.is_connected(_su_chiusura):
 		close_requested.connect(_su_chiusura)
+	# "Sempre davanti alla finestra di gioco".
+	# NON con always_on_top: quello e' un DESIDERIO rivolto al gestore di finestre (su macOS
+	# un livello fluttuante) che viene riordinato quando la principale torna attiva — ed e'
+	# il motivo per cui queste viste continuavano a sparire dietro.
+	# Con transient la finestra e' dichiarata FIGLIA della principale, e l'ordine lo
+	# garantisce il sistema operativo: macOS la aggancia con addChildWindow, X11 imposta
+	# WM_TRANSIENT_FOR. Godot vieta di usare i due insieme ("Windows with the 'on top'
+	# can't become transient"): questa e' la scelta giusta delle due.
+	# Va fatto in _ready, non in _init: richiede di essere gia' nell'albero.
+	if DisplayServer.get_name() != "headless":
+		transient = true
 	var sfondo := ColorRect.new()
 	sfondo.color = C_SEA
 	sfondo.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -113,11 +120,9 @@ func _bottone(etichetta: String, azione: Callable) -> Button:
 	b.pressed.connect(azione)
 	return b
 
-## Mostra la finestra tenendola davanti. Alcuni window manager perdono il flag quando la
-## finestra viene nascosta e riaperta: lo riaffermiamo a ogni apertura.
+## Mostra la finestra e le da' il fuoco. L'ordine sopra la principale e' gia' garantito
+## dal legame transient: qui non c'e' nessun flag da riaffermare.
 func mostra() -> void:
-	if DisplayServer.get_name() != "headless":
-		always_on_top = true
 	show()
 	if DisplayServer.get_name() != "headless":
 		grab_focus()

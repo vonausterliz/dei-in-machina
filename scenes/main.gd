@@ -6,7 +6,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "2.6"
+const VERSIONE := "2.7"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -98,17 +98,17 @@ func _ripristina_preferenze() -> void:
 func _ripristina_finestre() -> void:
 	if _senza_schermo():
 		return
-	for coppia in [["log", _fin_log, _btn_log, VOCE_LOG], ["olimpo", _fin_olimpo, _btn_olimpo, VOCE_OLIMPO]]:
-		var g: Dictionary = Impostazioni.geometria(String(coppia[0]))
+	for riga in _finestre_servizio():
+		var g: Dictionary = Impostazioni.geometria(String(riga[0]))
 		if g.is_empty():
 			continue
-		var fin: FinestraTesto = coppia[1]
+		var fin: FinestraTesto = riga[1]
 		if g["dim"].x > 200 and g["dim"].y > 150:
 			fin.size = g["dim"]
 		fin.position = g["pos"]
 		if g["aperta"]:
-			coppia[2].button_pressed = true
-			_spunta_view(int(coppia[3]), true)
+			riga[2].button_pressed = true
+			_spunta_view(int(riga[3]), true)
 	if _motore_da_ripristinare >= 0:
 		var m := _motore_da_ripristinare
 		_motore_da_ripristinare = -1
@@ -122,10 +122,21 @@ func _notification(che: int) -> void:
 func _salva_geometrie() -> void:
 	if _senza_schermo():
 		return
-	if _fin_log:
-		Impostazioni.salva_geometria("log", _fin_log.position, _fin_log.size, _fin_log.visible)
-	if _fin_olimpo:
-		Impostazioni.salva_geometria("olimpo", _fin_olimpo.position, _fin_olimpo.size, _fin_olimpo.visible)
+	for riga in _finestre_servizio():
+		var fin: FinestraTesto = riga[1]
+		Impostazioni.salva_geometria(String(riga[0]), fin.position, fin.size, fin.visible)
+
+## L'elenco unico delle finestre di servizio: [chiave, finestra, pulsante, voce di menu].
+## Un elenco solo — quando ne ho aggiunta una a mano in tre punti diversi, la ciurma e'
+## rimasta fuori da tutti e tre (scala, geometria, ripristino).
+func _finestre_servizio() -> Array:
+	var out: Array = []
+	for riga in [["log", _fin_log, _btn_log, VOCE_LOG],
+			["olimpo", _fin_olimpo, _btn_olimpo, VOCE_OLIMPO],
+			["ciurma", _fin_ciurma, _btn_ciurma, VOCE_CIURMA]]:
+		if riga[1] != null:
+			out.append(riga)
+	return out
 
 ## Vero in headless (i test): li' non esiste un vero server finestre e le operazioni di
 ## geometria falliscono. Le preferenze visive non hanno senso senza schermo.
@@ -153,9 +164,8 @@ func _prepara_finestra() -> void:
 func _applica_scala() -> void:
 	var f := _scala_schermo * _zoom_utente
 	get_window().content_scale_factor = clampf(f, 1.0, 3.0)
-	for fin in [_fin_log, _fin_olimpo]:
-		if fin:
-			fin.applica_scala(f)
+	for riga in _finestre_servizio():
+		riga[1].applica_scala(f)
 	if _fin_impostazioni:
 		_fin_impostazioni.adegua_a_scala(f)  # cresce con la scala: altrimenti il contenuto sfora
 
@@ -283,6 +293,17 @@ func _crea_finestre_servizio() -> void:
 		_btn_olimpo.button_pressed = false
 		_spunta_view(VOCE_OLIMPO, false))
 	add_child(_fin_olimpo)
+
+	# La ciurma: stessa finestra, ma con la barra d'invio. E' l'unica vista in cui Ulisse
+	# scrive davvero a qualcuno. La sfalso di poco, cosi' non nasce sopra le altre due.
+	_fin_ciurma = FinestraTesto.new(Testi.s("ciurma/titolo"), false, Vector2i(larg, alt),
+		basso + Vector2i(-36, 36))
+	_fin_ciurma.interattiva = true
+	_fin_ciurma.inviato.connect(_on_ciurma_invio)
+	_fin_ciurma.chiusa.connect(func():
+		_btn_ciurma.button_pressed = false
+		_spunta_view(VOCE_CIURMA, false))
+	add_child(_fin_ciurma)
 	_applica_scala()  # le sub-window non ereditano la scala: gliela do io
 
 ## Barra dei menu (View, Settings). Le voci di View sono spuntabili: riflettono se la
@@ -647,8 +668,14 @@ func _on_agisci() -> void:
 	_aggiungi_diario()
 	_aggiorna_stats()
 	if _fin_olimpo.visible:
-		_aggiorna_olimpo(esito["voce"])
+		_aggiorna_olimpo()
 	_aggiorna_ciurma()
+	# La traccia del turno va nel Log: e' lo strumento di ispezione, non una voce di chat.
+	# Sempre, anche col motore simulato — serve proprio quando l'LLM non parla.
+	# Le parentesi quadre della traccia (tag=[...], [registro]) sono BBCode per la
+	# RichTextLabel: vanno protette, o il testo sparisce a pezzi.
+	_on_llm_log("[color=%s]%s[/color]" % [
+		C_GOLD.to_html(), TraceFormatter.turno(esito["voce"]).replace("[", "[lb]")])
 
 	# Traversata verso la nuova tappa: il beat di partenza/viaggio, così non ci si
 	# "teletrasporta" da un luogo all'altro.
@@ -791,11 +818,13 @@ func _aggiungi_diario() -> void:
 	if _diario_scroll:
 		_diario_scroll.set_deferred("scroll_vertical", 1_000_000)
 
-## La Vista Olimpo e' una CHAT in sola lettura: gli dei si parlano, e il giocatore assiste.
-## La traccia tecnica del turno resta in coda, per chi vuole guardare i numeri.
-func _aggiorna_olimpo(voce: Dictionary) -> void:
-	var chat := GameManager.agora.trascrizione() if GameManager.agora else ""
-	_fin_olimpo.imposta(chat + "\n\n[color=#3f3a30]—————[/color]\n\n" + TraceFormatter.turno(voce))
+## La Vista Olimpo e' una CHAT in sola lettura, e SOLO quello: gli dei si parlano e il
+## giocatore assiste. La traccia tecnica del turno (envelope, risvegli, delta) non e' una
+## voce e non sta qui: va nel Log LLM, dove si guardano i numeri.
+func _aggiorna_olimpo() -> void:
+	if _fin_olimpo == null or GameManager.agora == null:
+		return
+	_fin_olimpo.imposta(GameManager.agora.trascrizione(Agora.VISTA_OLIMPO))
 
 func _nome_tappa() -> String:
 	var ep := GameManager.episodi.get_episodio(GameManager.stato.viaggio["corrente"])
@@ -808,8 +837,7 @@ func _on_toggle_olimpo(premuto: bool) -> void:
 	# finirebbero una sopra l'altra (era proprio il difetto segnalato).
 	if premuto:
 		_fin_olimpo.mostra()
-		if not GameManager.stato.storico_olimpo.is_empty():
-			_aggiorna_olimpo(GameManager.stato.storico_olimpo[-1])
+		_aggiorna_olimpo()
 	else:
 		_fin_olimpo.hide()
 
@@ -824,20 +852,7 @@ func _on_toggle_ciurma(premuto: bool) -> void:
 func _aggiorna_ciurma() -> void:
 	if _fin_ciurma == null or GameManager.agora == null:
 		return
-	var c: Dictionary = GameManager.agora.canali.get(Agora.CANALE_CIURMA, {})
-	var messaggi: Array = c.get("messaggi", [])
-	if messaggi.is_empty():
-		_fin_ciurma.imposta("[i]I tuoi uomini tacciono. Parla loro.[/i]")
-		return
-	var righe: Array[String] = []
-	var ultimo := -1
-	for m in messaggi:
-		var t: int = int(m["turno"])
-		if t != ultimo:
-			righe.append("[color=#5c5548]— turno %d —[/color]" % t)
-			ultimo = t
-		righe.append(GameManager.agora._riga(m))
-	_fin_ciurma.imposta("\n".join(righe))
+	_fin_ciurma.imposta(GameManager.agora.trascrizione(Agora.VISTA_CIURMA))
 
 ## Ulisse parla ai compagni: e' un TURNO DI GIOCO a tutti gli effetti (gli dei ascoltano
 ## le parole, non solo i gesti). Passa quindi dallo stesso percorso dell'input principale.

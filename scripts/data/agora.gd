@@ -15,6 +15,12 @@ extends RefCounted
 const CANALE_OLIMPO := "olimpo"
 const CANALE_CIURMA := "ciurma"
 
+## A quale delle due finestre appartiene un canale. Senza questa distinzione la
+## trascrizione riversava OGNI canale in OGNI vista: le voci dei compagni finivano
+## nell'Olimpo. Ogni canale nasce sapendo dove va mostrato.
+const VISTA_OLIMPO := "olimpo"
+const VISTA_CIURMA := "ciurma"
+
 ## Tinte leggibili sul fondo notte, assegnate in modo stabile a chi parla: la stessa voce
 ## ha sempre lo stesso colore, senza doverlo dichiarare nei dati.
 const _TINTE := [
@@ -25,9 +31,16 @@ const _TINTE := [
 var canali: Dictionary = {}   # id canale -> {titolo, membri: Array, messaggi: Array}
 
 ## Apre (o ritrova) un canale. 'membri' serve ai gruppi: chi ne fa parte.
+## La vista si deduce dall'id (solo la ciurma sta sul ponte; tutto il resto e' Olimpo,
+## comprese le coalizioni), cosi' nessun chiamante deve ricordarsi di dichiararla.
 func canale(id: String, titolo: String = "", membri: Array = []) -> Dictionary:
 	if not canali.has(id):
-		canali[id] = {"titolo": titolo if titolo != "" else id, "membri": membri, "messaggi": []}
+		canali[id] = {
+			"titolo": titolo if titolo != "" else id,
+			"membri": membri,
+			"messaggi": [],
+			"vista": VISTA_CIURMA if id == CANALE_CIURMA else VISTA_OLIMPO,
+		}
 	elif titolo != "":
 		canali[id]["titolo"] = titolo
 	return canali[id]
@@ -59,20 +72,28 @@ static func tinta(autore: String) -> String:
 		return "#8a8172"
 	return _TINTE[abs(autore.hash()) % _TINTE.size()]
 
-## Trascrizione in BBCode, stile chat: intestazione di canale, poi i messaggi.
+## Trascrizione in BBCode, stile chat: i canali di UNA vista sola, poi i messaggi.
 ## `solo_da_turno`: se > 0, mostra solo da quel turno in poi (per non allungare all'infinito).
-func trascrizione(solo_da_turno: int = 0) -> String:
-	if canali.is_empty():
-		return "[i]Nessuna voce, per ora. Gli dei tacciono.[/i]"
-	var pezzi: Array[String] = []
+func trascrizione(vista: String = VISTA_OLIMPO, solo_da_turno: int = 0) -> String:
+	var attivi: Array = []
 	for id in canali:
 		var c: Dictionary = canali[id]
-		var messaggi: Array = c["messaggi"].filter(func(m): return int(m["turno"]) >= solo_da_turno)
-		if messaggi.is_empty():
+		if String(c.get("vista", VISTA_OLIMPO)) != vista:
 			continue
-		pezzi.append("[b][color=#cba24b]# %s[/color][/b]" % c["titolo"])
+		if c["messaggi"].any(func(m): return int(m["turno"]) >= solo_da_turno):
+			attivi.append(c)
+	if attivi.is_empty():
+		return _silenzio(vista)
+	var pezzi: Array[String] = []
+	for c in attivi:
+		# L'intestazione serve solo a distinguere piu' conversazioni: con una sola e'
+		# rumore (la finestra ha gia' il suo titolo).
+		if attivi.size() > 1:
+			pezzi.append("[b][color=#cba24b]# %s[/color][/b]" % c["titolo"])
 		var ultimo_turno := -1
-		for m in messaggi:
+		for m in c["messaggi"]:
+			if int(m["turno"]) < solo_da_turno:
+				continue
 			var t: int = int(m["turno"])
 			if t != ultimo_turno:
 				pezzi.append("[color=#5c5548]— turno %d —[/color]" % t)
@@ -80,6 +101,9 @@ func trascrizione(solo_da_turno: int = 0) -> String:
 			pezzi.append(_riga(m))
 		pezzi.append("")
 	return "\n".join(pezzi)
+
+func _silenzio(vista: String) -> String:
+	return Testi.s("agora/ciurma_muta" if vista == VISTA_CIURMA else "agora/olimpo_muto")
 
 func _riga(m: Dictionary) -> String:
 	var autore := String(m["autore"])
