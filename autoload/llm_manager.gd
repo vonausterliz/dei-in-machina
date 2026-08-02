@@ -184,10 +184,35 @@ func verifica_ollama() -> Dictionary:
 	var modelli: Array = r["modelli"]
 	var presente := _modello_presente(atteso, modelli)
 	if presente:
-		_reg("✓ server attivo · modello «%s» disponibile." % atteso)
+		_reg("✓ server attivo · modello «%s» elencato." % atteso)
 	else:
 		_reg("✗ modello «%s» non caricato. Disponibili: %s" % [atteso, ", ".join(modelli) if not modelli.is_empty() else "(nessuno)"])
-	return {"ok": presente, "attivo": true, "modello_presente": presente, "modelli": modelli, "atteso": atteso, "errore": ""}
+
+	# ESSERE ELENCATO NON VUOL DIRE FUNZIONARE. Google ha continuato a elencare
+	# «gemini-2.0-flash» dopo averlo ritirato: il controllo diceva "disponibile" e poi ogni
+	# singola chiamata tornava 404. Il giocatore si trovava una partita muta senza capire
+	# perche'. Una richiesta vera da un token costa pochissimo e non lascia dubbi.
+	var prova := await _prova_generazione()
+	if not prova["ok"]:
+		_reg("✗ il modello «%s» e' elencato ma NON risponde: %s" % [atteso, prova["errore"]])
+	else:
+		_reg("✓ modello «%s» funzionante." % atteso)
+	return {
+		"ok": presente and prova["ok"], "attivo": true, "modello_presente": presente,
+		"genera": prova["ok"], "errore_genera": prova["errore"],
+		"modelli": modelli, "atteso": atteso, "errore": "",
+	}
+
+## La prova del nove: una generazione minima. Se il modello e' ritirato, dietro un piano
+## sbagliato o senza quota, si scopre QUI e non a meta' partita.
+func _prova_generazione() -> Dictionary:
+	var r = await _client.chat([{"role": "user", "content": "ok"}], {"max_tokens": 1, "temperature": 0.0})
+	if typeof(r) == TYPE_DICTIONARY and r.get("ok", false):
+		return {"ok": true, "errore": ""}
+	var motivo := "risposta non valida"
+	if typeof(r) == TYPE_DICTIONARY:
+		motivo = String(r.get("error", r.get("errore", motivo)))
+	return {"ok": false, "errore": motivo.substr(0, 200)}
 
 ## Confronto tollerante: ignora il tag (":latest") E il prefisso di provider usato dal
 ## Gateway ("mistral/mistral-small-latest" == "mistral-small-latest"). Senza questo, col

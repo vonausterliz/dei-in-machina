@@ -954,6 +954,16 @@ func _attiva_reale(esterno: bool) -> void:
 	# d'ufficio col primo disponibile poteva dirottare su un modello piu' costoso (e fuori
 	# dal piano gratuito) senza che il giocatore se ne accorgesse: meglio avvisare.
 	var scelto: String = v["atteso"]
+	# Elencato ma muto: e' il caso di un modello ritirato dal provider. Non ha senso
+	# lasciare acceso un motore che risponde 404 a ogni chiamata — il gioco degraderebbe
+	# in silenzio e il giocatore vedrebbe solo dèi muti senza sapere perche'.
+	if not v.get("genera", true):
+		LLMManager.mock_mode = true
+		chk.set_pressed_no_signal(false)
+		_narrazione.append_text("[color=%s]%s[/color]\n" % [C_OXBLOOD.to_html(),
+			Testi.s("motore/non_genera", [scelto, dove, v.get("errore_genera", "?")])])
+		_popola_modelli(v["modelli"], scelto)
+		return
 	if not v["modello_presente"]:
 		_narrazione.append_text("[color=%s]%s[/color]\n" % [C_OXBLOOD.to_html(), Testi.s("motore/modello_assente", [scelto])])
 	_popola_modelli(v["modelli"], scelto)

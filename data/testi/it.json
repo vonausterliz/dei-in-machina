@@ -55,7 +55,8 @@
     "nessun_profilo": "Nessun provider esterno configurato (config/providers/). Resto sui dèi simulati (mock).",
     "manca_chiave": "Manca la chiave API per «%s»: impostala da Settings. Resto sui dèi simulati (mock).",
     "nome_ollama": "Ollama",
-    "nome_esterno": "API esterna"
+    "nome_esterno": "API esterna",
+    "non_genera": "Il modello «%s» risulta elencato da %s ma NON risponde: %s\nProbabilmente è stato ritirato dal provider. Cambialo in Settings → Modelli, oppure aggiorna config/providers/. Per ora resto sul motore simulato."
   },
   "finestre": {
     "log_titolo": "Log LLM · traffico verso il modello",
