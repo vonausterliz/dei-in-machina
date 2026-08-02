@@ -22,6 +22,22 @@ func test_ulisse_puo_rivolgersi_a_uno_per_nome():
 	assert_has(autori, "Ulisse", "quando parla ai suoi, Ulisse compare in chat")
 	assert_has(autori, "Euriloco", "risponde chi e' stato chiamato")
 
+## Scrivere NELLA chat della ciurma significa gia' rivolgersi ai propri uomini: il canale
+## e' il destinatario. Non serve chiamare qualcuno per nome perche' Ulisse si veda parlare.
+func test_cio_che_ulisse_scrive_nella_chat_si_vede_sempre():
+	await GameManager.esegui_turno("Coraggio, teniamo la rotta.", [], true)
+	var autori: Array = GameManager.agora.canali[Agora.CANALE_CIURMA]["messaggi"].map(
+		func(m): return m["autore"])
+	assert_has(autori, "Ulisse", "cio' che scrive nella chat della ciurma deve comparire")
+
+## Un gesto compiuto nel gioco, invece, non e' una frase detta agli uomini: non va messo
+## in bocca a Ulisse nella chat (li' commenta la ciurma, semmai).
+func test_un_gesto_nel_gioco_non_diventa_una_battuta_di_ulisse():
+	await GameManager.esegui_turno("Sguaino la spada e avanzo nell'antro.")
+	var autori: Array = GameManager.agora.canali[Agora.CANALE_CIURMA]["messaggi"].map(
+		func(m): return m["autore"])
+	assert_does_not_have(autori, "Ulisse", "un'azione non e' una battuta rivolta ai compagni")
+
 func test_chi_muore_tace():
 	# Antifo muore nel Ciclope: chiusa la tappa, la sua voce sparisce.
 	assert_true(GameManager.ciurma.nomi_vivi().has("Antifo"))

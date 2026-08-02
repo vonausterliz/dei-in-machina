@@ -208,9 +208,12 @@ func salva_partita(path: String = SALVATAGGIO_DEFAULT) -> bool:
 ## Esegue un turno completo (fino a Omero) sull'input libero di Ulisse.
 ## `eventi`: condizioni di mondo attive questo turno (di norma vuote finche' gli
 ## episodi non le generano, fase 7); passabili per test e per usi futuri.
+## `alla_ciurma`: l'input arriva dalla chat dei compagni invece che dal campo di gioco.
+## Cambia una cosa sola ma importante: li' Ulisse sta PARLANDO ai suoi uomini (il canale
+## e' gia' il destinatario), mentre nel campo di gioco compie un'azione.
 ## Ritorna un dizionario di esito: {voce, svegli, in_mondo, esito, fsm_path}.
 ## 'voce' e' anche appesa a stato.storico_olimpo (schema letto dal trace dumper).
-func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
+func esegui_turno(input_testo: String, eventi: Array = [], alla_ciurma: bool = false) -> Dictionary:
 	if stato == null:
 		push_error("GameManager: nessuna partita attiva.")
 		return {}
@@ -313,7 +316,7 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 
 	# LA CIURMA: i compagni commentano cio' che e' successo. Se Ulisse si e' rivolto a
 	# qualcuno per nome, risponde lui; altrimenti parla al piu' uno, per non affollare.
-	await _fa_parlare_la_ciurma(input_testo, narrazione)
+	await _fa_parlare_la_ciurma(input_testo, narrazione, alla_ciurma)
 
 	# Registrazioni: storico_olimpo (vista Olimpo/debug) + diario (player-facing).
 	var voce := _registra(turno, input_testo, envelope, svegli, eventi_turno, conflitto,
@@ -649,7 +652,9 @@ func _contesto_omero(envelope: Dictionary, input_testo: String, svegli: Array,
 
 ## Chi risponde: i compagni interpellati per nome, oppure (a rotazione) uno solo.
 ## Deterministico: niente casualita' non seminata, e la chat non si affolla.
-func _fa_parlare_la_ciurma(input_testo: String, narrazione: String) -> void:
+## `alla_ciurma`: Ulisse ha scritto NELLA chat dei compagni. Allora sta parlando a loro
+## anche se non nomina nessuno — il canale e' il destinatario.
+func _fa_parlare_la_ciurma(input_testo: String, narrazione: String, alla_ciurma: bool = false) -> void:
 	if ciurma == null:
 		return
 	var vivi: Array = ciurma.vivi()
@@ -668,12 +673,15 @@ func _fa_parlare_la_ciurma(input_testo: String, narrazione: String) -> void:
 		"accaduto": narrazione,
 		"ulisse_dice": input_testo,
 	}
-	# Ulisse compare in chat solo se sta parlando ai suoi.
-	if not interpellati.is_empty():
+	# Ulisse compare in chat quando sta PARLANDO ai suoi: o perche' ha scritto nella loro
+	# chat, o perche' ne ha nominato uno. Un gesto compiuto nel campo di gioco ("sguaino
+	# la spada") non e' una frase detta a qualcuno e non gli va messo in bocca.
+	var parla_ai_suoi := alla_ciurma or not interpellati.is_empty()
+	if parla_ai_suoi:
 		agora.scrivi(Agora.CANALE_CIURMA, "Ulisse", input_testo, stato.turno)
 	for c in parlanti:
 		var ctx := contesto.duplicate()
-		ctx["interpellato"] = not interpellati.is_empty()
+		ctx["interpellato"] = parla_ai_suoi
 		var battuta: String = await LLMManager.parla_compagno(c, ctx)
 		if battuta != "":
 			agora.scrivi(Agora.CANALE_CIURMA, String(c.get("nome", "")), battuta, stato.turno)

@@ -6,7 +6,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "2.7"
+const VERSIONE := "2.8"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -639,7 +639,10 @@ func _aggiorna_mappa() -> void:
 func _on_invio(_t: String) -> void:
 	_on_agisci()
 
-func _on_agisci() -> void:
+## Un turno di gioco. `alla_ciurma` dice da DOVE arriva l'input: dal campo di gioco (un
+## gesto) o dalla chat dei compagni (parole rivolte a loro). Senza questa distinzione
+## cio' che Ulisse scriveva ai suoi uomini non compariva nella loro chat.
+func _on_agisci(alla_ciurma: bool = false) -> void:
 	if _busy or _finita:
 		return
 	var testo := _input.text.strip_edges()
@@ -656,7 +659,7 @@ func _on_agisci() -> void:
 
 	# Mentre il turno gira, gli spunti vecchi non valgono piu': li svuoto.
 	_pulisci_spunti()
-	var esito: Dictionary = await GameManager.esegui_turno(testo)
+	var esito: Dictionary = await GameManager.esegui_turno(testo, [], alla_ciurma)
 
 	_ultima_narrazione = String(esito["voce"].get("narrazione_omero", ""))
 	if _ultima_narrazione != "":
@@ -860,7 +863,7 @@ func _on_ciurma_invio(testo: String) -> void:
 	if _busy or _finita:
 		return
 	_input.text = testo
-	await _on_agisci()
+	await _on_agisci(true)   # viene dalla chat: sono parole dette ai compagni, non un gesto
 	_aggiorna_ciurma()
 
 func _on_toggle_log(premuto: bool) -> void:
