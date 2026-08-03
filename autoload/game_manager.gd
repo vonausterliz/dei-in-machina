@@ -12,6 +12,11 @@ const SALVATAGGIO_DEFAULT := "user://partita.json"
 const EPISODI_PATH := "res://data/episodi.json"
 
 var episodi: Episodi = null
+## Le tappe: dove siamo, quando si chiude, cosa quella tappa consente. Estratto perche'
+## la regola del viaggio stava sparsa in tredici metodi in mezzo alla macchina del turno.
+var viaggio: Viaggio = null
+## Il taccuino privato degli dei: cosa ognuno ha voluto e come e' finita.
+var taccuino: Taccuino = null
 
 ## Fasi della macchina del turno (macchina_del_turno.mermaid).
 enum Fase {
@@ -74,6 +79,8 @@ func nuova_partita(seed_partita: int = 0) -> void:
 	var s := seed_partita if seed_partita != 0 else randi()
 	stato = StatoPartita.nuova(PantheonManager.pantheon, s)
 	_validazione = Validazione.new(stato)
+	viaggio = Viaggio.new(episodi, stato)
+	taccuino = Taccuino.new(stato)
 	agora = Agora.new()
 	agora.canale(Agora.CANALE_OLIMPO, "Olimpo")
 	ciurma = Ciurma.carica()
@@ -90,26 +97,12 @@ func nuova_partita(seed_partita: int = 0) -> void:
 	# dell'Odissea e' la causalita' della storia, non un contenitore di tappe.
 	_entra_in_episodio(episodi.primo())
 
-## Entra in una tappa: la rende corrente, azzera i turni-in-tappa e ACCENDE i suoi
-## dei locali (attivo + in gioco). Ritorna l'intro della tappa (per il narratore/console).
+## Entra in una tappa. La regola sta in Viaggio; qui resta la continuita' del racconto:
+## il primo turno della tappa prosegue dalla sua intro.
 func _entra_in_episodio(id: String) -> String:
-	stato.viaggio["corrente"] = id
-	stato.viaggio["turni_in_episodio"] = 0
-	stato.ulisse["episodio_corrente"] = id
-	_accendi_locali(id)
-	var ep := episodi.get_episodio(id)
-	var intro := ep.intro if ep else ""
-	_ultima_narrazione = intro  # continuita': il primo turno prosegue dall'intro della tappa
+	var intro := viaggio.entra(id)
+	_ultima_narrazione = intro
 	return intro
-
-## Mette in ascolto i dei locali di una tappa. Separato da _entra_in_episodio perche' anche
-## riprendere una partita salvata deve riaccenderli — ma senza "entrare", che azzererebbe
-## i turni gia' spesi li' (e a Ogigia si potrebbe restare per sempre salvando e ricaricando).
-func _accendi_locali(id: String) -> void:
-	for dio in PantheonManager.pantheon.locali_di_episodio(id):
-		dio.attivo = true
-		if stato.registro_divino.has(dio.id):
-			stato.registro_divino[dio.id]["risvegliato"] = true
 
 ## Il momento del giorno, che avanza di uno a ogni turno e ricomincia. Deterministico:
 ## dipende solo dal numero del turno, quindi due partite con lo stesso seme scandiscono il
@@ -121,20 +114,15 @@ func momento_corrente() -> String:
 		return ""
 	return String(m[maxi(0, stato.turno) % m.size()])
 
-## Intro della tappa corrente (per aprire la scena).
+## Intro e ancora di scena della tappa corrente (per aprire la scena e per gli agenti).
 func intro_corrente() -> String:
-	var ep := episodi.get_episodio(_episodio_corrente())
-	return ep.intro if ep else ""
+	return viaggio.intro_corrente() if viaggio else ""
 
-## Ancora di scena della tappa corrente (luogo + chi e' presente + vincoli): serve a
-## Omero e al Suggeritore per restare coerenti e non inventare luoghi/personaggi assenti.
 func scena_corrente() -> String:
-	var ep := episodi.get_episodio(_episodio_corrente())
-	return ep.scena if ep else ""
+	return viaggio.scena_corrente() if viaggio else ""
 
 func _nome_tappa_corrente() -> String:
-	var ep := episodi.get_episodio(_episodio_corrente())
-	return ep.nome if ep else ""
+	return viaggio.nome_corrente() if viaggio else ""
 
 ## Ogni quanti turni si aggiorna il riassunto rotolante. Non a ogni turno: sarebbe una
 ## chiamata LLM in piu' sempre. Cosi' la memoria costa poco e resta a dimensione costante.
@@ -177,16 +165,7 @@ func _storia_recente(quanti: int = 5) -> Array:
 
 ## A che punto e' il ritorno: inizio / mezzo / vicino (per l'orientamento discreto).
 func _progresso_viaggio() -> String:
-	var ord: Array = episodi.ordine()
-	var i := ord.find(_episodio_corrente())
-	if i < 0 or ord.size() <= 1:
-		return "inizio"
-	var f := float(i) / float(ord.size() - 1)
-	if f < 0.34:
-		return "inizio"
-	elif f < 0.72:
-		return "mezzo"
-	return "vicino"
+	return viaggio.progresso() if viaggio else "inizio"
 
 ## Come stanno andando le cose, dagli ultimi esiti del diario: duro / bene / incerto.
 func _morale_recente(quanti: int = 4) -> String:
@@ -222,6 +201,8 @@ func carica_partita(path: String = SALVATAGGIO_DEFAULT) -> bool:
 		return false
 	stato = s
 	_validazione = Validazione.new(stato)
+	viaggio = Viaggio.new(episodi, stato)
+	taccuino = Taccuino.new(stato)
 	# Le conversazioni tornano com'erano; se il salvataggio e' anteriore a questa versione
 	# si riparte da chat vuote, ma con i canali al loro posto.
 	agora = Agora.from_dict(stato.agora) if not stato.agora.is_empty() else Agora.new()
@@ -237,7 +218,7 @@ func carica_partita(path: String = SALVATAGGIO_DEFAULT) -> bool:
 	# I locali sono spenti di default e si accendono entrando in una tappa: qui non si
 	# "entra" (azzererebbe i turni gia' spesi), si riaccende soltanto chi e' di scena.
 	PantheonManager.pantheon.spegni_locali()
-	_accendi_locali(_episodio_corrente())
+	viaggio.accendi_locali(viaggio.corrente())
 	return true
 
 func salva_partita(path: String = SALVATAGGIO_DEFAULT) -> bool:
@@ -619,30 +600,7 @@ func _vaglia_plausibilita(envelope: Dictionary, input_testo: String) -> void:
 ##  - all'isola di Eolo veniva proposto «apri l'otre», e Eolo l'otre non l'ha ancora dato.
 ## Il prompt puo' chiedere tutto questo, ma resta una preghiera: questa e' la garanzia.
 func filtra_spunti(spunti: Array) -> Array:
-	var ep := episodi.get_episodio(_episodio_corrente()) if episodi else null
-	var vietate: Array = ep.non_ancora if ep else []
-	var out: Array = []
-	for s in spunti:
-		var t := String(s.get("testo", "")).strip_edges() if typeof(s) == TYPE_DICTIONARY else String(s).strip_edges()
-		if t == "" or _e_impalcatura(t):
-			continue
-		if _validazione and _validazione.e_anacronistico(t):
-			continue
-		var basso := t.to_lower()
-		var proibito := false
-		for v in vietate:
-			if basso.contains(String(v).to_lower()):
-				proibito = true
-				break
-		if not proibito:
-			out.append(s if typeof(s) == TYPE_DICTIONARY else {"testo": t, "rischio": false})
-	return out
-
-## Una riga di ponteggio scappata dal prompt (---SPUNTI, ORIENTAMENTO, soli trattini).
-func _e_impalcatura(t: String) -> bool:
-	var re := RegEx.new()
-	re.compile("(?i)^[ \\t-]*(spunti|orientamento)[ \\t:-]*$")
-	return re.search(t) != null or t.strip_edges().lstrip("-").strip_edges() == ""
+	return viaggio.filtra_spunti(spunti) if viaggio else []
 
 ## Gli appigli quando quelli generati non reggono: SOLO quelli della tappa, che sanno dove
 ## ti trovi e cosa sta succedendo li'. Gli appigli generici sono stati tolti — tre frasi
@@ -650,8 +608,7 @@ func _e_impalcatura(t: String) -> bool:
 ## rotta» compariva anche mentre Ulisse era chiuso nell'antro del Ciclope.
 ## Se una tappa non ne dichiara, non si inventa niente: il campo libero c'e' sempre.
 func spunti_di_riserva() -> Array:
-	var ep := episodi.get_episodio(_episodio_corrente()) if episodi else null
-	return ep.spunti_di_riserva if ep else []
+	return viaggio.spunti_di_riserva() if viaggio else []
 
 ## Pubblica: anche la schermata iniziale genera spunti (fuori da un turno), e anche quelli
 ## il gioco non deve poterli rifiutare. Si ricorda solo cio' che ha superato il filtro.
@@ -678,96 +635,46 @@ func _valida(envelope: Dictionary, input_testo: String) -> Dictionary:
 	return _validazione.valida(envelope, input_testo)
 
 func _episodio_corrente() -> String:
-	var ep: Variant = stato.ulisse.get("episodio_corrente", null)
-	return String(ep) if ep != null else ""
+	return viaggio.corrente() if viaggio else ""
 
 ## Quel che ACCADE resta accaduto. Una tappa puo' dichiarare che un certo tag dell'azione
 ## fa succedere un evento (nell'antro, il vanto di Ulisse chiama la maledizione di
 ## Polifemo): da li' in poi chi dormeva in attesa di quell'evento e' sveglio per sempre.
 func _registra_eventi_accaduti(envelope: Dictionary, eventi_turno: Array) -> void:
-	var tag: Array = envelope.get("tag", [])
-	var ep := episodi.get_episodio(_episodio_corrente()) if episodi else null
-	if ep:
-		for t in tag:
-			var e := String(ep.emette_su_tag.get(String(t), ""))
-			if e != "" and not stato.eventi_accaduti.has(e):
-				stato.eventi_accaduti.append(e)
-	for e in eventi_turno:
-		if not stato.eventi_accaduti.has(String(e)):
-			stato.eventi_accaduti.append(String(e))
+	viaggio.registra_eventi_accaduti(envelope, eventi_turno)
 
 ## Eventi di mondo del turno: quelli della tappa corrente + quelli passati dall'esterno.
 func _eventi_del_turno(eventi: Array) -> Array:
-	var out: Array = eventi.duplicate()
-	var ep := episodi.get_episodio(_episodio_corrente()) if episodi else null
-	if ep:
-		for e in ep.eventi_attivi:
-			if not out.has(e):
-				out.append(e)
-	return out
+	return viaggio.eventi_del_turno(eventi)
 
 ## AVANZAMENTO della tappa. Ritorna {esito, avanzato, intro, episodio}.
 ## Si avanza se compare l'azione di progresso (avanza_su_tag) o si tocca il tetto turni.
 ## Entrare in Itaca = vittoria (esito "itaca").
+## AVANZAMENTO. La DECISIONE (si chiude? qual e' la prossima?) sta in Viaggio, che non
+## chiama mai l'LLM; qui restano le due cose che l'orchestratore deve fare: far cadere chi
+## secondo il poema muore in quella tappa, e chiedere a Omero la traversata.
 func _avanza_episodio(envelope: Dictionary) -> Dictionary:
-	var v: Dictionary = stato.viaggio
-	v["turni_in_episodio"] = int(v.get("turni_in_episodio", 0)) + 1
-	var ep := episodi.get_episodio(String(v.get("corrente", "")))
-	var fermo := {"esito": "continua", "avanzato": false, "intro": "", "episodio": _episodio_corrente()}
-	if ep == null:
-		return fermo
-
-	var tag: Array = envelope.get("tag", [])
-	var per_tag: bool = ep.avanza_su_tag != null and tag.has(String(ep.avanza_su_tag))
-	var per_cap: bool = ep.turni_massimi > 0 and int(v["turni_in_episodio"]) >= ep.turni_massimi
-	if not (per_tag or per_cap):
-		return fermo
-
-	_fai_cadere_i_destinati(String(v["corrente"]))
-	v["completati"].append(v["corrente"])
-	var da_nome := ep.nome
-	var prossimo := episodi.successivo(String(v["corrente"]))
-	if prossimo == "" or prossimo == "itaca":
-		var t_it := await _passaggio(da_nome, "Itaca")
-		return {"esito": "itaca", "avanzato": true, "intro": intro_corrente(), "episodio": "itaca", "transizione": t_it}
-	var intro := _entra_in_episodio(prossimo)
-	var trans := await _passaggio(da_nome, _nome_tappa_corrente())
-	return {"esito": "continua", "avanzato": true, "intro": intro, "episodio": prossimo, "transizione": trans}
+	var a := viaggio.avanza(envelope)
+	if String(a["chiude"]) != "":
+		_fai_cadere_i_destinati(String(a["chiude"]))
+	if not a["avanzato"]:
+		return {"esito": "continua", "avanzato": false, "intro": "", "episodio": a["episodio"]}
+	# La tappa nuova apre col suo intro: e' da li' che Omero prosegue.
+	if String(a["intro"]) != "" and String(a["esito"]) == "continua":
+		_ultima_narrazione = String(a["intro"])
+	return {
+		"esito": a["esito"], "avanzato": true, "intro": a["intro"], "episodio": a["episodio"],
+		"transizione": await _passaggio(String(a["da"]), String(a["a"])),
+	}
 
 ## Breve narrazione di Omero per la traversata tra due tappe (come ci si arriva).
 func _passaggio(da: String, a: String) -> String:
 	return await LLMManager.narrazione_omero({"passaggio": {"da": da, "a": a}})
 
-## Quante volte l'isola avverte prima di tenerti per sempre. Stessa scala dell'empieta':
-## la rovina non arriva mai al primo passo falso.
-@onready var _AVVISI_PRIGIONIA: int = Bilanciamento.intero("prigionia/avvisi", 3)
-
-## OGIGIA TI TIENE SOLO SE GLIELO LASCI FARE.
-##
-## Ritorna "" (niente), "prigionia" (un avviso) o "prigionia_eterna" (fine).
-##
-## Il difetto che chiude: l'isola aveva `turni_massimi` come ogni altra tappa, quindi dopo
-## otto turni la nave ripartiva da sola. Ma «restare per sempre» e' *il* pericolo di Ogigia,
-## e con l'avanzamento automatico non esisteva il modo di restare: la sconfitta
-## `prigionia_eterna`, dichiarata dal design, non poteva accadere in nessuna partita.
-##
-## Salpare scioglie tutto, sempre: dev'essere una scelta, non una trappola.
+## Una tappa che TRATTIENE (Ogigia) ammonisce chi indugia, e alla terza volta lo tiene per
+## sempre. La regola sta in Viaggio: e' una proprieta' della tappa, non del turno.
 func _trattiene(envelope: Dictionary, in_mondo: bool) -> String:
-	if not in_mondo:
-		return ""   # chi sta gia' pagando un'ammonizione non ne prende due nello stesso turno
-	var ep := episodi.get_episodio(_episodio_corrente()) if episodi else null
-	if ep == null or ep.trattiene_dopo_turni <= 0:
-		return ""
-	# Chi riparte non e' prigioniero: l'azione di progresso azzera il conto.
-	var tag: Array = envelope.get("tag", [])
-	if ep.avanza_su_tag != null and tag.has(String(ep.avanza_su_tag)):
-		stato.ammonizioni["prigionia"] = 0
-		return ""
-	if int(stato.viaggio.get("turni_in_episodio", 0)) < ep.trattiene_dopo_turni:
-		return ""   # i turni di grazia: guardare il mare non e' ancora una colpa
-	var n := int(stato.ammonizioni.get("prigionia", 0)) + 1
-	stato.ammonizioni["prigionia"] = n
-	return "prigionia_eterna" if n >= _AVVISI_PRIGIONIA else "prigionia"
+	return viaggio.trattiene(envelope, in_mondo)
 
 ## IL CONGEDO: l'ultima voce di Omero, quando la partita finisce.
 ##
@@ -978,117 +885,18 @@ func _testo_per_interprete(input_testo: String) -> String:
 		return input_testo
 	return "Poco fa ha detto ai compagni: «%s». Adesso: «%s»" % [parole, input_testo]
 
-## Quanti ricordi restano PER ESTESO. Oltre questo non si cancella nulla: i piu' vecchi
-## si condensano in `memoria_vecchia`. Cosi' il prompt resta a dimensione costante — un
-## taccuino che cresce all'infinito lo paga l'utente a ogni turno — ma un dio non
-## dimentica: una potenza millenaria che perde il conto dei propri torti non e' credibile.
-@onready var _RICORDI_PER_DIO: int = Bilanciamento.intero("memoria/ricordi_per_dio", 5)
-
-## Il taccuino privato degli dei. Ognuno annota cosa ha voluto e come e' finita: se ha
-## prevalso, se e' stato respinto, se ha agito di nascosto dopo il no di Zeus.
-##
-## Non basta la `cronaca` condivisa: quella e' ripulita dai nomi divini (finisce anche a
-## Omero, che non deve nominarli), quindi un dio non vi ritroverebbe nemmeno le proprie
-## opere. Senza questo, ogni turno una potenza millenaria riparte smemorata.
+## Il taccuino privato di ogni dio (scripts/taccuino.gd): qui restano solo le deleghe,
+## perche' i test e il contesto degli agenti le chiamano su GameManager.
 func _annota_nella_memoria(proposte: Array, verdetto: Dictionary, scavalcamento: Dictionary,
 		envelope: Dictionary) -> void:
-	var luogo := _nome_tappa_corrente()
-	var vincitore := String(verdetto.get("attore", ""))
-	var fatto := String(envelope.get("sintesi", "qualcosa"))
-	for p in proposte:
-		var id := String(p.get("dio", ""))
-		if id == "" or not stato.registro_divino.has(id):
-			continue
-		var registro := String(p.get("registro", "silenzio"))
-		if registro == "silenzio":
-			continue  # tacere non lascia un ricordo
-		var esito := "nulla"
-		if String(scavalcamento.get("colpevole", "")) == id:
-			esito = "nascosto"
-		elif id == vincitore:
-			esito = "prevalso"
-		elif vincitore != "":
-			esito = "respinto"
-		_ricorda(id, {
-			"t": stato.turno,
-			"luogo": luogo,
-			"fatto": fatto.strip_edges().trim_suffix("."),
-			"registro": registro,
-			"intensita": int(p.get("intensita", 1)),
-			"esito": esito,
-			"contro": _nome_dio(vincitore) if esito == "respinto" else "",
-		})
+	taccuino.annota(proposte, verdetto, scavalcamento, envelope,
+		_nome_tappa_corrente(), _nome_dio(String(verdetto.get("attore", ""))))
 
-## Il ricordo si conserva STRUTTURATO, non gia' impaginato: e' cio' che permette di
-## riassumerlo davvero quando invecchia (contare i registri, gli esiti, i luoghi) invece
-## di dover rileggere delle frasi. La prosa si compone al momento di darla al dio.
-func _ricorda(id: String, ricordo: Dictionary) -> void:
-	var reg: Dictionary = stato.registro_divino[id]
-	var memoria: Array = reg.get("memoria", [])
-	memoria.append(ricordo)
-	while memoria.size() > _RICORDI_PER_DIO:
-		_condensa(reg, memoria.pop_front())   # non si butta: si sedimenta
-	reg["memoria"] = memoria
-
-## Un ricordo che esce dai recenti entra nel condensato. Nulla si perde: cambia la grana.
-func _condensa(reg: Dictionary, ricordo: Dictionary) -> void:
-	var v: Dictionary = reg.get("memoria_vecchia", StatoPartita.memoria_vuota())
-	v["quanti"] = int(v["quanti"]) + 1
-	var t := int(ricordo["t"])
-	v["dal_turno"] = t if int(v["dal_turno"]) == 0 else mini(int(v["dal_turno"]), t)
-	v["al_turno"] = maxi(int(v["al_turno"]), t)
-	var registri: Dictionary = v["registri"]
-	var r := String(ricordo["registro"])
-	registri[r] = int(registri.get(r, 0)) + 1
-	var esito := String(ricordo["esito"])
-	if v.has(esito):
-		v[esito] = int(v[esito]) + 1
-	var luoghi: Array = v["luoghi"]
-	var luogo := String(ricordo["luogo"])
-	if luogo != "" and not luoghi.has(luogo):
-		luoghi.append(luogo)
-	reg["memoria_vecchia"] = v
-
-## Il condensato reso in una frase, per il prompt del dio. "" se non c'e' ancora nulla
-## di vecchio. Deterministico: nessuna chiamata LLM per riassumere (sarebbe una chiamata
-## per dio ogni N turni, e sotto il free tier si sentirebbe).
 func riassunto_memoria(id: String) -> String:
-	var reg: Dictionary = stato.registro_divino.get(id, {}) if stato else {}
-	var v: Dictionary = reg.get("memoria_vecchia", {})
-	if v.is_empty() or int(v.get("quanti", 0)) == 0:
-		return ""
-	var voleri: Array[String] = []
-	for r in v["registri"]:
-		var n := int(v["registri"][r])
-		voleri.append("%s %d volte" % [r, n] if n > 1 else String(r))
-	var esiti: Array[String] = []
-	if int(v["prevalso"]) > 0:
-		esiti.append("prevalso %d volte" % int(v["prevalso"]))
-	if int(v["respinto"]) > 0:
-		esiti.append("respinto %d volte" % int(v["respinto"]))
-	if int(v["nascosto"]) > 0:
-		esiti.append("%d volte hai agito di nascosto dopo un no di Zeus" % int(v["nascosto"]))
-	var dove := " (%s)" % ", ".join(v["luoghi"]) if not v["luoghi"].is_empty() else ""
-	return "Prima, dal turno %d al %d%s sei intervenuto %d volte: hai voluto %s; hai %s." % [
-		int(v["dal_turno"]), int(v["al_turno"]), dove, int(v["quanti"]),
-		", ".join(voleri), " e ".join(esiti) if not esiti.is_empty() else "lasciato correre",
-	]
+	return taccuino.riassunto_memoria(id) if taccuino else ""
 
-## I ricordi recenti, per esteso, nella forma che legge il dio.
 func ricordi_recenti(id: String) -> Array:
-	var out: Array = []
-	var reg: Dictionary = stato.registro_divino.get(id, {}) if stato else {}
-	for r in reg.get("memoria", []):
-		var coda := "Hai prevalso."
-		match String(r["esito"]):
-			"nascosto": coda = "Zeus ti nego', e agisti lo stesso di nascosto."
-			"respinto": coda = "Fosti respinto: prevalse %s." % r.get("contro", "un altro")
-			"nulla": coda = "Non se ne fece nulla."
-		# La sintesi arriva gia' come frase compiuta ("Ulisse grida il proprio nome…"):
-		# incastonarla fra virgolette evita di doverla cucire alla grammatica della riga.
-		out.append("- turno %d, a %s — «%s» — volevi %s (forza %d). %s" % [
-			int(r["t"]), r["luogo"], r["fatto"], r["registro"], int(r["intensita"]), coda])
-	return out
+	return taccuino.ricordi_recenti(id) if taccuino else []
 
 func _nome_dio(id: String) -> String:
 	var d: Dio = PantheonManager.get_dio(id)
