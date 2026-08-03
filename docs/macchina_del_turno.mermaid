@@ -1,45 +1,68 @@
+%% La macchina del turno — aggiornato a v2.27.
+%% Blu = chiamata LLM · beige = regola deterministica (GDScript).
+%% Dettaglio completo: docs/architettura_dettaglio.md
 flowchart TD
-    A0["Inizio turno"] --> RC["RESA DEI CONTI - Zeus<br/>verifica scavalcamenti pendenti<br/>il sospetto sale, una spia rivale lo accelera"]
+    A0["Inizio turno"] --> RC["RESA DEI CONTI - Zeus<br/>il sospetto sale sui pendenti"]
     RC --> RCQ{"sospetto<br/>>= soglia?"}
-    RCQ -->|si| RET["ZEUS - ritorsione<br/>confronta il colpevole<br/>aggiorna relazioni.zeus_verso<br/>(ripercussioni di rimbalzo su Ulisse)"]
+    RCQ -->|si| RET["ZEUS scopre il colpevole<br/>ira in relazioni.zeus_verso<br/>+ rimbalzo su Ulisse"]
     RCQ -->|no| A
     RET --> A
 
-    A["Ulisse scrive - testo libero"] --> B["INTERPRETE<br/>testo -> envelope JSON"]
-    B --> C{"plausibilita<br/>= in_mondo?"}
+    A["Ulisse scrive - testo libero"] --> SEG["segna_turno: azione + momento<br/>(il collante fra le tre viste)"]
+    SEG --> B["INTERPRETE<br/>testo + parole dette ai compagni<br/>-> envelope JSON"]
+    B --> VQ{"e' uno spunto<br/>gia' offerto?"}
+    VQ -->|si| C
+    VQ -->|no| VAG["VAGLIO - secondo parere<br/>una domanda secca, temp 0"]
+    VAG --> C{"plausibilita<br/>= in_mondo?"}
 
     C -->|no| D["Ammonizione +1<br/>turni_puliti = 0"]
     D --> E{"contatore >= soglia?"}
     E -->|si| F["FOLLIA - un dio colpisce"]
-    E -->|no| G["OMERO: richiamo diegetico"]
-    G --> ZZ["Fine turno"]
-    ZZ --> A0
+    E -->|no| G["Richiamo diegetico<br/>OMERO NON viene chiamato"]
+    G --> CIU
 
-    C -->|si| H["turni_puliti +1<br/>decadimento ammonizioni"]
-    H --> I["RISVEGLIO - regole<br/>trigger_azione / trigger_evento / dio_invocato"]
-    I --> J{"dei che reagiscono?"}
+    C -->|si| H["turni_puliti +1<br/>decadimento ammonizioni<br/>+ delta della sola azione"]
+    H --> EV["registra eventi accaduti<br/>(emette_su_tag: restano per sempre)"]
+    EV --> INV["risoluzione INVOCAZIONE<br/>1 envelope · 2 nome/epiteto · 3 LLM"]
+    INV --> I["RISVEGLIO - regola<br/>attivo -> dorme_finche -> fascia<br/>-> trigger_azione / trigger_evento / dio_invocato"]
+    I --> J{"quanti dei<br/>si destano?"}
     J -->|nessuno| NAR
-    J -->|uno| M["Proposta singola<br/>segno / aiuto / trappola / silenzio"]
-    J -->|due o piu| K{"in conflitto?"}
-    K -->|no| M
-    K -->|si| L["DELIBERAZIONE VERA<br/>solo i dei in conflitto, 1-2 giri"]
+    J -->|uno o piu| M["DELIBERAZIONE round 1<br/>una proposta per dio<br/>registro · intensita · battuta"]
+    M --> SIL["si scartano i 'silenzio'"]
+    SIL --> J2{"voci in campo?"}
+    J2 -->|0| NAR
+    J2 -->|1| DET
+    J2 -->|"2 o piu"| L["REPLICHE - round 2<br/>ognuno rilegge gli altri e ribatte<br/>tetto: MAX_REPLICHE = 2"]
+    L --> K{"conflitto?<br/>chi punisce E chi aiuta"}
+    K -->|no| DET["Verdetto deterministico<br/>vince la piu' intensa<br/>+ riga di servizio in chat"]
+    K -->|si| AR["ARBITRO Zeus<br/>chiude con parole SUE"]
 
-    L --> AR["ARBITRO Zeus<br/>risolve -> verdetto"]
-    M --> AR
-    AR --> SCQ{"un dio bocciato<br/>tenta lo scavalcamento?"}
-    SCQ -->|si| SCB["SCAVALCAMENTO occulto<br/>registra pendente<br/>+ delta nascosto a Zeus"]
-    SCQ -->|no| AP["Applica delta - regole<br/>ulisse + registro + relazioni<br/>+ append storico_olimpo"]
-    SCB --> AP
-    AP --> NAR["OMERO<br/>narra reticente, senza nomi<br/>+ voce nel diario"]
+    DET --> MOD
+    AR --> MOD["modulazione: piano · hybris<br/>· peso di coalizione"]
+    MOD --> SCQ{"un dio punitivo bocciato<br/>tenta lo scavalcamento?"}
+    SCQ -->|si| SCB["SCAVALCAMENTO occulto<br/>delta nascosto + pendente"]
+    SCQ -->|no| MEM
+    SCB --> MEM["ogni dio ANNOTA nel taccuino<br/>cosa ha voluto e come e' finita"]
+    MEM --> COA["coalizioni: decadono,<br/>raramente se ne forma una"]
+    COA --> AP["APPLICA il delta - regola<br/>ulisse · registro divino · relazioni"]
+    AP --> NAR["OMERO narra reticente<br/>+ 3 SPUNTI nella stessa chiamata"]
 
-    NAR --> ES{"controllo esito"}
+    NAR --> FIL["FILTRO SPUNTI<br/>impalcatura · anacronismi · non_ancora<br/>vuoto -> spunti_di_riserva DELLA TAPPA"]
+    FIL --> CIU["LA CIURMA commenta<br/>(chi e' interpellato, o uno a rotazione)"]
+    CIU --> REG["registra: storico_olimpo + diario"]
+    REG --> ES{"controllo esito"}
     ES -->|itaca| WIN["VITTORIA"]
-    ES -->|"morte / ciurma 0 / prigionia"| LOSE["SCONFITTA"]
-    ES -->|continua| AV{"episodio concluso?"}
-    AV -->|si| NEXT["Avanza episodio<br/>risveglia i locali"]
-    AV -->|no| A2["Prossima scena"]
-    NEXT --> A2
+    ES -->|"morte / ciurma 0 / prigionia / follia"| LOSE["SCONFITTA"]
+    ES -->|continua| AV{"tappa conclusa?<br/>avanza_su_tag o tetto turni"}
+    AV -->|si| NEXT["chi deve cadere, cade e tace<br/>traversata + nuova tappa<br/>accende i locali"]
+    AV -->|no| CRON
+    NEXT --> CRON{"turni dall'ultima<br/>cronaca >= N?"}
+    CRON -->|si| CR["CRONISTA: aggiorna il riassunto"]
+    CRON -->|no| A2["Prossima scena"]
+    CR --> A2
     A2 --> A0
+
+    BEAT["BEAT - Ulisse scrive nella chat della ciurma<br/>1 chiamata sola: il mondo NON gira<br/>le parole restano in sospeso per il turno vero"] -.-> B
 
     classDef llm fill:#26324d,stroke:#5b7fb5,color:#eaf0fb,stroke-width:1px;
     classDef logic fill:#f0ede6,stroke:#b9ae93,color:#2a2620;
@@ -47,8 +70,8 @@ flowchart TD
     classDef lose fill:#f3dcd6,stroke:#b0503a,color:#4a1e14;
     classDef fine fill:#e6e6ea,stroke:#8b93ad,color:#2a2a33;
 
-    class B,G,L,M,AR,NAR,RET llm;
-    class D,H,I,AP,NEXT,A2,RC,SCB logic;
+    class B,VAG,M,L,AR,NAR,CIU,CR llm;
+    class D,H,I,AP,NEXT,A2,RC,SCB,SEG,EV,INV,SIL,DET,MOD,MEM,COA,FIL,REG logic;
     class WIN win;
     class F,LOSE lose;
-    class ZZ fine;
+    class G,BEAT fine;

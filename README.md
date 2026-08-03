@@ -1,4 +1,17 @@
 # Dei in machina
-Gioco narrativo agentico sull'Odissea. Giocatore = Ulisse; dei = agenti LLM nascosti.
-Se sviluppi: leggi **CLAUDE.md** (istruzioni, mandato di auto-verifica, norme di lavoro),
-poi docs/dei_in_machina_design.md. Tieni aggiornato STATO_LAVORI.md.
+
+Gioco narrativo agentico sull'*Odissea*. Il giocatore **è Ulisse**; gli dèi del poema sono
+**agenti LLM nascosti** con agende in conflitto, che competono per il suo ritorno. Omero
+racconta le conseguenze senza mai nominarli: il vero gioco è dedurre quali potenze hai
+attirato, e come. Godot 4 + GDScript.
+
+**Per giocare:** `./avvia.sh` — vedi [COME_GIOCARE.md](COME_GIOCARE.md).
+
+**Per sviluppare**, in quest'ordine:
+
+1. [CLAUDE.md](CLAUDE.md) — istruzioni, mandato di auto-verifica, norme di lavoro
+2. [docs/dei_in_machina_design.md](docs/dei_in_machina_design.md) — il **perché**: design congelato
+3. [docs/architettura_dettaglio.md](docs/architettura_dettaglio.md) — il **come**: componenti, agenti, attivazione degli dèi, formazione della risposta
+4. [STATO_LAVORI.md](STATO_LAVORI.md) — a che punto siamo; tienilo aggiornato
+
+`./avvia.sh test` esegue la suite (269 test).

@@ -2,8 +2,12 @@
 
 Non c'è un "installer": è un **progetto Godot 4**. Il launcher `avvia.sh` rileva il sistema
 (Linux o macOS) e usa il Godot giusto, scaricandolo automaticamente al primo avvio se manca.
-Stesso comando su entrambi i sistemi. Senza Ollama il gioco gira in **modalità mock**
-(deterministica, istantanea): puoi provarlo subito, a costo zero.
+Stesso comando su entrambi i sistemi.
+
+Per giocare **serve un modello**: gli dèi, Omero e i compagni *sono* agenti LLM, e senza non
+c'è partita. Puoi usare un modello locale (Ollama, gratis, gira anche su un portatile) o un
+provider esterno con il tier gratuito. La scelta si fa nella finestra **Impostazioni**, in
+gioco — vedi sotto.
 
 ---
 
@@ -26,23 +30,49 @@ Se preferisci fare a mano, vedi in fondo "Avvio manuale".
 
 ---
 
-## Con i dèi e il narratore VERI (Ollama)
+## Scegliere il motore — la finestra Impostazioni
 
-Di default il gioco usa il **mock**. Per accendere gli agenti LLM:
+In gioco, il pulsante **Impostazioni**. Due strade:
+
+### A) Ollama in locale (gratis, nessuna chiave)
 
 1. Installa Ollama: https://ollama.com/download
-2. Scarica il modello di test:
+2. Scarica un modello:
    ```bash
    ollama pull mistral-small3.2
    ```
    (Ollama è di solito già in ascolto su http://localhost:11434; se no: `ollama serve`.)
-3. Avvia con `./avvia.sh` e nella GUI spunta **"Ollama (dei reali)"**.
-   Da console:
-   ```bash
-   ./avvia.sh console -- ollama mistral-small3.2:latest
-   ```
+3. In Impostazioni scegli **Ollama (locale)** e il modello.
 
-Con i modelli reali un turno è più lento (soprattutto quando i dèi litigano).
+Da console: `./avvia.sh console -- ollama mistral-small3.2:latest`
+
+### B) Un provider esterno (Mistral, Google…)
+
+1. In Impostazioni scegli **Provider esterno** e il provider.
+2. Incolla la chiave API nel campo del provider (viene salvata **fuori dal repo**, nelle tue
+   preferenze utente — non finisce mai in git).
+3. **Aggiorna elenco** → scegli il modello. L'elenco mostra solo i modelli che sanno scrivere
+   testo: sintesi vocale, immagini ed embedding restano fuori.
+4. **Prova il modello.** Fa due domande separate — *il server risponde?* e *il modello
+   genera davvero?* — con una generazione vera da un token. Serve: capita che un provider
+   continui a elencare un modello che ha già ritirato, e senza questa prova te ne accorgeresti
+   solo a metà partita, con Omero muto.
+
+**Gateway** (spunta opzionale): fa passare le chiamate da una coda locale che rispetta i
+limiti del piano gratuito. È un *trasporto*, non un provider: si combina con qualunque
+modello tu abbia scelto, e le chiavi le tiene lui.
+
+Con i modelli reali un turno è più lento, soprattutto quando gli dèi litigano: una contesa
+piena vale fino a nove chiamate.
+
+---
+
+## Quanto consuma
+
+Una partita intera, da Troia a Itaca, sta intorno a **450 chiamate** e **~1 milione di
+token** (di cui appena ~48.000 in uscita: il grosso è il contesto che gli agenti rileggono).
+Sul tier gratuito ci sta comodamente; è il motivo per cui il gioco è costruito per fare
+**meno chiamate**, non per farle più in fretta.
 
 ---
 
@@ -56,11 +86,27 @@ Con i modelli reali un turno è più lento (soprattutto quando i dèi litigano).
 
 ---
 
-## Comandi utili in gioco
+## Come si gioca
 
-- Scrivi liberamente cosa fa e dice Ulisse, premi Invio (o "Agisci").
-- **Vista Olimpo**: pulsante che svela il dietro le quinte (dèi svegli, deliberazione, verdetto…).
-- Console (headless): `:olimpo`, `:stato`, `:esci`.
+Scrivi liberamente **cosa fa e dice Ulisse**, e premi Invio (o "Agisci"). Sotto la narrazione
+trovi tre appigli: sono suggerimenti contestuali, non le uniche mosse possibili — la quarta
+strada è sempre scrivere di tuo.
+
+Quattro finestre, apribili dai pulsanti in alto:
+
+- **Olimpo** — gli dèi che si parlano fra loro, si contraddicono, e Zeus che chiude la
+  contesa. Si **assiste** e basta: Ulisse non li sente davvero.
+- **Ciurma** — qui invece **si scrive**. Parlare ai compagni non fa girare il mondo: costa
+  una sola chiamata e il turno non avanza. Ma le tue parole non si perdono — al prossimo
+  turno vero arrivano all'Interprete, agli dèi e a Omero, così un proposito detto a voce può
+  svegliare qualcuno. Chiama qualcuno per nome (o con `@`) e risponde lui.
+- **Log LLM** — la traccia tecnica: chi si è destato, cosa ha proposto, quanto ci ha messo.
+- **Impostazioni** — motore, provider, modello, chiavi.
+
+Le tre viste sono allineate dallo stesso ritmo: il momento del giorno e l'azione che hai
+appena compiuto fanno da intestazione ovunque.
+
+Console (headless): `:olimpo`, `:stato`, `:esci`.
 
 ---
 

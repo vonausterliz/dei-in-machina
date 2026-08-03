@@ -1,39 +1,73 @@
+%% Architettura dei componenti — aggiornato a v2.27.
+%% Dettaglio completo delle interazioni: docs/architettura_dettaglio.md
 flowchart TD
-    subgraph UI["UI / View — Godot"]
-        Input["Input libero<br/>parole · azioni · preghiere"]
-        SceneView["SceneView<br/>narrazione in-world"]
-        Stats["Stat<br/>metis · ciurma · morale"]
+    subgraph UI["Interfaccia — Godot (scenes/)"]
+        Input["main.gd — schermata giocatore<br/>testo libero · 3 spunti · diario · stat · carta"]
+        FOlimpo["Finestra OLIMPO<br/>chat in SOLA LETTURA"]
+        FCiurma["Finestra CIURMA<br/>chat INTERATTIVA (beat)"]
+        FLog["Finestra LOG LLM<br/>traccia tecnica del turno"]
+        FSet["Finestra IMPOSTAZIONI<br/>motore · provider · modello · gateway"]
     end
 
-    subgraph CORE["Core — Autoload singletons"]
-        GM["GameManager<br/>stato · loop turni<br/>stat Ulisse · seed run · win/loss"]
-        PM["PantheonManager<br/>ledger nascosto favore/ira<br/>umori · fasce · chi è sveglio"]
-        OM["OllamaManager<br/>HTTP :11434 · coda · batch · timeout"]
+    subgraph CORE["Nucleo — Autoload"]
+        GM["GameManager<br/>FSM del turno · beat · memoria dèi<br/>spunti · avanzamento tappe · esiti"]
+        PM["PantheonManager<br/>eleggibilità · RISVEGLIO<br/>risoluzione invocazioni"]
+        LM["LLMManager<br/>un metodo per agente<br/>mock ↔ reale · provider · gateway"]
     end
 
-    subgraph AGENTS["Agenti LLM (via Ollama)"]
-        INT["Interprete<br/>testo libero → envelope<br/>tono · dio invocato · flag<br/>hybris/astuzia/xenia/desiderio"]
-        GODS["Dei-agenti<br/>trigger-gate = REGOLE (coerenza)<br/>risposta = LLM (carattere + capriccio)<br/>→ segno / aiuto / trappola / silenzio"]
-        ARB["Arbitro<br/>risolve conflitti divini<br/>calcola delta mondo"]
-        NAR["Narratore<br/>rende in-world SENZA nomi<br/>impronte divine"]
+    subgraph REGOLE["Regole deterministiche (scripts/)"]
+        VAL["Validazione<br/>vaglio + ammonizione"]
+        POL["PoliticaDivina<br/>coalizioni · piani<br/>scavalcamenti · resa dei conti"]
+        DELTA["Delta<br/>i NUMERI del mondo"]
+        AGORA["Agora<br/>canali · viste · intestazioni"]
+        CIU["Ciurma<br/>chi è vivo, chi tace"]
     end
 
-    subgraph DATA["Data layer — JSON"]
-        PJSON["pantheon.json<br/>dominio · agenda · trigger · voce · fascia"]
-        EJSON["episodi.json<br/>tappe · dilemmi · dio locale · pericoli"]
+    subgraph AGENTS["Agenti LLM (scripts/llm/)"]
+        INT["Interprete<br/>testo → envelope<br/>+ vaglio + ricognizione dio"]
+        GODS["DioAgente<br/>registro · intensità · battuta<br/>(round 1 e repliche)"]
+        ARB["Arbitro — Zeus<br/>chiude la contesa con parole sue"]
+        NAR["Narratore — Omero<br/>racconto SENZA nomi + 3 spunti"]
+        SUG["Suggeritore<br/>spunti d'apertura"]
+        CRO["Cronista<br/>riassunto rotolante"]
+        COMP["Compagno<br/>la voce di un uomo della ciurma"]
+    end
+
+    subgraph TRASP["Trasporto"]
+        MOCK["LLMMock — deterministico, zero rete"]
+        CLIENT["LLMClient — chat-completions"]
+        GATE["Gateway locale (opzionale)<br/>coda per i limiti del free tier"]
+    end
+
+    subgraph DATA["Dati"]
+        PJSON["pantheon.json<br/>agenda · antefatto · trigger<br/>dorme_finche · anti_pattern · simbolo"]
+        EJSON["episodi.json<br/>scena · non_ancora<br/>spunti_di_riserva · emette_su_tag"]
+        CJSON["ciurma.json"]
+        BJSON["bilanciamento.json"]
+        PROMPTS["prompts/*.txt<br/>+ guardrail anti-assistente"]
+        PROV["config/providers/*.json"]
     end
 
     Input --> GM
-    GM --> INT
-    INT --> PM
-    PM -->|"sveglia: persistenti + locale di tappa"| GODS
-    GODS --> ARB
-    ARB --> NAR
-    NAR --> SceneView
-    ARB --> GM --> Stats
-    ARB -.aggiorna.-> PM
-
-    INT & GODS & ARB & NAR -.via.-> OM
-
+    FCiurma -->|beat: 1 chiamata,<br/>il turno NON avanza| GM
+    GM --> PM
+    GM --> LM
+    GM --> VAL & POL & DELTA & CIU
+    GM --> AGORA
+    AGORA --> FOlimpo & FCiurma
+    LM --> INT & GODS & ARB & NAR & SUG & CRO & COMP
+    LM --> MOCK
+    INT & GODS & ARB & NAR & SUG & CRO & COMP --> CLIENT
+    CLIENT -.se acceso.-> GATE
+    LM -.segnale llm_log.-> FLog
+    FSet --> LM
+    NAR --> Input
     PJSON --> PM
-    EJSON --> GM
+    EJSON & CJSON & BJSON --> GM
+    PROMPTS --> AGENTS
+    PROV --> LM
+
+    classDef llm fill:#26324d,stroke:#5b7fb5,color:#eaf0fb;
+    classDef logic fill:#f0ede6,stroke:#b9ae93,color:#2a2620;
+    class INT,GODS,ARB,NAR,SUG,CRO,COMP llm;
+    class VAL,POL,DELTA,AGORA,CIU,PM logic;
