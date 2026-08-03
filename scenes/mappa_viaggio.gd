@@ -64,15 +64,77 @@ func _carica_coste() -> void:
 			pv.append(Vector2(p[0], p[1]))
 		if pv.size() >= 2:
 			_coste.append(pv)
-	const SCALA := 1000.0
 	for terra in d.get("terre", []):
-		var grande := PackedVector2Array()
+		var anello := PackedVector2Array()
 		for p in terra:
-			grande.append(Vector2(p[0], p[1]) * SCALA)
-		var indici := Geometry2D.triangulate_polygon(grande)
-		for i in range(0, indici.size(), 3):
-			_tri.append([grande[indici[i]] / SCALA, grande[indici[i + 1]] / SCALA,
-				grande[indici[i + 2]] / SCALA])
+			anello.append(Vector2(p[0], p[1]))
+		_tri.append_array(triangola(anello))
+
+## Le coordinate sono normalizzate (0..1) e l'ear clipping di Godot su numeri cosi' piccoli
+## perde precisione: si lavora in "grande" e si torna indietro alla fine.
+const SCALA_TRIANGOLAZIONE := 1000.0
+
+## Riduce un anello di terra a triangoli. Ritorna [] se non c'e' niente da riempire.
+##
+## SI RIPARA PRIMA DI TRIANGOLARE, ed e' il punto di tutta la funzione.
+##
+## Sulla carta si vedevano gialle solo Sicilia e Sardegna: 58 poligoni su 59 si
+## triangolavano, e il 59esimo era la TERRAFERMA — un'area dodici volte tutte le isole
+## messe insieme. `triangulate_polygon` non fallisce con un errore: ritorna un array vuoto,
+## e quella terra semplicemente non veniva disegnata.
+##
+## La causa e' nel ritaglio a monte: il Sutherland-Hodgman del convertitore, su un anello
+## concavo che esce e rientra dal riquadro molte volte, cuce i pezzi con dei "ponti"
+## degeneri lungo il bordo. Il risultato e' auto-intersecante, e nessun ear clipping lo
+## digerisce (nemmeno `decompose_polygon_in_convex`: fallisce anche lei).
+##
+## `merge_polygons(a, a)` — l'unione di un poligono con se stesso — e' il rimedio classico:
+## ricostruisce i pezzi davvero distinti, gia' orientati, separando i solidi (antiorari)
+## dai buchi (orari). La terraferma passa cosi' da 0 a 733 triangoli.
+static func triangola(anello: PackedVector2Array) -> Array:
+	if anello.size() < 3:
+		return []
+	var grande := PackedVector2Array()
+	for p in anello:
+		grande.append(p * SCALA_TRIANGOLAZIONE)
+	var solidi: Array = []
+	var buchi: Array = []
+	for pezzo in Geometry2D.merge_polygons(grande, grande):
+		if Geometry2D.is_polygon_clockwise(pezzo):
+			buchi.append(pezzo)   # un lago, o un mare interno: non e' terra
+		else:
+			solidi.append(pezzo)
+	var out: Array = []
+	for solido in solidi:
+		for netto in _senza_buchi(solido, buchi):
+			out.append_array(_in_triangoli(netto))
+	return out
+
+## Ritaglia dai solidi i buchi che li attraversano, cosi' i laghi non si riempiono di terra.
+static func _senza_buchi(solido: PackedVector2Array, buchi: Array) -> Array:
+	var pezzi: Array = [solido]
+	for buco in buchi:
+		var dopo: Array = []
+		for p in pezzi:
+			var tagliati := Geometry2D.clip_polygons(p, buco)
+			# clip_polygons puo' generare a sua volta anelli orari (nuovi buchi): li
+			# ignoriamo, perche' rincorrerli all'infinito non serve a una decorazione.
+			for t in tagliati:
+				if not Geometry2D.is_polygon_clockwise(t):
+					dopo.append(t)
+		pezzi = dopo
+	return pezzi
+
+static func _in_triangoli(poly: PackedVector2Array) -> Array:
+	var indici := Geometry2D.triangulate_polygon(poly)
+	var out: Array = []
+	for i in range(0, indici.size(), 3):
+		out.append([
+			poly[indici[i]] / SCALA_TRIANGOLAZIONE,
+			poly[indici[i + 1]] / SCALA_TRIANGOLAZIONE,
+			poly[indici[i + 2]] / SCALA_TRIANGOLAZIONE,
+		])
+	return out
 
 func imposta(punti: Array, corrente: String, completati: Array) -> void:
 	_punti = punti
