@@ -2,7 +2,7 @@
 
 *Ricognizione sul codice a v2.30. Base per i **profili di costo** configurabili.*
 
-Molte scelte di questo gioco non sono state prese perché rendevano il gioco migliore, ma
+Tredici scelte di questo gioco non sono state prese perché rendevano il gioco migliore, ma
 perché **una chiamata LLM in più costava troppo** sul tier gratuito (dove il vincolo non è
 il prezzo ma il pavimento richieste/secondo: Mistral ~1 req/s). Questo documento le elenca
 tutte, in un posto solo, così si può decidere quali tenere.
@@ -43,15 +43,21 @@ profilo «senza vincoli»:
 | # | Scelta | Dove | Oggi | Attenzione |
 |---|---|---|---|---|
 | D1 | **Al massimo 2 dèi ribattono** per turno | `game_manager.gd` → `MAX_REPLICHE = 2` | +0,5 chiamate/turno | Il commento nel codice dice due cose insieme: «ogni replica è una chiamata» **e** «una conversazione a cinque non è più una conversazione». Togliere il tetto rende la Vista Olimpo un coro confuso |
-| D2 | **Un solo compagno parla** per turno | `_fa_parlare_la_ciurma` | 1 chiamata | La ragione scritta è «per non affollare»: con sei voci a ogni turno la chat della ciurma diventa illeggibile |
+| D2 | **Un solo compagno parla** spontaneamente | `_fa_parlare_la_ciurma` | 1 chiamata | La ragione scritta è «per non affollare»: con sei voci a ogni turno la chat diventa illeggibile. Ma il limite vale solo per chi parla *da sé*: **se li chiami per nome rispondono tutti**, quindi una valvola in mano al giocatore c'è già |
 | D3 | Il **filtro di ritmo** sul risveglio (mai implementato, G-15) | — | tutti gli innescati reagiscono | Qui è il contrario: implementarlo **risparmierebbe** chiamate *e* migliorerebbe la credibilità (il silenzio scelto è un personaggio) |
 
 ## 3. 🔒 Diventato meccanica — non è un knob
 
 | # | Scelta | Perché non si tocca |
 |---|---|---|
-| M1 | I **beat**: parlare ai compagni non fa girare il mondo (1 chiamata invece di 9) | Nato per costo, ma oggi è una **regola di gioco**: le parole restano in sospeso e il turno successivo le consegna all'Interprete, agli dèi e a Omero. Renderli turni pieni non «toglierebbe un limite»: cambierebbe il gioco, e romperebbe `test_ciurma.gd` |
-| M2 | Il **congedo** è una chiamata sola, a partita finita | Non c'è niente da alzare: è un epitaffio |
+| M1 | I **beat**: parlare ai compagni non fa girare il mondo (1 chiamata invece di 9) | Nato da una richiesta di **fluidità** (v2.9: «due ritmi invece di uno»); il risparmio venne in regalo. Oggi è una regola di gioco: le parole restano in sospeso e il turno successivo le consegna all'Interprete — perché i trigger scattino lo stesso — agli dèi e a Omero. Renderli turni pieni non toglierebbe un limite: **svuoterebbe di senso le parole in sospeso**, farebbe destare un dio per ogni frase detta a bordo (e la deduzione annegherebbe nel rumore), e smentirebbe sei test in `test_ciurma.gd`. Il knob tarabile *dentro* i beat è un altro, ed è D2: quanti compagni rispondono |
+
+> **Corretto il 3 agosto 2026 — qui c'era una seconda voce, il congedo, e non ci doveva
+> stare.** L'avevo elencata come «🔒 non è un knob», ma la frase vera è che il congedo **non
+> è mai stato una limitazione di costo**: è una chiamata sola perché è un epitaffio, non
+> perché ne avessi vietate altre. Il commento nel codice dice «non pesa sul turno», e avevo
+> scambiato una *giustificazione* per un *vincolo*. Un inventario di vincoli deve contenere
+> solo cose che qualcuno potrebbe voler togliere.
 
 ---
 
