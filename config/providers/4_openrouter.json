@@ -1,0 +1,23 @@
+{
+  "nome": "OpenRouter",
+  "provider": "openrouter",
+  "base_url": "https://openrouter.ai/api/v1",
+  "chat_path": "/chat/completions",
+  "models_path": "/models",
+  "model": "mistralai/mistral-small-3.2-24b-instruct:free",
+  "api_key_env": "OPENROUTER_API_KEY",
+  "timeout_sec": 180,
+  "_nota": "Un solo endpoint per centinaia di modelli di provider diversi (Mistral, Google, Anthropic, Meta, DeepSeek...), in formato chat-completions: per il gioco e' un provider come gli altri. Comodo qui per due motivi: si cambia modello senza cambiare chiave, e i modelli con suffisso «:free» permettono di provare il gioco a costo zero. La chiave si prende su https://openrouter.ai/keys.",
+  "_nota_nomi": "I nomi hanno SEMPRE la forma «autore/modello», con la barra. E' l'unico provider in cui la barra fa parte del nome e non e' l'instradamento del Gateway: vedi `nome_pieno` piu' sotto.",
+  "nome_pieno": true,
+  "escludi_modelli": [
+    "embedding",
+    "tts",
+    "whisper",
+    "audio",
+    "image",
+    "vision-only",
+    "moderation",
+    "rerank"
+  ]
+}

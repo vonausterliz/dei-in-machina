@@ -68,9 +68,26 @@ func _attraverso_il_gateway(profilo: Dictionary) -> Dictionary:
 	cfg["api_key_env"] = ""
 	var provider := String(profilo.get("provider", ""))
 	var modello := String(profilo.get("model", ""))
-	if provider != "" and not modello.contains("/"):
+	# Il prefisso si aggiunge se non c'e' gia'. Su un provider a nome pieno (OpenRouter) la
+	# barra c'e' sempre e appartiene al nome: il prefisso va messo DAVANTI, non saltato —
+	# «openrouter/mistralai/…». Il gateway divide sulla prima barra, quindi legge
+	# provider=openrouter e modello=mistralai/…, che e' esattamente cio' che serve.
+	var pieno := bool(profilo.get("nome_pieno", false))
+	if provider != "" and (pieno or not modello.contains("/")):
 		cfg["model"] = "%s/%s" % [provider, modello]
 	return cfg
+
+## Solo per i test: il trasporto applicato a un profilo qualunque, senza toccare lo stato.
+func attraverso_il_gateway_per_test(profilo: Dictionary) -> Dictionary:
+	var prima := usa_gateway
+	var prima_cfg := gateway_cfg
+	usa_gateway = true
+	if gateway_cfg.is_empty():
+		gateway_cfg = {"base_url": "http://localhost:8800"}
+	var out := _attraverso_il_gateway(profilo)
+	usa_gateway = prima
+	gateway_cfg = prima_cfg
+	return out
 
 ## C'e' un gateway configurato (config/providers/ con "trasporto": true)?
 func gateway_disponibile() -> bool:
@@ -217,8 +234,22 @@ func prova_profilo() -> Dictionary:
 
 ## Il nome del modello senza fronzoli: né il prefisso d'instradamento del gateway
 ## («google/…») né quello dell'elenco di Google («models/…»).
-static func nome_nudo(nome: String) -> String:
+##
+## `nome_pieno`: LA BARRA FA PARTE DEL NOME, non toccarla. Su OpenRouter i modelli si
+## chiamano «autore/modello» (`mistralai/mistral-small-3.2-24b-instruct:free`) e togliere
+## il primo pezzo significherebbe chiedere un modello che non esiste: 404 a ogni chiamata,
+## e nessun indizio sul perché. Lo dichiara il profilo del provider, che è l'unico a saperlo.
+static func nome_nudo(nome: String, nome_pieno: bool = false) -> String:
+	if nome_pieno:
+		# Anche qui il prefisso dell'ELENCO va via: è dell'endpoint, non del modello.
+		return nome.trim_prefix("models/")
 	return nome.get_slice("/", 1) if nome.contains("/") else nome
+
+## Il profilo selezionato dichiara nomi «autore/modello»?
+func nome_pieno() -> bool:
+	if provider_esterno_idx < 0 or provider_esterno_idx >= profili_esterni.size():
+		return false
+	return bool(profili_esterni[provider_esterno_idx].get("nome_pieno", false))
 
 func _chiave_modello(idx: int) -> String:
 	if idx < 0 or idx >= profili_esterni.size():
@@ -227,7 +258,7 @@ func _chiave_modello(idx: int) -> String:
 
 ## Ricorda il modello scelto per il provider CORRENTE (e lo applica subito).
 func ricorda_modello(nome: String) -> void:
-	var pulito := nome_nudo(nome.strip_edges())
+	var pulito := nome_nudo(nome.strip_edges(), nome_pieno())
 	if pulito == "":
 		return
 	Impostazioni.scrivi(_chiave_modello(provider_esterno_idx), pulito)
@@ -250,12 +281,12 @@ func applica_modelli_ricordati() -> void:
 ## e offrirli nel menu significa proporre scelte che non possono funzionare.
 ## I frammenti da escludere stanno nel profilo del provider (`escludi_modelli`): li conosce
 ## lui, non il gioco.
-static func solo_modelli_testuali(modelli: Array, escludi: Array) -> Array:
+static func solo_modelli_testuali(modelli: Array, escludi: Array, pieno: bool = false) -> Array:
 	if escludi.is_empty():
 		return modelli
 	var out: Array = []
 	for m in modelli:
-		var nome := nome_nudo(String(m)).to_lower()
+		var nome := nome_nudo(String(m), pieno).to_lower()
 		var scartare := false
 		for pezzo in escludi:
 			if nome.contains(String(pezzo).to_lower()):
@@ -289,8 +320,9 @@ func imposta_modello(nome: String) -> void:
 		return
 	# Va scritto sul profilo VERO, non su cio' che ritorna _config_attiva(): col gateway
 	# acceso quello e' una copia col prefisso d'instradamento, e la modifica si perderebbe.
-	# Il prefisso non appartiene al nome del modello: lo rimette il trasporto.
-	var pulito := nome.get_slice("/", 1) if nome.contains("/") else nome
+	# Il prefisso non appartiene al nome del modello: lo rimette il trasporto. Su un provider
+	# a nome pieno (OpenRouter) invece la barra e' del nome e non si tocca.
+	var pulito := nome_nudo(nome, nome_pieno())
 	if provider_esterno and provider_esterno_idx >= 0 and provider_esterno_idx < profili_esterni.size():
 		profili_esterni[provider_esterno_idx]["model"] = pulito
 	else:

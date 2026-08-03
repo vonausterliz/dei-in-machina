@@ -16,6 +16,12 @@
       "gemini-3.5-flash-lite",
       "gemini-3.1-flash-lite",
       "gemini-3-flash-preview"
+    ],
+    "openrouter": [
+      "mistralai/mistral-small-3.2-24b-instruct:free",
+      "deepseek/deepseek-chat-v3.1:free",
+      "google/gemma-3-27b-it:free",
+      "qwen/qwen3-235b-a22b:free"
     ]
   },
   "cache": {
@@ -66,6 +72,19 @@
       "rpd": 0,
       "tentativi": 2,
       "timeout_s": 300
+    },
+    {
+      "nome": "openrouter",
+      "base_url": "https://openrouter.ai/api/v1",
+      "chat_path": "/chat/completions",
+      "models_path": "/models",
+      "api_key_env": "OPENROUTER_API_KEY",
+      "_nota": "I modelli col suffisso «:free» hanno un tetto giornaliero per account (non per modello): con meno di 10 crediti acquistati sono 50 richieste al giorno, oltre i 10 diventano 1000. Una partita intera ne chiede ~450, quindi col tetto basso non ci sta: il gateway lo dice nel log invece di farlo scoprire a meta' viaggio.",
+      "min_intervallo_s": 3.1,
+      "rpm": 18,
+      "rpd": 50,
+      "tentativi": 5,
+      "timeout_s": 180
     }
   ]
 }

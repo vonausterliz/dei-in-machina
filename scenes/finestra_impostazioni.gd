@@ -323,9 +323,10 @@ func _accendi_se_spento() -> void:
 ## significa proporre scelte che non possono funzionare.
 func _riempi_modelli(modelli: Array) -> void:
 	_opt_modello.clear()
-	var utili := LLMManager.solo_modelli_testuali(modelli, LLMManager.filtro_modelli())
+	var pieno := LLMManager.nome_pieno()
+	var utili := LLMManager.solo_modelli_testuali(modelli, LLMManager.filtro_modelli(), pieno)
 	for m in utili:
-		_opt_modello.add_item(LLMManager.nome_nudo(String(m)))
+		_opt_modello.add_item(LLMManager.nome_nudo(String(m), pieno))
 
 func _verdetto(testo: String, buono: bool) -> void:
 	_stato.text = testo
