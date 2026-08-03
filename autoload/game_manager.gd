@@ -391,20 +391,32 @@ const _REGISTRI_BENIGNI := ["aiuto", "segno"]
 ## - proposte aperte (round 1); si scartano i 'silenzio'.
 ## - se le proposte attive confliggono: round 2 di repliche (i dei si sentono tra loro)
 ##   e verdetto di Zeus (Arbitro LLM). Altrimenti verdetto deterministico.
+## Quanti dèi possono ribattere in un turno. Ogni replica e' una chiamata: il dialogo
+## dev'essere una conversazione, non un costo che cresce con gli dèi in campo.
+const MAX_REPLICHE := 2
+
 func _delibera(svegli: Array, envelope: Dictionary) -> Dictionary:
 	var proposte := await _raccogli_proposte(svegli, envelope, [])
 	var attive := _attive(proposte)
 	if attive.is_empty():
 		return {"proposte": proposte, "conflitto": false, "verdetto": {}}
-	if attive.size() == 1 or not _in_conflitto(attive):
+
+	# SI RIBATTE APPENA C'E' QUALCUNO A CUI RIBATTERE, non solo quando si litiga.
+	# Prima le repliche partivano soltanto in caso di conflitto: due dèi d'accordo
+	# deponevano uno dopo l'altro e la Vista Olimpo restava un verbale. La contesa e' una
+	# delle cose che si dicono, non la sola.
+	var conflitto := attive.size() > 1 and _in_conflitto(attive)
+	if attive.size() > 1:
+		attive = await _repliche(attive, envelope)
+
+	if not conflitto:
 		var prep := _prepara_per_arbitrato(attive)
 		var v := _arbitra(prep)
 		_verdetto_in_chat(v, false)
 		return {"proposte": prep, "conflitto": false, "verdetto": v}
 
-	# CONFLITTO: i dei si ribattono, poi Zeus chiude.
-	var repliche := await _repliche(attive, envelope)
-	var prep_c := _prepara_per_arbitrato(repliche)
+	# CONFLITTO: dopo il botta e risposta, Zeus chiude.
+	var prep_c := _prepara_per_arbitrato(attive)
 	var verdetto: Dictionary = await LLMManager.verdetto_arbitro(prep_c)
 	_verdetto_in_chat(verdetto, true)
 	return {"proposte": prep_c, "conflitto": true, "verdetto": verdetto}
@@ -427,14 +439,28 @@ func _raccogli_proposte(svegli: Array, envelope: Dictionary, altri: Array) -> Ar
 	return out
 
 ## Round 2: ogni dio ribatte vedendo le proposte degli ALTRI.
+## Il botta e risposta: ogni dio rilegge cio' che hanno detto gli ALTRI e ribatte.
+## Al massimo MAX_REPLICHE voci — ogni replica e' una chiamata, e una conversazione a
+## cinque non e' piu' una conversazione. Chi replica sono i primi in ordine di pantheon,
+## quindi in modo deterministico e riproducibile.
+## Chi non replica tiene la sua proposta: non sparisce dal campo.
 func _repliche(attive: Array, envelope: Dictionary) -> Array:
 	var out: Array = []
-	for p in attive:
+	for i in attive.size():
+		var p: Dictionary = attive[i]
+		if i >= MAX_REPLICHE:
+			out.append(p)
+			continue
 		var id: String = p.get("dio", "")
 		var altri := _altri_dei(attive, id)
 		var r: Dictionary = await LLMManager.proposta_dio(PantheonManager.get_dio(id), _contesto_dio(id, envelope, altri))
+		# Se il modello non produce nulla di nuovo, resta valida la prima proposta: meglio
+		# una voce sola che una voce persa.
+		if String(r.get("dice", "")).strip_edges() == "":
+			out.append(p)
+			continue
 		out.append(r)
-		_in_chat(r)   # e' il botta e risposta: il dio ribatte avendo sentito gli altri
+		_in_chat(r)
 	return out
 
 func _contesto_dio(id: String, envelope: Dictionary, altri: Array) -> Dictionary:
@@ -719,7 +745,18 @@ func _verdetto_in_chat(verdetto: Dictionary, arbitrato: bool) -> void:
 	var dio := PantheonManager.get_dio(attore)
 	var nome: String = dio.nome if dio else attore
 	var chi := "Zeus" if arbitrato else nome
-	var testo := "prevale %s: %s" % [nome, verdetto.get("registro", "?")]
+	# LE PAROLE DI ZEUS, non un referto. L'Arbitro produce gia' una battuta da sovrano che
+	# chiude la contesa («dice»), e il codice la buttava via per scrivere «prevale X: Y» —
+	# in una chat quello e' un verbale, e il registro e' roba da traccia tecnica.
+	# Senza arbitrato non c'e' contesa da chiudere: si annota in una riga di servizio che
+	# la volonta' di quel dio e' passata, e basta.
+	var testo := String(verdetto.get("dice", "")).strip_edges()
+	if not arbitrato:
+		agora.scrivi(Agora.CANALE_OLIMPO, "",
+			Testi.s("olimpo/senza_contesa", [nome]), stato.turno, "sistema")
+		return
+	if testo == "":
+		testo = Testi.s("olimpo/zeus_chiude", [nome])
 	# Il distintivo e' di CHI parla: Zeus se ha arbitrato, altrimenti il dio che ha vinto.
 	var zeus: Dio = PantheonManager.get_dio("zeus")
 	var simbolo := (zeus.simbolo if zeus else "") if arbitrato else (dio.simbolo if dio else "")

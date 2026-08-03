@@ -23,9 +23,13 @@ func test_la_coalizione_apre_un_canale_di_gruppo():
 	assert_true(c.has("canale"), "la coalizione ha il suo canale")
 	assert_string_contains(GameManager.agora.trascrizione(), "Blocco:")
 
+## Il verdetto chiude la discussione, ma con delle PAROLE: «prevale X: castigo» era un
+## verbale. Senza contesa basta una riga di servizio; con la contesa parla Zeus.
 func test_il_verdetto_chiude_la_discussione():
 	await GameManager.esegui_turno("Sono io, Odisseo, che t'ho accecato!")
-	assert_string_contains(GameManager.agora.trascrizione(), "prevale")
+	var t := GameManager.agora.trascrizione()
+	assert_false(t.contains("prevale "), "niente referti nella chat")
+	assert_string_contains(t, "volontà", "la chiusura si legge come una frase")
 
 func test_una_voce_ha_sempre_lo_stesso_colore():
 	assert_eq(Agora.tinta("Atena"), Agora.tinta("Atena"))

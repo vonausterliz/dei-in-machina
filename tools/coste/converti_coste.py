@@ -16,10 +16,12 @@ USO:  python3 tools/coste/converti_coste.py <cartella_shapefile> [uscita.json]
 import json, math, struct, sys
 from pathlib import Path
 
-# Il riquadro del poema: dall'Iberia al Levante, dall'Africa alle Alpi.
-LON_MIN, LON_MAX = -7.0, 37.0
-LAT_MIN, LAT_MAX = 29.5, 47.0
-SEMPLIFICA = 0.010    # tolleranza Douglas-Peucker, in gradi (~1 km)
+# Il riquadro del POEMA, non del Mediterraneo intero: il viaggio di Ulisse sta fra le
+# Bocche di Bonifacio (9.2E) e la Troade (26.2E), fra Gerba (33.8N) e il Circeo (41.2N).
+# Includere Iberia e Levante rimpiccioliva tutto cio' che conta per mostrare mare vuoto.
+LON_MIN, LON_MAX = 7.5, 28.5
+LAT_MIN, LAT_MAX = 30.5, 44.0
+SEMPLIFICA = 0.006   # riquadro piu' stretto, quindi piu' dettaglio a parita' di resa    # tolleranza Douglas-Peucker, in gradi (~1 km)
 MIN_PUNTI  = 4        # sotto questa soglia il frammento e' rumore, non una costa
 
 

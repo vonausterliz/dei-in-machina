@@ -13,12 +13,16 @@ extends Control
 
 const PERCORSO_COSTE := "res://data/coste_mediterraneo.json"
 
-const C_SEA := Color("0e0b16")
-const C_SEA_HI := Color("15122a")
-const C_RIGA := Color(0.35, 0.30, 0.55, 0.10)  # rigatura del mare, come un'incisione
-const C_LAND := Color(0.185, 0.150, 0.100)     # terra: bruno caldo
-const C_LAND_HI := Color(0.245, 0.200, 0.130)  # terra piu' chiara verso nord: rilievo
-const C_COAST := Color(0.72, 0.58, 0.31, 0.85) # profilo costa: oro spento
+# Terra e mare devono distinguersi A COLPO D'OCCHIO, restando nella palette del gioco:
+# il mare tira al blu notte, la terra al bruno-sabbia caldo. Prima erano due scuri quasi
+# uguali e la carta sembrava un groviglio di fili d'oro.
+const C_SEA := Color("0d1226")                 # mare: blu notte, non viola
+const C_SEA_HI := Color("121a33")              # mare aperto, verso sud
+const C_RIGA := Color(0.30, 0.42, 0.70, 0.10)  # rigatura del mare, come un'incisione
+const C_LAND := Color(0.255, 0.205, 0.135)     # terra: bruno-sabbia caldo
+const C_LAND_HI := Color(0.320, 0.260, 0.170)  # terra a nord: un accenno di rilievo
+const C_COAST := Color(0.86, 0.72, 0.42, 0.95) # profilo costa: oro chiaro, netto
+const C_OXBLOOD := Color("c0472f")             # dove si trova Ulisse, adesso
 const C_BONE := Color("eadfc7")
 const C_BONE_DIM := Color("b4a98d")
 const C_GOLD := Color("cba24b")
@@ -164,10 +168,12 @@ func _tappe() -> void:
 		var pos := _q(p["pos"])
 		var id: String = p["id"]
 		if id == _corrente:
-			# Battito lento: la nave e' qui, adesso.
+			# ROSSO, non oro: dov'e' Ulisse adesso deve saltare all'occhio in mezzo a una
+			# carta tutta d'oro e bruno. Battito lento, e un anello che lo circonda.
 			var respiro := 0.5 + 0.5 * sin(_t * 2.0)
-			draw_circle(pos, 8.0 + 3.0 * respiro, Color(C_GOLD, 0.10 + 0.10 * respiro))
-			draw_circle(pos, 4.0, C_GOLD)
+			draw_circle(pos, 9.0 + 4.0 * respiro, Color(C_OXBLOOD, 0.12 + 0.12 * respiro))
+			draw_arc(pos, 8.0, 0, TAU, 24, Color(C_OXBLOOD, 0.55 + 0.25 * respiro), 1.5, true)
+			draw_circle(pos, 4.5, C_OXBLOOD)
 			_etichetta(pos, String(p["nome"]))
 		elif id in _completati:
 			draw_circle(pos, 3.0, Color(C_BONE_DIM, 0.9))

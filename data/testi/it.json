@@ -117,5 +117,9 @@
   },
   "splash": {
     "prosegui": "un tasto, e il viaggio comincia"
+  },
+  "olimpo": {
+    "senza_contesa": "Nessuno si oppone: la volontà di %s passa.",
+    "zeus_chiude": "E così sia. La volontà di %s si compie."
   }
 }
