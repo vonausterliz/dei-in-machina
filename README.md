@@ -11,7 +11,8 @@ attirato, e come. Godot 4 + GDScript.
 
 1. [CLAUDE.md](CLAUDE.md) — istruzioni, mandato di auto-verifica, norme di lavoro
 2. [docs/dei_in_machina_design.md](docs/dei_in_machina_design.md) — il **perché**: design congelato
-3. [docs/architettura_dettaglio.md](docs/architettura_dettaglio.md) — il **come**: componenti, agenti, attivazione degli dèi, formazione della risposta
-4. [STATO_LAVORI.md](STATO_LAVORI.md) — a che punto siamo; tienilo aggiornato
+3. [docs/requisiti.md](docs/requisiti.md) — il **cosa**: tutti i requisiti in un posto solo, con lo stato verificato sul codice
+4. [docs/architettura_dettaglio.md](docs/architettura_dettaglio.md) — il **come**: componenti, agenti, attivazione degli dèi, formazione della risposta
+5. [STATO_LAVORI.md](STATO_LAVORI.md) — a che punto siamo; tienilo aggiornato
 
 `./avvia.sh test` esegue la suite (269 test).
