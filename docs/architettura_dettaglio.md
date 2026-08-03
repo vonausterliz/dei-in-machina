@@ -253,6 +253,28 @@ giocatore va solo il richiamo, e il turno costa una chiamata in meno.
 deve cadere secondo il poema cade lì (Antifo al Ciclope, Elpenore da Circe) e la sua voce
 tace. Entrare a Itaca è vittoria.
 
+**CONGEDO** — se la partita è finita, Omero scrive l'**ultima voce**: un epitaffio di 4-6
+righe. Una chiamata sola, e solo a fine partita. Il testo di ripiego vive in
+`data/testi/it.json` (`gioco/epitaffio_<esito>`) e non è un ripiego di fortuna: è ciò che si
+legge col motore simulato, nei test, e ogni volta che il modello non risponde — quindi è già
+epico di suo. Vale anche qui l'invariante: nemmeno nel commiato si nomina un dio. Un finale
+senza commiato scritto non ne produce nessuno (`Testi.ha()`), mai il nome della chiave.
+
+### I cinque finali, e come si arriva a ciascuno
+
+| Esito | Come ci si arriva |
+|---|---|
+| `itaca` (vittoria) | Si chiude l'ultima tappa |
+| `ciurma_perduta` | I castighi al massimo dell'intensità costano uomini, fino all'ultimo |
+| `morte` | Anacronismi reiterati → richiamo → smarrimento → **la follia uccide**. La follia è la *causa* (resta nella `classe` dell'ammonizione), non il finale |
+| `prigionia_eterna` | Ogigia **non avanza da sola** (`trattiene_dopo_turni`): oltre i turni di grazia arrivano tre avvisi, poi ci si resta per sempre. Salpare scioglie tutto, sempre |
+| — | *(nessun altro: `esiti_possibili` è chiuso e tutti sono raggiungibili)* |
+
+> Fino alla v2.28 `morte` e `prigionia_eterna` erano **dichiarati e irraggiungibili**:
+> nessuna riga li produceva. Ogigia aveva un tetto di turni come ogni altra tappa, quindi
+> «restare per sempre» — il suo unico pericolo — era letteralmente impossibile. Nessun test
+> falliva: non c'era niente di rotto, mancava la riga.
+
 ---
 
 ## 4. Come vengono attivati gli dèi

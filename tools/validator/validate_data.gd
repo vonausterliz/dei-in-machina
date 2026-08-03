@@ -43,6 +43,14 @@ func _valida_episodi(path: String, pantheon: Pantheon) -> void:
 				_err("%s: evento_attivo '%s' non in _meta.vocabolario_eventi" % [et, e])
 		if ep.avanza_su_tag != null and not Contratto.TAG_VOCABOLARIO.has(String(ep.avanza_su_tag)):
 			_err("%s: avanza_su_tag '%s' fuori dal vocabolario chiuso" % [et, ep.avanza_su_tag])
+		# Una tappa che TRATTIENE non puo' anche avanzare da sola (si contraddicono: era
+		# esattamente il difetto di Ogigia), e deve avere una via d'uscita — altrimenti non
+		# e' una scelta, e' una trappola.
+		if ep.trattiene_dopo_turni > 0:
+			if ep.turni_massimi > 0:
+				_err("%s: trattiene_dopo_turni e turni_massimi insieme: avanzerebbe da sola e non si potrebbe restare" % et)
+			if ep.avanza_su_tag == null:
+				_err("%s: trattiene ma non dichiara avanza_su_tag: non si potrebbe piu' ripartire" % et)
 	if episodi.ordine()[-1] != "itaca":
 		_warn("Episodi: l'ultima tappa non e' 'itaca' (la vittoria potrebbe non scattare)")
 

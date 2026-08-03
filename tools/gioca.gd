@@ -60,6 +60,16 @@ func _gioca() -> void:
 		if riga == ":stato":
 			_stampa_stato()
 			continue
+		# Salto di tappa: serve a collaudare gli episodi lontani (Ogigia, Trinacia) senza
+		# doverci arrivare giocando venti turni. Solo qui, mai in partita.
+		if riga.begins_with(":tappa "):
+			var id := riga.substr(7).strip_edges()
+			if _gm.episodi.get_episodio(id) == null:
+				print("[tappa sconosciuta: %s]" % id)
+			else:
+				_gm.vai_a_tappa(id)
+				print("\n~ %s ~\nOmero: %s" % [id, _gm.intro_corrente()])
+			continue
 
 		var esito: Dictionary = await _gm.esegui_turno(riga)
 		_stampa_turno(esito)
@@ -69,6 +79,10 @@ func _gioca() -> void:
 			if esito["esito"] == "itaca":
 				print("\n=== VITTORIA: sei tornato a Itaca. ===")
 			else:
+				# Il congedo prima dell'etichetta, anche da terminale.
+				var addio := String(esito.get("congedo", "")).strip_edges()
+				if addio != "":
+					print("\n· · ·\n\n%s" % addio)
 				print("\n=== FINE: %s ===" % esito["esito"])
 			break
 
@@ -90,13 +104,12 @@ func _stampa_turno(esito: Dictionary) -> void:
 	var narrazione := String(voce.get("narrazione_omero", ""))
 	if narrazione != "":
 		print("\nOmero: %s" % narrazione)
-	match String(voce.get("ammonizione", "")):
-		"richiamo":
-			print("\n[!] Quel gesto non appartiene a questo mondo: Ulisse non puo' compierlo.")
-		"smarrimento":
-			print("\n[!] Insisti con gesti impossibili: lo smarrimento ti prende.")
-		"follia":
-			print("\n[!] La ragione ti ha abbandonato: l'empieta' reiterata chiama la mano di un dio.")
+	# Gli avvisi vengono dai DATI, non da un match qui dentro: erano una copia a mano di
+	# data/testi/it.json, e infatti quando ne e' arrivato uno nuovo (la prigionia di Ogigia)
+	# la console e' rimasta muta. Una sola fonte, e i testi nuovi arrivano da soli.
+	var classe := String(voce.get("ammonizione", ""))
+	if classe != "" and Testi.ha("avvisi/%s" % classe):
+		print("\n[!] %s" % Testi.s("avvisi/%s" % classe))
 	# Vista Olimpo (debug), solo se richiesta.
 	if _mostra_olimpo:
 		print("\n" + TraceFormatter.turno(voce))

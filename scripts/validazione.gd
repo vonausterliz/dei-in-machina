@@ -80,8 +80,12 @@ func valida(envelope: Dictionary, input_testo: String) -> Dictionary:
 	var soglia: int = int(amm.get("soglia", 3))
 	var contatore: int = int(amm["contatore"])
 	if contatore >= soglia:
-		# FOLLIA: un dio colpisce l'empieta reiterata. Fine.
-		return {"in_mondo": false, "delta": {"ulisse.animo": -CALO_FOLLIA}, "esito": "follia", "classe": "follia"}
+		# LA FOLLIA UCCIDE. L'esito si chiamava "follia" e la partita finiva li': ma la
+		# follia e' la CAUSA, non il finale. Chi perde la ragione per l'empieta' reiterata
+		# muore — ed e' cosi' che `morte`, dichiarata fra gli esiti fin dal design e mai
+		# prodotta da nessuna riga di codice, diventa un finale raggiungibile.
+		# La `classe` resta "follia": e' la diagnosi, e dice di cosa si e' morti.
+		return {"in_mondo": false, "delta": {"ulisse.animo": -CALO_FOLLIA}, "esito": "morte", "classe": "follia"}
 	if contatore >= 2:
 		# SMARRIMENTO: il mondo legge il nonsenso come sbandamento, l'animo cala.
 		return {"in_mondo": false, "delta": {"ulisse.animo": -CALO_SMARRIMENTO}, "esito": "continua", "classe": "smarrimento"}

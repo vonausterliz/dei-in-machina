@@ -347,6 +347,14 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	# saldato e si riparte puliti per il prossimo tratto di conversazione.
 	stato.parole_ai_compagni.clear()
 
+	# PRIGIONIA — una tappa che TRATTIENE (Ogigia) non avanza da sola: se Ulisse indugia
+	# oltre la soglia l'isola lo ammonisce, e alla terza volta ci resta per sempre.
+	# Va deciso PRIMA di _registra, perche' l'avviso viaggia sullo stesso canale delle
+	# ammonizioni: per chi gioca e' la stessa specie di richiamo.
+	var prigionia := _trattiene(envelope, in_mondo)
+	if prigionia == "prigionia":
+		val["classe"] = "prigionia"
+
 	# Registrazioni: storico_olimpo (vista Olimpo/debug) + diario (player-facing).
 	var voce := _registra(turno, input_testo, envelope, svegli, eventi_turno, conflitto,
 		proposte, verdetto, scavalcamento, resa, delta, val, narrazione, in_mondo)
@@ -355,6 +363,8 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	# valgono i controlli sulle stat (ciurma). Gli altri esiti con le loro fasi.
 	percorso.append(Fase.keys()[Fase.ESITO])
 	var esito: String = val["esito"] if val["esito"] != "continua" else _controlla_esito()
+	if esito == "continua" and prigionia == "prigionia_eterna":
+		esito = prigionia
 
 	# AVANZAMENTO — se la partita continua ed e' un turno in-mondo, la tappa puo' concludersi
 	# (azione di progresso o tetto turni) e si passa alla successiva; arrivare a Itaca e' vittoria.
@@ -364,9 +374,11 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 		avanzamento = await _avanza_episodio(envelope)
 		esito = avanzamento["esito"]
 
+	var congedo := ""
 	if esito != "continua":
 		stato.stato = "finita"
 		stato.esito = esito
+		congedo = await _congedo(esito)
 	else:
 		await _aggiorna_cronaca_se_serve()  # memoria della vicenda, ogni N turni
 
@@ -375,6 +387,7 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 		"svegli": svegli,
 		"in_mondo": in_mondo,
 		"esito": esito,
+		"congedo": congedo,   # l'ultima voce di Omero, se la partita e' finita
 		"episodio": avanzamento["episodio"],
 		"avanzato": avanzamento["avanzato"],
 		"intro": avanzamento["intro"],
@@ -666,6 +679,62 @@ func _avanza_episodio(envelope: Dictionary) -> Dictionary:
 ## Breve narrazione di Omero per la traversata tra due tappe (come ci si arriva).
 func _passaggio(da: String, a: String) -> String:
 	return await LLMManager.narrazione_omero({"passaggio": {"da": da, "a": a}})
+
+## Quante volte l'isola avverte prima di tenerti per sempre. Stessa scala dell'empieta':
+## la rovina non arriva mai al primo passo falso.
+@onready var _AVVISI_PRIGIONIA: int = Bilanciamento.intero("prigionia/avvisi", 3)
+
+## OGIGIA TI TIENE SOLO SE GLIELO LASCI FARE.
+##
+## Ritorna "" (niente), "prigionia" (un avviso) o "prigionia_eterna" (fine).
+##
+## Il difetto che chiude: l'isola aveva `turni_massimi` come ogni altra tappa, quindi dopo
+## otto turni la nave ripartiva da sola. Ma «restare per sempre» e' *il* pericolo di Ogigia,
+## e con l'avanzamento automatico non esisteva il modo di restare: la sconfitta
+## `prigionia_eterna`, dichiarata dal design, non poteva accadere in nessuna partita.
+##
+## Salpare scioglie tutto, sempre: dev'essere una scelta, non una trappola.
+func _trattiene(envelope: Dictionary, in_mondo: bool) -> String:
+	if not in_mondo:
+		return ""   # chi sta gia' pagando un'ammonizione non ne prende due nello stesso turno
+	var ep := episodi.get_episodio(_episodio_corrente()) if episodi else null
+	if ep == null or ep.trattiene_dopo_turni <= 0:
+		return ""
+	# Chi riparte non e' prigioniero: l'azione di progresso azzera il conto.
+	var tag: Array = envelope.get("tag", [])
+	if ep.avanza_su_tag != null and tag.has(String(ep.avanza_su_tag)):
+		stato.ammonizioni["prigionia"] = 0
+		return ""
+	if int(stato.viaggio.get("turni_in_episodio", 0)) < ep.trattiene_dopo_turni:
+		return ""   # i turni di grazia: guardare il mare non e' ancora una colpa
+	var n := int(stato.ammonizioni.get("prigionia", 0)) + 1
+	stato.ammonizioni["prigionia"] = n
+	return "prigionia_eterna" if n >= _AVVISI_PRIGIONIA else "prigionia"
+
+## IL CONGEDO: l'ultima voce di Omero, quando la partita finisce.
+##
+## Prima si chiudeva con «— FINE: follia —»: una riga di verbale in fondo a un poema. Un
+## gioco che per venti turni ti ha parlato con la voce di un aedo non puo' congedarti come
+## un modulo che si chiude — e l'ultima cosa che si legge e' quella che resta.
+##
+## Lo scrive Omero (UNA chiamata, e solo a partita finita: non pesa sul turno). Il testo di
+## ripiego pero' non e' un ripiego qualunque: e' cio' che si legge col motore simulato, nei
+## test, e ogni volta che il modello non risponde. Sta nei dati, ed e' gia' epico di suo.
+## Vale l'invariante: nemmeno qui si nomina un dio.
+func _congedo(esito: String) -> String:
+	var chiave := "gioco/epitaffio_%s" % esito
+	if not Testi.ha(chiave):
+		return ""   # questo finale non ha (ancora) un commiato suo: meglio niente
+	var ripiego := Testi.s(chiave)
+	var scritto: String = await LLMManager.narrazione_omero({
+		"congedo": {
+			"esito": esito,
+			"luogo": _nome_tappa_corrente(),
+			"cronaca": stato.cronaca,
+			"modello": ripiego,   # il tono da tenere, non un testo da copiare
+		},
+	})
+	return scritto.strip_edges() if scritto.strip_edges() != "" else ripiego
 
 ## Riferimento allusivo a un dio: se Ulisse invoca/supplica (anche per epiteto:
 ## "il capo dell'olimpo") senza che l'envelope abbia gia' un dio_invocato valido,

@@ -353,7 +353,8 @@
       "dio_locale": "calipso",
       "eventi_attivi": [],
       "avanza_su_tag": "rotta",
-      "turni_massimi": 8,
+      "turni_massimi": 0,
+      "trattiene_dopo_turni": 4,
       "scena": "Ogigia, isola nascosta della ninfa Calipso, che trattiene Ulisse con dolcezza offrendogli l'immortalità. Presenti: soltanto Ulisse (nostalgico di casa) e Calipso. Isola solitaria e fuori dal tempo; nessun altro, nessun compagno.",
       "mappa": [
         0.3219,

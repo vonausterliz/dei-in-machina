@@ -42,6 +42,21 @@ func costruisci_messaggi(contesto: Dictionary) -> Array:
 			{"role": "user", "content": "PASSAGGIO: Ulisse lascia «%s» e per mare giunge a «%s». Rendi in 2-3 righe il distacco dalla terra che si allontana e la traversata fino alla nuova sponda: così il lettore capisce come ci è arrivato. Tono epico e asciutto. Non nominare un dio." % [passaggio.get("da", "questa terra"), passaggio.get("a", "una nuova terra")]},
 		]
 
+	# Congedo: l'ultima voce, quando la partita e' finita. Non c'e' un'azione da rendere,
+	# c'e' una vita da chiudere. Il `modello` serve a dare il TONO — un epitaffio, non un
+	# riassunto — senza che il modello lo ricopi.
+	var congedo: Dictionary = contesto.get("congedo", {})
+	if not congedo.is_empty():
+		return [
+			{"role": "system", "content": _system_prompt},
+			{"role": "user", "content": "CONGEDO. La storia di Ulisse finisce qui, a «%s», e finisce cosi': %s.\nQuesto e' accaduto finora: %s\nScrivi l'ULTIMA voce del poema: un epitaffio di 4-6 righe, in terza persona, al passato remoto, rivolto a chi ascolta. Nomina Ulisse. Ricorda da dove viene questa rovina — Troia, la guerra, cio' che dieci anni gli hanno tolto — e chiudi senza consolazione e senza morale. Non nominare un dio. Non usare elenchi.\nTIENI QUESTO TONO (non copiarlo, e' solo la misura): «%s»" % [
+				congedo.get("luogo", "una terra lontana"),
+				_come_finisce(String(congedo.get("esito", ""))),
+				congedo.get("cronaca", "un lungo ritorno mai compiuto"),
+				congedo.get("modello", ""),
+			]},
+		]
+
 	var pezzi: Array[String] = []
 	var scena: String = contesto.get("scena", "")
 	if scena != "":
@@ -85,6 +100,19 @@ func costruisci_messaggi(contesto: Dictionary) -> Array:
 		{"role": "system", "content": _system_prompt},
 		{"role": "user", "content": "\n".join(pezzi)},
 	]
+
+## Come finisce, detto a Omero in una riga. Non e' il nome tecnico dell'esito: quello e'
+## un'etichetta buona per la traccia, non per un poema.
+func _come_finisce(esito: String) -> String:
+	match esito:
+		"morte":
+			return "la ragione lo abbandona e Ulisse muore lontano da casa, distrutto da cio' che si era portato dentro dalla guerra"
+		"prigionia_eterna":
+			return "Ulisse resta per sempre sull'isola dove il tempo non passa, e a poco a poco smette di volere il ritorno"
+		"ciurma_perduta":
+			return "Ulisse sopravvive a tutti i suoi, e il ritorno non ha piu' nessuno a cui portarlo"
+		_:
+			return "il ritorno non si compie"
 
 ## NOTA: i turni FUORI-MONDO non arrivano qui. Il GameManager non chiama affatto Omero
 ## quando l'azione è impossibile (anacronismo/nonsenso): al giocatore va solo il richiamo,

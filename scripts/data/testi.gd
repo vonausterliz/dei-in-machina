@@ -35,16 +35,32 @@ static func usa(codice: String = PREDEFINITA) -> void:
 
 ## Stringa per percorso "sezione/chiave", con eventuali sostituzioni (%s, %d).
 static func s(percorso: String, argomenti: Array = []) -> String:
+	var nodo: Variant = _cerca(percorso)
+	if nodo == null:
+		push_warning("Testi: chiave mancante '%s'" % percorso)
+		return percorso
+	var testo := String(nodo)
+	return testo % argomenti if not argomenti.is_empty() else testo
+
+## C'e' una voce per questo percorso?
+##
+## Serve perche' `s()` ritorna il PERCORSO quando la voce manca — ottimo per accorgersene
+## a schermo, pessimo per decidere. Chi provava a indovinarlo dalla forma della stringa
+## sbagliava in silenzio: un finale senza commiato scritto avrebbe stampato in faccia al
+## giocatore «gioco/epitaffio_ciurma_perduta».
+static func ha(percorso: String) -> bool:
+	return _cerca(percorso) != null
+
+## Cammina il percorso "a/b/c" nei dati. null se non c'e'.
+static func _cerca(percorso: String) -> Variant:
 	if _dati.is_empty():
 		usa(PREDEFINITA)
 	var nodo: Variant = _dati
 	for pezzo in percorso.split("/"):
 		if typeof(nodo) != TYPE_DICTIONARY or not nodo.has(pezzo):
-			push_warning("Testi: chiave mancante '%s'" % percorso)
-			return percorso
+			return null
 		nodo = nodo[pezzo]
-	var testo := String(nodo)
-	return testo % argomenti if not argomenti.is_empty() else testo
+	return nodo
 
 static func codice() -> String:
 	if _dati.is_empty():

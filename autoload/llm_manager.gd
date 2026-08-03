@@ -544,6 +544,11 @@ func narrazione_e_spunti(contesto: Dictionary, seed: int = 0) -> Dictionary:
 func narrazione_omero(contesto: Dictionary, seed: int = 0) -> String:
 	if mock_mode:
 		await get_tree().process_frame
+		# Il CONGEDO in mock ritorna "": chi chiama usa il commiato scritto nei dati, che
+		# non e' un ripiego di fortuna ma il testo definitivo per il motore simulato. Stessa
+		# regola degli spunti — il finto non inventa contenuti, li lascia ai dati.
+		if contesto.has("congedo"):
+			return ""
 		return _mock.narrazione_omero(contesto)
 	_reg("→ Omero narra…")
 	var t0 := Time.get_ticks_msec()

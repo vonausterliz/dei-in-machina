@@ -7,7 +7,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "2.28"
+const VERSIONE := "2.29"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -766,6 +766,10 @@ func _on_agisci() -> void:
 		if esito["esito"] == "itaca":
 			_narrazione.append_text("\n[b][color=%s]%s[/color][/b]\n" % [C_VERDIGRIS.to_html(), Testi.s("gioco/vittoria")])
 		else:
+			# IL CONGEDO PRIMA DELL'ETICHETTA. Chi ha giocato venti turni con la voce di un
+			# aedo non merita di essere congedato da «— FINE: morte —»: l'ultima cosa che si
+			# legge e' quella che resta. L'etichetta viene dopo, piccola, come una lapide.
+			_congedo(String(esito.get("congedo", "")))
 			_narrazione.append_text("\n[b][color=%s]%s[/color][/b]\n" % [C_OXBLOOD.to_html(), Testi.s("gioco/fine", [esito["esito"]])])
 	else:
 		# Gli spunti arrivano gia' insieme alla narrazione: nessuna seconda chiamata.
@@ -855,7 +859,19 @@ func _avviso(classe: String) -> String:
 			return "[b][color=%s]%s[/color][/b]\n\n" % [chiaro, Testi.s("avvisi/smarrimento")]
 		"follia":
 			return "[b][color=%s]%s[/color][/b]\n\n" % [chiaro, Testi.s("avvisi/follia")]
+		"prigionia":
+			# L'isola che trattiene: stesso canale delle ammonizioni, perche' per chi gioca
+			# e' la stessa specie di richiamo — «cosi' non torni piu'».
+			return "[b][color=%s]%s[/color][/b]\n\n" % [chiaro, Testi.s("avvisi/prigionia")]
 	return ""
+
+## L'ULTIMA VOCE. Staccata, in corsivo, con del respiro attorno: e' un epitaffio, non
+## l'ennesimo paragrafo del turno.
+func _congedo(testo: String) -> void:
+	if testo.strip_edges() == "":
+		return
+	_narrazione.append_text("\n[color=%s]· · ·[/color]\n\n[i][color=%s]%s[/color][/i]\n" % [
+		C_GOLD.to_html(), C_BONE.to_html(), testo.strip_edges()])
 
 var _stat_prec := {}  # valori del turno prima: per mostrare di quanto sono cambiati
 

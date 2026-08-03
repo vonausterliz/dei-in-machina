@@ -22,9 +22,13 @@
     "soglia_hybris": 50
   },
   "ammonizione": {
-    "_nota": "Scala diegetica dell'input fuori-mondo: richiamo -> smarrimento -> follia.",
+    "_nota": "Scala diegetica dell'input fuori-mondo: richiamo -> smarrimento -> follia, e la follia UCCIDE (esito 'morte').",
     "calo_smarrimento": 8,
     "calo_follia": 100
+  },
+  "prigionia": {
+    "_nota": "Ogigia. Quanti avvisi prima di restarci per sempre; dopo quanti turni di grazia comincino sta in episodi.json (trattiene_dopo_turni), perche' e' una proprieta' della tappa.",
+    "avvisi": 3
   },
   "memoria": {
     "_nota": "Ogni quanti turni si aggiorna il riassunto rotolante (una chiamata LLM in piu').",

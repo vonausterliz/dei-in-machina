@@ -20,6 +20,11 @@ var spunti_di_riserva: Array = []
 var emette_su_tag: Dictionary = {}
 var avanza_su_tag: Variant = null
 var turni_massimi: int = 0
+## Turni di grazia prima che la tappa cominci a TRATTENERE (0 = non trattiene).
+## Ogigia e' l'unica: «restare per sempre» e' il suo pericolo, e con turni_massimi la nave
+## ripartiva da sola — non esisteva il modo di restare, e la sconfitta `prigionia_eterna`
+## non poteva accadere. Chi indugia oltre la soglia viene ammonito, e poi resta li'.
+var trattiene_dopo_turni: int = 0
 
 static func from_dict(d: Dictionary) -> Episodio:
 	var e := Episodio.new()
@@ -45,6 +50,7 @@ static func from_dict(d: Dictionary) -> Episodio:
 	e.emette_su_tag = d.get("emette_su_tag", {})
 	e.avanza_su_tag = d.get("avanza_su_tag", null)
 	e.turni_massimi = int(d.get("turni_massimi", 0))
+	e.trattiene_dopo_turni = int(d.get("trattiene_dopo_turni", 0))
 	return e
 
 static func _stringhe_di(sorgente: Array) -> Array[String]:

@@ -166,6 +166,7 @@
     "soglia": 3,
     "turni_puliti": 0,
     "decadimento_ogni": 3,
+    "prigionia": 0,
     "ultimo_richiamo": {
       "turno": 8,
       "input": "prendo un aereo",

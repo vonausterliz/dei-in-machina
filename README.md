@@ -15,4 +15,4 @@ attirato, e come. Godot 4 + GDScript.
 4. [docs/architettura_dettaglio.md](docs/architettura_dettaglio.md) — il **come**: componenti, agenti, attivazione degli dèi, formazione della risposta
 5. [STATO_LAVORI.md](STATO_LAVORI.md) — a che punto siamo; tienilo aggiornato
 
-`./avvia.sh test` esegue la suite (269 test).
+`./avvia.sh test` esegue la suite (285 test).

@@ -66,14 +66,19 @@ func test_secondo_e_smarrimento_cala_animo():
 	assert_eq(GameManager.stato.ammonizioni["contatore"], 2)
 	assert_lt(GameManager.stato.ulisse["stat"]["animo"], 50, "lo smarrimento fa calare l'animo")
 
-func test_terzo_e_follia_game_over():
+## LA FOLLIA UCCIDE. Prima l'esito si chiamava "follia" e la partita finiva li': ma la
+## follia e' la CAUSA, non il finale. Chi perde la ragione per l'empieta' reiterata muore —
+## e' cosi' che `morte`, dichiarata fra gli esiti fin dal design e mai raggiungibile da
+## nessuna riga di codice, diventa un finale vero.
+## L'ammonizione resta "follia": e' la diagnosi, e serve a spiegare di cosa si e' morti.
+func test_terzo_e_follia_porta_alla_morte():
 	await GameManager.esegui_turno(FUORI)
 	await GameManager.esegui_turno(FUORI)
 	var esito := await GameManager.esegui_turno(FUORI)
-	assert_eq(esito["esito"], "follia")
-	assert_eq(esito["voce"]["ammonizione"], "follia")
+	assert_eq(esito["esito"], "morte", "la follia non e' il finale: e' cio' che uccide")
+	assert_eq(esito["voce"]["ammonizione"], "follia", "la causa resta leggibile")
 	assert_eq(GameManager.stato.stato, "finita")
-	assert_eq(GameManager.stato.esito, "follia")
+	assert_eq(GameManager.stato.esito, "morte")
 
 func test_decadimento_torna_sensato():
 	await GameManager.esegui_turno(FUORI)  # contatore 1
