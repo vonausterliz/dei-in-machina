@@ -117,7 +117,15 @@
     "prova_ok_non_elencato": "✓ «%s» risponde (%d ms). Non compare nell'elenco del provider, ma genera: succede con gli alias tipo *-latest. Va bene così.",
     "prova_irraggiungibile": "✗ Non raggiungo %s — %s\nControlla la rete; se hai acceso il Gateway, avvialo con llm_gateway/gateway.sh start.",
     "prova_non_genera": "✗ «%s» non genera — %s\nDi solito il provider l'ha ritirato (continuando a elencarlo) o manca la chiave. Il menu «Modello» qui sopra ha appena ricevuto l'elenco vero: scegline un altro.",
-    "motore_acceso": "Motore acceso: da adesso rispondono gli dèi veri."
+    "motore_acceso": "Motore acceso: da adesso rispondono gli dèi veri.",
+    "tab_modelli": "Modelli",
+    "tab_costi": "Costi",
+    "profilo": "Profilo",
+    "profilo_nota": "Quali limiti nati per risparmiare chiamate al modello restano accesi. I due predefiniti non si modificano: sono il riferimento con cui il gioco è stato tarato.",
+    "nuovo_profilo": "Crea da questo…",
+    "nome_nuovo_profilo": "Nome del nuovo profilo",
+    "cancella_profilo": "Cancella",
+    "profilo_bloccato": "Profilo predefinito: per modificarlo, creane una copia."
   },
   "ciurma": {
     "titolo": "Ciurma · i tuoi compagni",

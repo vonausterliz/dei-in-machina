@@ -38,6 +38,9 @@ var _opt_modello: OptionButton
 var _chk_gateway: CheckBox
 var _btn_prova: Button
 var _stato: Label
+var _costi_box: VBoxContainer
+var _dlg_nome: AcceptDialog
+var _campo_nome: LineEdit
 
 func _init() -> void:
 	title = Testi.s("finestre/impostazioni_titolo")
@@ -57,11 +60,17 @@ func _ready() -> void:
 	for lato in ["left", "top", "right", "bottom"]:
 		margine.add_theme_constant_override("margin_" + lato, 18)
 	add_child(margine)
+	# Due schede: i modelli (chi parla) e i costi (quanto lo si fa parlare). Sono due
+	# domande diverse, e mescolarle in un'unica colonna le rendeva entrambe piu' confuse.
+	var schede := TabContainer.new()
+	schede.set_anchors_preset(Control.PRESET_FULL_RECT)
+	margine.add_child(schede)
+
 	# Scorrevole: cosi' il contenuto resta raggiungibile anche a finestra piccola.
 	var scorri := ScrollContainer.new()
-	scorri.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scorri.name = Testi.s("impostazioni/tab_modelli")
 	scorri.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	margine.add_child(scorri)
+	schede.add_child(scorri)
 	var v := VBoxContainer.new()
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.add_theme_constant_override("separation", 14)
@@ -176,9 +185,127 @@ func _ready() -> void:
 	chiudi.pressed.connect(hide)
 	azioni.add_child(chiudi)
 
+	_scheda_costi(schede)
 	_sincronizza()
 
 # --- costruzione minuta ---
+
+## LA SCHEDA DEI COSTI. Il pannello si costruisce dai DESCRITTORI dichiarati in
+## data/profili_costo.json: aggiungere un limite non richiede di toccare l'interfaccia.
+func _scheda_costi(schede: TabContainer) -> void:
+	var scorri := ScrollContainer.new()
+	scorri.name = Testi.s("impostazioni/tab_costi")
+	scorri.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	schede.add_child(scorri)
+	_costi_box = VBoxContainer.new()
+	_costi_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_costi_box.add_theme_constant_override("separation", 12)
+	scorri.add_child(_costi_box)
+	_ridisegna_costi()
+
+func _ridisegna_costi() -> void:
+	for c in _costi_box.get_children():
+		_costi_box.remove_child(c)
+		c.queue_free()
+
+	_costi_box.add_child(_etichetta(Testi.s("impostazioni/profilo_nota"), 12, C_BONE_DIM))
+	var riga := HBoxContainer.new()
+	riga.add_theme_constant_override("separation", 10)
+	_costi_box.add_child(riga)
+	riga.add_child(_etichetta(Testi.s("impostazioni/profilo"), 13, C_BONE_DIM))
+
+	var profili := Costi.profili()
+	var opt := OptionButton.new()
+	for i in profili.size():
+		opt.add_item(String(profili[i]["nome"]), i)
+		if String(profili[i]["id"]) == Costi.attivo():
+			opt.select(i)
+	opt.item_selected.connect(func(i):
+		Costi.usa(String(profili[i]["id"]))
+		_ridisegna_costi())
+	riga.add_child(opt)
+
+	var attivo := Costi.get_profilo(Costi.attivo())
+	var bloccato := bool(attivo.get("predefinito", true))
+
+	var crea := Button.new()
+	crea.text = Testi.s("impostazioni/nuovo_profilo")
+	crea.pressed.connect(_chiedi_nome_profilo)
+	riga.add_child(crea)
+
+	if not bloccato:
+		var togli := Button.new()
+		togli.text = Testi.s("impostazioni/cancella_profilo")
+		togli.add_theme_color_override("font_color", C_OXBLOOD)
+		togli.pressed.connect(func():
+			Costi.cancella(String(attivo["id"]))
+			_ridisegna_costi())
+		riga.add_child(togli)
+
+	var descr := String(attivo.get("descrizione", ""))
+	if descr != "":
+		var d := _etichetta(descr, 12, C_BONE_DIM)
+		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		d.custom_minimum_size = Vector2(560, 0)
+		_costi_box.add_child(d)
+	if bloccato:
+		_costi_box.add_child(_etichetta(Testi.s("impostazioni/profilo_bloccato"), 12, C_GOLD))
+	_costi_box.add_child(_separatore())
+
+	for chiave in Costi.descrittori():
+		_costi_box.add_child(_riga_limite(String(chiave), Costi.descrittori()[chiave], bloccato))
+
+func _riga_limite(chiave: String, d: Dictionary, bloccato: bool) -> Control:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 2)
+	var riga := HBoxContainer.new()
+	riga.add_theme_constant_override("separation", 10)
+	box.add_child(riga)
+	var id_profilo := Costi.attivo()
+
+	if String(d.get("tipo", "")) == "booleano":
+		var chk := CheckBox.new()
+		chk.text = String(d.get("etichetta", chiave))
+		chk.button_pressed = Costi.acceso(chiave)
+		chk.disabled = bloccato
+		chk.toggled.connect(func(premuto):
+			Costi.imposta(id_profilo, chiave, premuto))
+		riga.add_child(chk)
+	else:
+		riga.add_child(_etichetta(String(d.get("etichetta", chiave)), 13, C_BONE))
+		var sp := SpinBox.new()
+		sp.min_value = int(d.get("min", 0))
+		sp.max_value = int(d.get("max", 99))
+		sp.value = Costi.limite(chiave)
+		sp.editable = not bloccato
+		sp.value_changed.connect(func(val):
+			Costi.imposta(id_profilo, chiave, int(val)))
+		riga.add_child(sp)
+
+	var aiuto := String(d.get("aiuto", ""))
+	if aiuto != "":
+		var a := _etichetta(aiuto, 11, C_BONE_DIM)
+		a.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		a.custom_minimum_size = Vector2(560, 0)
+		box.add_child(a)
+	return box
+
+## Creare un profilo parte SEMPRE da uno esistente: si modifica, non si compila da zero.
+func _chiedi_nome_profilo() -> void:
+	if _dlg_nome == null:
+		_dlg_nome = AcceptDialog.new()
+		_dlg_nome.title = Testi.s("impostazioni/nome_nuovo_profilo")
+		_campo_nome = LineEdit.new()
+		_campo_nome.custom_minimum_size = Vector2(280, 0)
+		_dlg_nome.add_child(_campo_nome)
+		_dlg_nome.confirmed.connect(func():
+			var id := Costi.crea(_campo_nome.text, Costi.attivo())
+			if id != "":
+				Costi.usa(id)
+			_ridisegna_costi())
+		add_child(_dlg_nome)
+	_campo_nome.text = ""
+	_dlg_nome.popup_centered()
 
 func _etichetta(testo: String, dim: int, col: Color) -> Label:
 	var l := Label.new()

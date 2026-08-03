@@ -126,12 +126,14 @@ func _nome_tappa_corrente() -> String:
 
 ## Ogni quanti turni si aggiorna il riassunto rotolante. Non a ogni turno: sarebbe una
 ## chiamata LLM in piu' sempre. Cosi' la memoria costa poco e resta a dimensione costante.
-@onready var _CRONACA_OGNI: int = Bilanciamento.intero("memoria/cronaca_ogni", 4)
+## Dal profilo di costo (era in bilanciamento.json, che pero' e' la taratura di GIOCO).
+func _cronaca_ogni() -> int:
+	return maxi(1, Costi.limite("cronaca_ogni", 4))
 
 ## Aggiorna la cronaca (memoria della vicenda) se sono passati abbastanza turni. Prende i
 ## fatti NON ancora riassunti da storico_olimpo (azione + cosa e' seguito).
 func _aggiorna_cronaca_se_serve() -> void:
-	if stato.turno - stato.cronaca_turno < _CRONACA_OGNI:
+	if stato.turno - stato.cronaca_turno < _cronaca_ogni():
 		return
 	var fatti: Array = []
 	for v in stato.storico_olimpo:
@@ -354,11 +356,18 @@ func esegui_turno(input_testo: String, eventi: Array = [], rischio: bool = false
 	# dalla scena che ha appena narrato, e cosi' costano zero.
 	var spunti: Array = []
 	if in_mondo:
-		var r: Dictionary = await LLMManager.narrazione_e_spunti(
-			_contesto_omero(envelope, input_testo, svegli, verdetto, delta, impronta))
+		var ctx := _contesto_omero(envelope, input_testo, svegli, verdetto, delta, impronta)
+		var r: Dictionary = await LLMManager.narrazione_e_spunti(ctx)
 		narrazione = String(r.get("narrazione", ""))
 		spunti = r.get("spunti", [])
 		_ultima_narrazione = narrazione  # per la continuita' al turno successivo
+		# Profilo senza vincoli: gli appigli si chiedono a parte, con un prompt dedicato che
+		# ha la scena appena narrata. Costa una chiamata in piu' per turno.
+		if Costi.acceso("spunti_separati"):
+			ctx["narrazione"] = narrazione
+			var sp: Array = await LLMManager.suggerisci(ctx)
+			if not sp.is_empty():
+				spunti = sp
 	# Si ricorda cosa si e' offerto: al turno dopo non lo si potra' rifiutare.
 	ricorda_spunti(spunti)
 
@@ -429,7 +438,13 @@ const _REGISTRI_BENIGNI := ["aiuto", "segno"]
 ##   e verdetto di Zeus (Arbitro LLM). Altrimenti verdetto deterministico.
 ## Quanti dèi possono ribattere in un turno. Ogni replica e' una chiamata: il dialogo
 ## dev'essere una conversazione, non un costo che cresce con gli dèi in campo.
+## Il tetto vive nel PROFILO DI COSTO, non piu' come costante: chi gioca su un piano a
+## pagamento non ha ragione di subirlo. Resta una costante come ripiego e come riferimento
+## del valore con cui il gioco e' stato tarato.
 const MAX_REPLICHE := 2
+
+func max_repliche() -> int:
+	return Costi.limite("max_repliche", MAX_REPLICHE)
 
 func _delibera(svegli: Array, envelope: Dictionary) -> Dictionary:
 	var proposte := await _raccogli_proposte(svegli, envelope, [])
@@ -484,7 +499,7 @@ func _repliche(attive: Array, envelope: Dictionary) -> Array:
 	var out: Array = []
 	for i in attive.size():
 		var p: Dictionary = attive[i]
-		if i >= MAX_REPLICHE:
+		if i >= max_repliche():
 			out.append(p)
 			continue
 		var id: String = p.get("dio", "")
@@ -587,7 +602,7 @@ static func forza_con_rischio(intensita: int, rischio: bool) -> int:
 ## La salvaguardia deterministica (i marcatori) NON si scavalca: se qualcuno mettesse un
 ## anacronismo vero fra gli spunti, quello resta fuori.
 func _vaglia_plausibilita(envelope: Dictionary, input_testo: String) -> void:
-	if gia_proposto(input_testo):
+	if gia_proposto(input_testo) and not Costi.acceso("vaglia_sempre"):
 		if not _validazione.e_anacronistico(input_testo):
 			envelope["plausibilita"] = "in_mondo"
 			return
@@ -732,6 +747,8 @@ func _risolvi_invocazione(envelope: Dictionary, input_testo: String) -> void:
 
 ## Vero se c'e' motivo di sospettare un'invocazione (per gate della chiamata LLM ibrida).
 func _indizio_invocazione(envelope: Dictionary, input_testo: String) -> bool:
+	if Costi.acceso("ricognizione_sempre"):
+		return true   # profilo senza vincoli: si cerca comunque, anche senza indizi
 	if _ha_intento_invocazione(envelope):
 		return true
 	if envelope.get("tipo", "") == "rituale":
@@ -919,7 +936,12 @@ func _fa_parlare_la_ciurma(input_testo: String, narrazione: String, alla_ciurma:
 		for id in interpellati:
 			parlanti.append(ciurma.get_compagno(id))
 	else:
-		parlanti.append(vivi[(giro if giro >= 0 else stato.turno) % vivi.size()])
+		# Quanti parlano SPONTANEAMENTE: dal profilo di costo. Chi viene chiamato per nome
+		# risponde comunque, sempre — quella valvola e' in mano al giocatore.
+		var quanti := clampi(Costi.limite("compagni_per_turno", 1), 1, vivi.size())
+		var da := (giro if giro >= 0 else stato.turno)
+		for k in quanti:
+			parlanti.append(vivi[(da + k) % vivi.size()])
 	var contesto := {
 		"scena": scena_corrente(),
 		"cronaca": stato.cronaca,

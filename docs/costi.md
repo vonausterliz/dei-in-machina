@@ -61,7 +61,49 @@ profilo «senza vincoli»:
 
 ---
 
-## Domande aperte sul profilo di costo
+## Le decisioni prese (3 agosto 2026) e cosa è stato costruito
+
+**I 💰 entrano nel profilo. I ⚖️ si alzano, ma restano configurabili da Settings. I beat non
+si toccano.**
+
+Costruito: `data/profili_costo.json` (i due preset, non modificabili), `scripts/data/costi.gd`
+(`Costi.limite()` / `Costi.acceso()`), e una **scheda «Costi»** in Impostazioni che si
+disegna dai descrittori — aggiungere un limite ai dati lo fa comparire nel pannello da solo,
+senza toccare l'interfaccia. I profili creati dall'utente vivono nelle sue preferenze; si
+crea sempre **a partire da uno esistente**, così si modifica invece di compilare da zero.
+
+### I sette limiti collegati
+
+| Limite | Frugale | Senza vincoli |
+|---|---:|---:|
+| `cronaca_ogni` (C1) | 4 | 1 |
+| `ricordi_per_dio` (C9) | 5 | 12 |
+| `spunti_separati` (C3) | no | sì |
+| `vaglia_sempre` (C4) | no | sì |
+| `ricognizione_sempre` (C6) | no | sì |
+| `max_repliche` (D1) ⚖️ | 2 | **4** (alzato, non tolto) |
+| `compagni_per_turno` (D2) ⚖️ | 1 | **2** (alzato, non tolto) |
+
+### I quattro che NON sono diventati knob, e perché
+
+Un interruttore che non fa niente è peggio di un interruttore assente. Questi quattro non
+sono commutabili sul codice di oggi:
+
+- **C2** (condensato della memoria scritto dall'LLM) — non esiste il percorso: servirebbe un
+  agente nuovo. È una funzionalità da costruire, non un limite da togliere.
+- **C5** (Omero anche fuori-mondo) — il percorso fu *rimosso* perché non funzionava: al
+  modello si chiedeva di «non narrare un gesto impossibile» e lo narrava lo stesso. Lo stato
+  «acceso» è noto-cattivo, e offrirlo sarebbe offrire un difetto.
+- **C7** (proposte in parallelo) — è L-11 nei requisiti: vuole un layer a segnali, perché
+  GDScript non consente coroutine non-`await`. Lavoro a sé.
+- **C8** (cap della cronaca a ~120 parole) — vive nel testo di `prompts/cronista_system.txt`,
+  non nel codice. Si cambia editando il prompt.
+- **D3** (filtro di ritmo) — non è mai stato implementato: è G-15, un requisito aperto, e
+  *risparmierebbe* chiamate invece di costarne.
+
+---
+
+## Le domande da cui è partito tutto (risposte sopra)
 
 **(a) Cosa deve contenere davvero il profilo «senza vincoli»?**
 La mia proposta: toglie tutti i 💰 (C1–C9), **alza** i ⚖️ senza rimuoverli (`MAX_REPLICHE`

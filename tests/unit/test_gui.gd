@@ -150,3 +150,20 @@ func test_la_partita_si_salva_e_si_riprende_dalla_gui():
 	assert_string_contains(ui._narrazione.get_parsed_text(), "ripresa")
 	# Il diario non si appende: si RIDISEGNA per intero, o riprendere darebbe pagine bianche.
 	assert_eq(ui._diario_box.get_child_count(), GameManager.stato.diario.size())
+
+## La scheda dei COSTI in Settings. I limiti nati per risparmiare chiamate ora si vedono e
+## si scelgono: prima erano costanti sparse nel codice, e chi giocava con un piano a
+## pagamento li subiva senza modo di accorgersene.
+func test_settings_ha_la_scheda_dei_costi():
+	var f := FinestraImpostazioni.new()
+	add_child_autofree(f)
+	await wait_frames(2)
+	var schede: TabContainer = null
+	for n in f.find_children("*", "TabContainer", true, false):
+		schede = n
+	assert_not_null(schede, "Settings dev'essere a schede")
+	assert_eq(schede.get_tab_count(), 2, "modelli e costi")
+	assert_not_null(f._costi_box, "il pannello dei costi dev'essere costruito")
+	# Un controllo per ogni limite dichiarato: se un limite si aggiunge ai dati, il pannello
+	# lo mostra da solo — non c'e' un elenco da tenere allineato a mano.
+	assert_gte(f._costi_box.get_child_count(), Costi.descrittori().size())

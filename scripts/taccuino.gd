@@ -21,7 +21,10 @@ func _init(stato: StatoPartita) -> void:
 ## si condensano in `memoria_vecchia`. Cosi' il prompt resta a dimensione costante — un
 ## taccuino che cresce all'infinito lo paga l'utente a ogni turno — ma un dio non
 ## dimentica: una potenza millenaria che perde il conto dei propri torti non e' credibile.
-var ricordi_per_dio: int = Bilanciamento.intero("memoria/ricordi_per_dio", 5)
+## Dal profilo di costo: chi gioca su un piano a pagamento puo' permettersi un taccuino
+## piu' lungo (piu' prompt, nessuna chiamata in piu').
+func ricordi_per_dio() -> int:
+	return maxi(1, Costi.limite("ricordi_per_dio", 5))
 
 ## Il taccuino privato degli dei. Ognuno annota cosa ha voluto e come e' finita: se ha
 ## prevalso, se e' stato respinto, se ha agito di nascosto dopo il no di Zeus.
@@ -64,7 +67,7 @@ func _ricorda(id: String, ricordo: Dictionary) -> void:
 	var reg: Dictionary = _stato.registro_divino[id]
 	var memoria: Array = reg.get("memoria", [])
 	memoria.append(ricordo)
-	while memoria.size() > ricordi_per_dio:
+	while memoria.size() > ricordi_per_dio():
 		_condensa(reg, memoria.pop_front())   # non si butta: si sedimenta
 	reg["memoria"] = memoria
 

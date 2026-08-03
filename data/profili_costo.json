@@ -1,0 +1,74 @@
+{
+  "_nota": "PROFILI DI COSTO. Molte scelte del gioco non sono state prese perche' rendevano il gioco migliore, ma perche' una chiamata LLM in piu' costava troppo sul tier gratuito (dove il vincolo non e' il prezzo ma il pavimento richieste/secondo). Qui si decide quali di quei limiti tenere. Inventario ragionato e classificazione: docs/costi.md.",
+  "_nota_dove": "Questi sono limiti di COSTO. La taratura di GIOCO (delta, coalizioni, soglie) resta in bilanciamento.json: una cosa sola in un posto solo.",
+  "_nota_utente": "I profili creati dall'utente NON stanno qui: vivono nelle sue preferenze (user://impostazioni.json). Questo file contiene i due predefiniti, che non si possono modificare ne' cancellare.",
+
+  "limiti": {
+    "cronaca_ogni": {
+      "tipo": "intero", "min": 1, "max": 12,
+      "etichetta": "Aggiorna la memoria della vicenda ogni N turni",
+      "aiuto": "1 = a ogni turno (memoria sempre fresca, +19 chiamate a partita)."
+    },
+    "ricordi_per_dio": {
+      "tipo": "intero", "min": 3, "max": 20,
+      "etichetta": "Ricordi tenuti per esteso, per ogni dio",
+      "aiuto": "Oltre questo si condensano. Piu' alto = prompt piu' lungo, nessuna chiamata in piu'."
+    },
+    "max_repliche": {
+      "tipo": "intero", "min": 0, "max": 6,
+      "etichetta": "Quanti dei possono ribattere in un turno",
+      "aiuto": "Ogni replica e' una chiamata. ATTENZIONE: oltre 4 la Vista Olimpo diventa un coro confuso — qui il limite non era solo di costo."
+    },
+    "compagni_per_turno": {
+      "tipo": "intero", "min": 1, "max": 6,
+      "etichetta": "Quanti compagni commentano spontaneamente",
+      "aiuto": "Vale solo per chi parla da se': se li chiami per nome rispondono comunque tutti."
+    },
+    "spunti_separati": {
+      "tipo": "booleano",
+      "etichetta": "Genera gli appigli con una chiamata dedicata",
+      "aiuto": "Spento, arrivano insieme alla narrazione di Omero e costano zero (+72 chiamate a partita se acceso)."
+    },
+    "vaglia_sempre": {
+      "tipo": "booleano",
+      "etichetta": "Vaglia la plausibilita' anche degli appigli offerti dal gioco",
+      "aiuto": "Su un testo scritto da Omero non c'e' nulla da vagliare: e' in-mondo per costruzione (+30 chiamate)."
+    },
+    "ricognizione_sempre": {
+      "tipo": "booleano",
+      "etichetta": "Cerca sempre col modello il dio invocato",
+      "aiuto": "Spento, parte solo con un indizio di preghiera. Acceso riconosce parafrasi piu' oscure (+68 chiamate)."
+    }
+  },
+
+  "profili": [
+    {
+      "id": "frugale",
+      "nome": "Frugale (tier gratuito)",
+      "descrizione": "I limiti con cui il gioco e' stato costruito e tarato. ~450 chiamate per una partita intera: ci sta nei piani gratuiti.",
+      "valori": {
+        "cronaca_ogni": 4,
+        "ricordi_per_dio": 5,
+        "max_repliche": 2,
+        "compagni_per_turno": 1,
+        "spunti_separati": false,
+        "vaglia_sempre": false,
+        "ricognizione_sempre": false
+      }
+    },
+    {
+      "id": "libero",
+      "nome": "Senza vincoli di costo",
+      "descrizione": "Toglie i limiti nati solo per risparmiare chiamate; ALZA — senza toglierli — i due che avevano anche una ragione narrativa. Circa il doppio delle chiamate, e turni sensibilmente piu' lenti.",
+      "valori": {
+        "cronaca_ogni": 1,
+        "ricordi_per_dio": 12,
+        "max_repliche": 4,
+        "compagni_per_turno": 2,
+        "spunti_separati": true,
+        "vaglia_sempre": true,
+        "ricognizione_sempre": true
+      }
+    }
+  ]
+}
