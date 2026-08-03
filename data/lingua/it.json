@@ -124,21 +124,6 @@
     "prega",
     "imploro"
   ],
-  "spunti_generici": [
-    {
-      "testo": "Osserva in silenzio, e aspetta il momento.",
-      "rischio": false
-    },
-    {
-      "testo": "Parla ai tuoi uomini e tienili saldi.",
-      "rischio": false
-    },
-    {
-      "testo": "Alza la voce e sfida apertamente la sorte.",
-      "rischio": true
-    }
-  ],
-  "_nota_spunti_generici": "Ripiego quando gli spunti veri mancano o vengono scartati. Devono valere OVUNQUE: i precedenti dicevano «piega ai remi e prosegui la rotta» e comparivano anche mentre Ulisse era chiuso nell'antro del Ciclope. Un ripiego che presuppone dove ti trovi non e' un ripiego.",
   "_nota_momenti": "Il momento del giorno avanza di uno a ogni turno e ricomincia: e' il battito che tiene insieme narrazione, Vista Olimpo e Ciurma da quando non si scrive piu' «turno N». Scandisce senza numerare, e Omero puo' usarlo nella prosa.",
   "momenti_del_giorno": [
     "all'alba",
@@ -146,5 +131,6 @@
     "a mezzogiorno",
     "verso sera",
     "nella notte"
-  ]
+  ],
+  "_nota_spunti": "Gli appigli generici sono stati TOLTI: tre frasi buone per ogni occasione non erano buone per nessuna («piega ai remi e prosegui la rotta» compariva anche chiusi nell'antro del Ciclope). Ogni tappa ha i propri, in data/episodi.json -> spunti_di_riserva. Se non ne resta nessuno non si inventa niente: il campo libero c'e' sempre."
 }

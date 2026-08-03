@@ -59,6 +59,8 @@ static func momenti_del_giorno() -> Array:
 	var m: Array = _dati.get("momenti_del_giorno", [])
 	return m if not m.is_empty() else ["all'alba", "a mezzogiorno", "nella notte"]
 
-static func spunti_generici() -> Array:
+## Vero se la lingua dichiara questa voce. Serve ai test per sorvegliare cio' che NON
+## deve esserci piu' (gli appigli generici).
+static func ha(chiave: String) -> bool:
 	_assicura()
-	return _dati.get("spunti_generici", []).duplicate(true)
+	return _dati.has(chiave)

@@ -21,11 +21,11 @@ func dei_attivi() -> Array[Dio]:
 ## RISVEGLIO: quali dei si svegliano dato l'envelope + eventi di mondo (design:
 ## il ledger e il risveglio sono responsabilita' del PantheonManager). La regola
 ## deterministica vive su Pantheon (dato) per essere testabile in isolamento.
-func risveglio(envelope: Dictionary, eventi: Array, episodio_corrente: String) -> Array[String]:
-	return pantheon.risveglio(envelope, eventi, episodio_corrente) if pantheon else []
+func risveglio(envelope: Dictionary, eventi: Array, episodio_corrente: String, accaduti: Array = []) -> Array[String]:
+	return pantheon.risveglio(envelope, eventi, episodio_corrente, accaduti) if pantheon else []
 
-func eleggibili(episodio_corrente: String) -> Array[String]:
-	return pantheon.eleggibili(episodio_corrente) if pantheon else []
+func eleggibili(episodio_corrente: String, accaduti: Array = []) -> Array[String]:
+	return pantheon.eleggibili(episodio_corrente, accaduti) if pantheon else []
 
 ## Risolve un riferimento (anche allusivo) a un dio nel testo -> id, o "".
 func risolvi_invocato(testo: String) -> String:

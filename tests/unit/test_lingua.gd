@@ -7,7 +7,9 @@ func test_dati_caricati_dal_json():
 	Lingua.usa("it")
 	assert_gt(Lingua.marcatori_anacronismo().size(), 50, "i marcatori vengono dal file")
 	assert_gt(Lingua.cue_invocazione().size(), 10)
-	assert_eq(Lingua.spunti_generici().size(), 3)
+	# Gli spunti generici sono stati TOLTI: valevano ovunque e quindi non valevano da
+	# nessuna parte. Ogni tappa ha i suoi (episodi.json -> spunti_di_riserva).
+	assert_false(Lingua.ha("spunti_generici"), "niente appigli buoni per ogni occasione")
 
 func test_la_regola_usa_i_dati_esterni():
 	# Il backstop dell'anacronismo deve leggere la lista dal file, non da una costante.

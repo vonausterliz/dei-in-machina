@@ -41,6 +41,10 @@ var parole_ai_compagni: Array[String] = []
 ## GameManager.gia_proposto).
 var spunti_proposti: Array[String] = []
 
+## Gli eventi di mondo gia' ACCADUTI, per sempre. Ci si appoggia chi dorme finche' non
+## succede qualcosa (Poseidone, fino all'accecamento del figlio).
+var eventi_accaduti: Array[String] = []
+
 ## Il condensato di partenza: nessun ricordo antico, nessun conto aperto.
 static func memoria_vuota() -> Dictionary:
 	return {
@@ -151,6 +155,8 @@ static func from_dict(d: Dictionary) -> StatoPartita:
 		s.parole_ai_compagni.append(String(p))
 	for p in d.get("spunti_proposti", []):
 		s.spunti_proposti.append(String(p))
+	for p in d.get("eventi_accaduti", []):
+		s.eventi_accaduti.append(String(p))
 	return s
 
 func to_dict() -> Dictionary:
@@ -180,6 +186,7 @@ func to_dict() -> Dictionary:
 		"cronaca_turno": cronaca_turno,
 		"parole_ai_compagni": parole_ai_compagni,
 		"spunti_proposti": spunti_proposti,
+		"eventi_accaduti": eventi_accaduti,
 	}
 
 func salva(path: String) -> bool:

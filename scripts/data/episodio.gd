@@ -16,6 +16,8 @@ var non_ancora: Array[String] = []
 ## Appigli su misura per la tappa, quando quelli generati vengono scartati. Meglio dei
 ## generici, che non sanno dove ti trovi ("piega ai remi" chiuso nell'antro del Ciclope).
 var spunti_di_riserva: Array = []
+## tag dell'azione -> evento che quel tag fa ACCADERE in questa tappa, per sempre.
+var emette_su_tag: Dictionary = {}
 var avanza_su_tag: Variant = null
 var turni_massimi: int = 0
 
@@ -40,6 +42,7 @@ static func from_dict(d: Dictionary) -> Episodio:
 	e.eventi_attivi = ev
 	e.non_ancora = _stringhe_di(d.get("non_ancora", []))
 	e.spunti_di_riserva = d.get("spunti_di_riserva", [])
+	e.emette_su_tag = d.get("emette_su_tag", {})
 	e.avanza_su_tag = d.get("avanza_su_tag", null)
 	e.turni_massimi = int(d.get("turni_massimi", 0))
 	return e

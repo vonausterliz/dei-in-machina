@@ -84,3 +84,17 @@ func test_due_beat_di_fila_cambiano_interlocutore():
 	var voci: Array = messaggi.filter(func(m): return String(m["autore"]) != "Ulisse")
 	assert_eq(voci.size(), 2, "hanno risposto in due")
 	assert_ne(voci[0]["autore"], voci[1]["autore"], "non risponde sempre lo stesso")
+
+## Ogni compagno deve avere il suo DIVIETO, come ce l'hanno gli dèi. E' la leva piu' forte
+## per tenere una voce in carattere: senza, Perimede — che «esegue senza discutere» — si e'
+## trovato a proporre alternative da consiglio di guerra.
+func test_ogni_compagno_ha_il_suo_anti_pattern():
+	for c in GameManager.ciurma.compagni:
+		assert_false(String(c.get("anti_pattern", "")).is_empty(),
+			"%s deve sapere cosa non direbbe mai" % c.get("nome", "?"))
+
+func test_l_anti_pattern_entra_nel_prompt_del_compagno():
+	var c: Dictionary = GameManager.ciurma.get_compagno("perimede")
+	var sp := Compagno.new().system_prompt(c)
+	assert_string_contains(sp, String(c["anti_pattern"]))
+	assert_false(sp.contains("{{ANTI_PATTERN}}"), "il segnaposto va sostituito")

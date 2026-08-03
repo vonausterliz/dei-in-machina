@@ -509,7 +509,7 @@ func verdetto_arbitro(proposte: Array, seed: int = 0) -> Dictionary:
 ## fallback) usa spunti generici. Sanitizza: nessuno spunto puo' nominare un dio.
 func suggerisci(contesto: Dictionary = {}, seed: int = 0) -> Array:
 	if mock_mode:
-		return Lingua.spunti_generici()
+		return []   # niente appigli inventati: chi chiama usa quelli della tappa
 	_reg("→ Suggeritore: 3 spunti…")
 	var t0 := Time.get_ticks_msec()
 	var sp := await _suggeritore.suggerisci(contesto, _client.chat, seed)
@@ -517,7 +517,7 @@ func suggerisci(contesto: Dictionary = {}, seed: int = 0) -> Array:
 		if _narratore and _narratore.nomina_un_dio(s["testo"]):
 			s["testo"] = _narratore.redigi(s["testo"])  # invariante: mai un nome di dio
 	if sp.is_empty():
-		sp = Lingua.spunti_generici()
+		sp = []
 	_reg("← Suggeritore: %d spunti · %d ms" % [sp.size(), Time.get_ticks_msec() - t0])
 	return sp
 
@@ -528,7 +528,7 @@ func suggerisci(contesto: Dictionary = {}, seed: int = 0) -> Array:
 func narrazione_e_spunti(contesto: Dictionary, seed: int = 0) -> Dictionary:
 	if mock_mode:
 		await get_tree().process_frame
-		return {"narrazione": _mock.narrazione_omero(contesto), "spunti": Lingua.spunti_generici()}
+		return {"narrazione": _mock.narrazione_omero(contesto), "spunti": []}
 	_reg("→ Omero narra (e propone gli spunti)…")
 	var t0 := Time.get_ticks_msec()
 	var r := await _narratore.narra_e_suggerisci(contesto, _client.chat, seed)
@@ -537,7 +537,7 @@ func narrazione_e_spunti(contesto: Dictionary, seed: int = 0) -> Dictionary:
 		if _narratore.nomina_un_dio(s["testo"]):
 			s["testo"] = _narratore.redigi(s["testo"])  # invariante: mai un nome di dio
 	if spunti.is_empty():
-		spunti = Lingua.spunti_generici()
+		spunti = []
 	_reg("← Omero + %d spunti · %d ms" % [spunti.size(), Time.get_ticks_msec() - t0])
 	return {"narrazione": String(r.get("narrazione", "")), "spunti": spunti}
 

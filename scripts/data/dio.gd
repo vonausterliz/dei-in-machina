@@ -21,6 +21,10 @@ var agenda: String = ""
 var antefatto: String = ""
 var trigger_azione: Array[String] = []
 var trigger_evento: Array[String] = []
+## Finche' questo evento non e' accaduto, il dio NON e' eleggibile: dorme. Poseidone lo
+## dichiarava a parole ("all'inizio dorme") senza che niente lo facesse, e si destava fra
+## i Ciconi a punire un saccheggio con cui non c'entra nulla.
+var dorme_finche: String = ""
 var impronta: String = ""
 var registri: Array[String] = []
 var dono_avvelenato: bool = false
@@ -48,6 +52,7 @@ static func from_dict(d: Dictionary) -> Dio:
 	dio.antefatto = d.get("antefatto", "")
 	dio.trigger_azione = _stringhe(d.get("trigger_azione", []))
 	dio.trigger_evento = _stringhe(d.get("trigger_evento", []))
+	dio.dorme_finche = d.get("dorme_finche", "")
 	dio.impronta = d.get("impronta", "")
 	dio.registri = _stringhe(d.get("registri", []))
 	dio.dono_avvelenato = d.get("dono_avvelenato", false)

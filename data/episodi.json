@@ -5,7 +5,8 @@
     "descrizione": "Le tappe del viaggio di Ulisse. Ordine canonico. Ogni tappa accende i suoi dei locali (per 'episodio' nel pantheon) e definisce come si avanza. 'eventi_attivi' sono condizioni di mondo vere finche' si e' nella tappa (le legge il risveglio). 'avanza_su_tag' = azione che fa progredire la storia; 'turni_massimi' = tetto oltre cui si avanza comunque (niente vicoli ciechi). Contenuti-seme: facili da tarare. Itaca e' la meta: arrivarci e' la vittoria.",
     "nota_avanzamento": "Assunzione MVP (il design lascia aperti gli obiettivi di tappa, sez. 12): si avanza quando compare 'avanza_su_tag' OPPURE al raggiungimento di 'turni_massimi'. Da raffinare episodio per episodio.",
     "_nota_mappa": "'mappa': posizione sulla carta, in coordinate 0..1 del riquadro di data/coste_mediterraneo.json. RICAVATE DA LONGITUDINE E LATITUDINE REALI (vedi tools/coste/converti_coste.py per la proiezione): prima erano tarate sul vecchio disegno a mano e le tappe cadevano nel posto sbagliato.",
-    "_nota_spunti": "'non_ancora': parole che NON possono comparire in uno spunto finche' in quella tappa la cosa non e' accaduta (all'isola di Eolo veniva proposto di aprire l'otre prima che Eolo lo desse). 'spunti_di_riserva': appigli su misura per la tappa, usati quando quelli generati vengono scartati — meglio dei generici, che non sanno dove ti trovi."
+    "_nota_spunti": "'non_ancora': parole che NON possono comparire in uno spunto finche', in quella tappa, la cosa non e' accaduta. 'spunti_di_riserva': gli appigli quando quelli generati vengono scartati — su misura per la tappa, perche' gli appigli generici sono stati tolti: valevano ovunque e quindi in nessun posto davvero.",
+    "_nota_eventi": "'emette_su_tag': in questa tappa, quel tag dell'azione fa ACCADERE quell'evento, per sempre. Nell'antro il vanto di Ulisse (gridare il proprio nome) chiama su di se' la vendetta paterna e sveglia Poseidone."
   },
   "episodi": [
     {
@@ -20,6 +21,20 @@
       "mappa": [
         0.7555,
         0.4023
+      ],
+      "spunti_di_riserva": [
+        {
+          "testo": "Da' l'ordine di sciogliere le vele.",
+          "rischio": false
+        },
+        {
+          "testo": "Guarda un'ultima volta la citta' che brucia.",
+          "rischio": false
+        },
+        {
+          "testo": "Grida ai tuoi il bottino da spartire.",
+          "rischio": true
+        }
       ]
     },
     {
@@ -34,6 +49,20 @@
       "mappa": [
         0.7477,
         0.3474
+      ],
+      "spunti_di_riserva": [
+        {
+          "testo": "Colpisci in fretta e riparti prima di sera.",
+          "rischio": true
+        },
+        {
+          "testo": "Trattieni gli uomini dal vino e dal saccheggio.",
+          "rischio": false
+        },
+        {
+          "testo": "Manda un araldo al re dei Ciconi.",
+          "rischio": false
+        }
       ]
     },
     {
@@ -48,6 +77,20 @@
       "mappa": [
         0.4068,
         0.7543
+      ],
+      "spunti_di_riserva": [
+        {
+          "testo": "Richiama a bordo chi ha assaggiato il frutto.",
+          "rischio": false
+        },
+        {
+          "testo": "Legalo ai banchi e riprendi il mare.",
+          "rischio": false
+        },
+        {
+          "testo": "Assaggia anche tu, per capire.",
+          "rischio": true
+        }
       ]
     },
     {
@@ -85,7 +128,10 @@
           "testo": "Offri al gigante il vino nero che hai portato.",
           "rischio": true
         }
-      ]
+      ],
+      "emette_su_tag": {
+        "vanto": "maledizione_di_polifemo"
+      }
     },
     {
       "id": "eolo",
@@ -132,6 +178,20 @@
       "mappa": [
         0.3682,
         0.3314
+      ],
+      "spunti_di_riserva": [
+        {
+          "testo": "Tieni la nave fuori dal porto chiuso.",
+          "rischio": false
+        },
+        {
+          "testo": "Manda due uomini in avanscoperta.",
+          "rischio": true
+        },
+        {
+          "testo": "Taglia gli ormeggi e fuggi remando.",
+          "rischio": false
+        }
       ]
     },
     {
@@ -179,6 +239,20 @@
       "mappa": [
         0.625,
         0.4429
+      ],
+      "spunti_di_riserva": [
+        {
+          "testo": "Versa il sangue nella fossa e attendi le ombre.",
+          "rischio": false
+        },
+        {
+          "testo": "Chiama per nome chi hai perduto.",
+          "rischio": true
+        },
+        {
+          "testo": "Chiedi all'indovino la via del ritorno.",
+          "rischio": false
+        }
       ]
     },
     {
@@ -193,6 +267,20 @@
       "mappa": [
         0.487,
         0.3669
+      ],
+      "spunti_di_riserva": [
+        {
+          "testo": "Tappa con la cera le orecchie dei compagni.",
+          "rischio": false
+        },
+        {
+          "testo": "Fatti legare all'albero e ascolta.",
+          "rischio": true
+        },
+        {
+          "testo": "Ordina di remare senza voltarsi.",
+          "rischio": false
+        }
       ]
     },
     {
@@ -209,6 +297,20 @@
       "mappa": [
         0.5143,
         0.5
+      ],
+      "spunti_di_riserva": [
+        {
+          "testo": "Stringi verso la rupe e accetta la perdita.",
+          "rischio": true
+        },
+        {
+          "testo": "Arma gli uomini e veglia sul ponte.",
+          "rischio": false
+        },
+        {
+          "testo": "Taci con la ciurma su cio' che vi aspetta.",
+          "rischio": false
+        }
       ]
     },
     {
@@ -256,6 +358,20 @@
       "mappa": [
         0.4832,
         0.6257
+      ],
+      "spunti_di_riserva": [
+        {
+          "testo": "Chiedi a Calipso di lasciarti partire.",
+          "rischio": true
+        },
+        {
+          "testo": "Siediti sulla riva e guarda il mare.",
+          "rischio": false
+        },
+        {
+          "testo": "Comincia a tagliare il legname per una zattera.",
+          "rischio": false
+        }
       ]
     },
     {
@@ -272,6 +388,20 @@
       "mappa": [
         0.5568,
         0.5714
+      ],
+      "spunti_di_riserva": [
+        {
+          "testo": "Aggrappati alla trave e non mollarla.",
+          "rischio": false
+        },
+        {
+          "testo": "Lasciati portare dalla corrente.",
+          "rischio": false
+        },
+        {
+          "testo": "Nuota verso la costa che intravedi.",
+          "rischio": true
+        }
       ]
     },
     {
@@ -286,6 +416,20 @@
       "mappa": [
         0.6118,
         0.4217
+      ],
+      "spunti_di_riserva": [
+        {
+          "testo": "Presentati come supplice ai Feaci.",
+          "rischio": false
+        },
+        {
+          "testo": "Taci il tuo nome ancora per un poco.",
+          "rischio": false
+        },
+        {
+          "testo": "Racconta il tuo viaggio alla corte.",
+          "rischio": true
+        }
       ]
     },
     {
@@ -300,6 +444,20 @@
       "mappa": [
         0.63,
         0.4897
+      ],
+      "spunti_di_riserva": [
+        {
+          "testo": "Bacia la terra e non farti riconoscere.",
+          "rischio": false
+        },
+        {
+          "testo": "Cerca chi ti e' rimasto fedele.",
+          "rischio": false
+        },
+        {
+          "testo": "Rivelati subito, a viso aperto.",
+          "rischio": true
+        }
       ]
     }
   ]

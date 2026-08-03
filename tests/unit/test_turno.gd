@@ -9,6 +9,9 @@ var _pantheon: Pantheon
 func before_each():
 	LLMManager.mock_mode = true
 	GameManager.nuova_partita(12345)
+	# Poseidone dorme finche' non gli accecano il figlio: questi turni lo vogliono desto,
+	# quindi si parte da dopo l'antro. Che prima dorma e' in test_dei_che_dormono.gd.
+	GameManager.stato.eventi_accaduti.append("maledizione_di_polifemo")
 	_pantheon = Pantheon.carica("res://data/pantheon.json")
 
 func test_turno_in_mondo_sveglia_e_registra():

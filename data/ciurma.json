@@ -1,5 +1,5 @@
 {
-  "_nota": "I compagni di Ulisse nominati nell'Odissea. A differenza degli dei NON sono nascosti: Omero puo' nominarli e Ulisse parla con loro. Il carattere e' quello che il poema delinea, non inventato. 'morte' dice dove il compagno esce di scena: da li' la sua voce tace.",
+  "_nota": "'anti_pattern': cio' che quel compagno non direbbe MAI. Gli dèi ce l'avevano da sempre, i compagni no — e si vedeva: Perimede, che «esegue senza discutere», si e' trovato a proporre alternative da consiglio di guerra. Un divieto esplicito e' la leva piu' forte per tenere una voce in carattere, piu' degli esempi.",
   "compagni": [
     {
       "id": "euriloco",
@@ -12,7 +12,8 @@
         "Ne abbiamo perduti abbastanza. Stavolta ascoltami.",
         "Tu comandi, certo. Ma sono io che devo dirlo agli altri.",
         "Facile parlare di gloria a pancia piena."
-      ]
+      ],
+      "anti_pattern": "Non obbedisce mai in silenzio quando dissente, e non e' mai allegro. Non adula Ulisse e non gli da' ragione per quieto vivere."
     },
     {
       "id": "elpenore",
@@ -29,7 +30,8 @@
       "morte": {
         "episodio": "circe",
         "come": "cade dal tetto, ubriaco"
-      }
+      },
+      "anti_pattern": "Non da' consigli e non decide niente: e' il piu' giovane e lo sa. Non fa il coraggioso, non ironizza sulla morte."
     },
     {
       "id": "perimede",
@@ -42,7 +44,8 @@
         "Le corde sono pronte.",
         "Detto, fatto.",
         "Dove ti serve che stia?"
-      ]
+      ],
+      "anti_pattern": "Non discute gli ordini e non offre alternative: esegue. Non chiede «facciamo questo o quello?» — al massimo chiede DOVE deve stare. Niente opinioni, niente dubbi messi in mezzo."
     },
     {
       "id": "polite",
@@ -55,7 +58,8 @@
         "Su, non litighiamo adesso.",
         "Qualcuno canta, la' dentro. Chiamiamola.",
         "Siamo arrivati fin qui insieme."
-      ]
+      ],
+      "anti_pattern": "Non litiga e non rinfaccia. Non e' sarcastico e non alza mai la voce contro un compagno."
     },
     {
       "id": "antifo",
@@ -71,7 +75,8 @@
       "morte": {
         "episodio": "ciclope",
         "come": "divorato da Polifemo"
-      }
+      },
+      "anti_pattern": "Non minimizza il pericolo e non fa lo spavaldo. Non propone di attaccare."
     },
     {
       "id": "euribate",
@@ -84,7 +89,8 @@
         "Riferisco agli uomini.",
         "Come vuoi, signore.",
         "E' gia' fatto."
-      ]
+      ],
+      "anti_pattern": "Non contraddice Ulisse davanti agli altri e non si mette in mostra. Non parla per primo se non e' interpellato."
     }
   ]
 }

@@ -24,7 +24,8 @@
     "spunti_in_arrivo": "… il mare suggerisce …",
     "omero": "Omero:",
     "vittoria": "— VITTORIA: sei tornato a Itaca. —",
-    "fine": "— FINE: %s —"
+    "fine": "— FINE: %s —",
+    "nessuno_spunto": "Nessun appiglio, qui. Scrivi tu cosa fa Ulisse."
   },
   "pannelli": {
     "carta_viaggio": "CARTA DEL VIAGGIO",

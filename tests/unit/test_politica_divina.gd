@@ -9,6 +9,9 @@ const DENTRO := "Riempio gli otri d'acqua alla sorgente."
 func before_each():
 	LLMManager.mock_mode = true
 	GameManager.nuova_partita(777)
+	# La politica divina (scavalcamenti, resa dei conti) presuppone Poseidone in campo, e
+	# lui entra in campo con l'accecamento del figlio: qui si parte da dopo.
+	GameManager.stato.eventi_accaduti.append("maledizione_di_polifemo")
 
 func test_scavalcamento_forzato_crea_pendente_e_delta_nascosto():
 	GameManager.prob_scavalcamento = 1.0

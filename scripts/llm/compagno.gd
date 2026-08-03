@@ -38,6 +38,7 @@ func system_prompt(c: Dictionary) -> String:
 	sp = sp.replace("{{RUOLO}}", String(c.get("ruolo", "un compagno")))
 	sp = sp.replace("{{CARATTERE}}", String(c.get("carattere", "")))
 	sp = sp.replace("{{VOCE}}", String(c.get("voce", "")))
+	sp = sp.replace("{{ANTI_PATTERN}}", String(c.get("anti_pattern", "")))
 	sp = sp.replace("{{ESEMPI}}", "\n".join(c.get("esempi", [])))
 	_cache[id] = sp
 	return sp

@@ -265,10 +265,12 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	# Eventi di mondo attivi in questa tappa (es. 'passaggio' nello stretto), uniti a
 	# quelli passati dall'esterno: li legge il risveglio.
 	var eventi_turno := _eventi_del_turno(eventi)
+	_registra_eventi_accaduti(envelope, eventi_turno)
 	if in_mondo:
 		percorso.append(Fase.keys()[Fase.RISVEGLIO])
 		await _risolvi_invocazione(envelope, input_testo)
-		svegli = PantheonManager.risveglio(envelope, eventi_turno, _episodio_corrente())
+		svegli = PantheonManager.risveglio(envelope, eventi_turno, _episodio_corrente(),
+			stato.eventi_accaduti)
 		_segna_in_gioco(svegli)
 		_annuncia_risvegli(svegli)
 
@@ -545,14 +547,14 @@ func _e_impalcatura(t: String) -> bool:
 	re.compile("(?i)^[ \\t-]*(spunti|orientamento)[ \\t:-]*$")
 	return re.search(t) != null or t.strip_edges().lstrip("-").strip_edges() == ""
 
-## Gli appigli quando non ne resta nessuno: prima quelli della TAPPA, che sanno dove ti
-## trovi; i generici solo come ultima spiaggia. I vecchi generici dicevano «piega ai remi e
-## prosegui la rotta» e comparivano anche chiusi nell'antro del Ciclope.
+## Gli appigli quando quelli generati non reggono: SOLO quelli della tappa, che sanno dove
+## ti trovi e cosa sta succedendo li'. Gli appigli generici sono stati tolti — tre frasi
+## buone per ogni occasione non erano buone per nessuna: «piega ai remi e prosegui la
+## rotta» compariva anche mentre Ulisse era chiuso nell'antro del Ciclope.
+## Se una tappa non ne dichiara, non si inventa niente: il campo libero c'e' sempre.
 func spunti_di_riserva() -> Array:
 	var ep := episodi.get_episodio(_episodio_corrente()) if episodi else null
-	if ep and not ep.spunti_di_riserva.is_empty():
-		return ep.spunti_di_riserva
-	return Lingua.spunti_generici()
+	return ep.spunti_di_riserva if ep else []
 
 ## Pubblica: anche la schermata iniziale genera spunti (fuori da un turno), e anche quelli
 ## il gioco non deve poterli rifiutare. Si ricorda solo cio' che ha superato il filtro.
@@ -581,6 +583,21 @@ func _valida(envelope: Dictionary, input_testo: String) -> Dictionary:
 func _episodio_corrente() -> String:
 	var ep: Variant = stato.ulisse.get("episodio_corrente", null)
 	return String(ep) if ep != null else ""
+
+## Quel che ACCADE resta accaduto. Una tappa puo' dichiarare che un certo tag dell'azione
+## fa succedere un evento (nell'antro, il vanto di Ulisse chiama la maledizione di
+## Polifemo): da li' in poi chi dormeva in attesa di quell'evento e' sveglio per sempre.
+func _registra_eventi_accaduti(envelope: Dictionary, eventi_turno: Array) -> void:
+	var tag: Array = envelope.get("tag", [])
+	var ep := episodi.get_episodio(_episodio_corrente()) if episodi else null
+	if ep:
+		for t in tag:
+			var e := String(ep.emette_su_tag.get(String(t), ""))
+			if e != "" and not stato.eventi_accaduti.has(e):
+				stato.eventi_accaduti.append(e)
+	for e in eventi_turno:
+		if not stato.eventi_accaduti.has(String(e)):
+			stato.eventi_accaduti.append(String(e))
 
 ## Eventi di mondo del turno: quelli della tappa corrente + quelli passati dall'esterno.
 func _eventi_del_turno(eventi: Array) -> Array:

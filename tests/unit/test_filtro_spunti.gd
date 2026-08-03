@@ -47,11 +47,24 @@ func test_altrove_lo_stesso_spunto_e_ammesso():
 	var puliti := GameManager.filtra_spunti([{"testo": "Apri l'otre.", "rischio": false}])
 	assert_eq(puliti.size(), 1, "il vincolo vale nella sua tappa, non ovunque")
 
-## Se il filtro svuota tutto, meglio i tre generici che nessun appiglio.
-func test_se_non_resta_niente_si_ripiega_sui_generici():
+## NIENTE APPIGLI GENERICI. Prima esistevano tre frasi buone per ogni occasione, e
+## proprio per questo non erano buone per nessuna: «piega ai remi e prosegui la rotta»
+## compariva anche chiusi nell'antro del Ciclope. Un appiglio che non sa cosa sta
+## succedendo e' peggio di nessun appiglio — il campo libero c'e' sempre.
+func test_il_ripiego_e_sempre_legato_alla_tappa():
+	for id in GameManager.episodi.ordine():
+		GameManager.vai_a_tappa(id)
+		var r := GameManager.spunti_di_riserva()
+		assert_gt(r.size(), 0, "la tappa «%s» deve avere i suoi appigli" % id)
+
+func test_se_non_resta_niente_si_ripiega_su_quelli_della_tappa():
+	GameManager.vai_a_tappa("ciclope")
 	var puliti := GameManager.filtra_spunti([{"testo": "---SPUNTI", "rischio": false}])
 	assert_eq(puliti.size(), 0)
-	assert_gt(Lingua.spunti_generici().size(), 0, "il ripiego esiste")
+	var riserva := GameManager.spunti_di_riserva()
+	assert_gt(riserva.size(), 0)
+	assert_false(String(riserva[0]["testo"]).to_lower().contains("remi"),
+		"nell'antro non si rema")
 
 ## E cio' che passa il filtro e' anche cio' che il gioco si impegna a non rifiutare.
 func test_solo_gli_spunti_filtrati_diventano_una_promessa():
@@ -62,3 +75,12 @@ func test_solo_gli_spunti_filtrati_diventano_una_promessa():
 	assert_false(GameManager.gia_proposto("Spara ai Ciconi col fucile."),
 		"non si promette cio' che non si e' offerto")
 	assert_true(GameManager.gia_proposto("Offri vino al re."))
+
+## Gli appigli della tappa passano dallo STESSO filtro: anche loro possono nominare cose
+## non ancora accadute (a Trinacia il ripiego non deve proporre di macellare le vacche).
+func test_anche_il_ripiego_passa_dal_filtro():
+	for id in GameManager.episodi.ordine():
+		GameManager.vai_a_tappa(id)
+		var riserva := GameManager.spunti_di_riserva()
+		assert_eq(GameManager.filtra_spunti(riserva).size(), riserva.size(),
+			"gli appigli di «%s» devono superare il proprio filtro" % id)

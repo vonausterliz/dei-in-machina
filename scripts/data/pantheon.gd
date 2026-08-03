@@ -72,10 +72,13 @@ func numero_dei() -> int:
 ## Dei "in ascolto" questo turno: attivi e nella condizione di poter reagire.
 ## Persistente = sempre in ascolto; locale = solo quando si e' nel suo episodio.
 ## 'attivo' e' l'interruttore di rollout (stadio 1 = solo i persistenti attivi).
-func eleggibili(episodio_corrente: String) -> Array[String]:
+func eleggibili(episodio_corrente: String, accaduti: Array = []) -> Array[String]:
 	var out: Array[String] = []
 	for dio in tutti():
 		if not dio.attivo:
+			continue
+		# Chi dorme non e' in ascolto: il suo momento non e' ancora arrivato.
+		if dio.dorme_finche != "" and not accaduti.has(dio.dorme_finche):
 			continue
 		if dio.fascia == "persistente":
 			out.append(dio.id)
@@ -95,11 +98,12 @@ func eleggibili(episodio_corrente: String) -> Array[String]:
 ## gated dai trigger (un persistente non-innescato resta silente), cosi' il segnale e'
 ## deducibile. L'esempio in stato_partita.json (svegli = tutti i persistenti) e' trattato
 ## come illustrativo, non normativo. Vedi STATO_LAVORI.md.
-func risveglio(envelope: Dictionary, eventi: Array, episodio_corrente: String) -> Array[String]:
+func risveglio(envelope: Dictionary, eventi: Array, episodio_corrente: String,
+		accaduti: Array = []) -> Array[String]:
 	var tag: Array = envelope.get("tag", [])
 	var dio_invocato: Variant = envelope.get("dio_invocato", null)
 	var out: Array[String] = []
-	for id in eleggibili(episodio_corrente):
+	for id in eleggibili(episodio_corrente, accaduti):
 		var dio := get_dio(id)
 		if _combacia(dio.trigger_azione, tag) \
 				or _combacia(dio.trigger_evento, eventi) \

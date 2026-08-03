@@ -7,7 +7,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "2.25"
+const VERSIONE := "2.26"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -805,9 +805,15 @@ func _mostra_spunti(spunti: Array) -> void:
 	# anche il ricordo lo spunto appena cliccato tornerebbe rifiutabile.
 	var buoni := GameManager.filtra_spunti(spunti)
 	if buoni.is_empty():
-		buoni = GameManager.spunti_di_riserva()   # quelli della tappa, non i generici
+		# Solo gli appigli della TAPPA: gli spunti generici sono stati tolti, perche' tre
+		# frasi buone per ogni occasione non erano buone per nessuna.
+		buoni = GameManager.filtra_spunti(GameManager.spunti_di_riserva())
 	GameManager.ricorda_spunti(buoni)
 	_pulisci_spunti()
+	if buoni.is_empty():
+		# Non si inventa niente: il campo libero c'e' sempre, e lo si dice.
+		_spunti_box.add_child(_titolo(Testi.s("gioco/nessuno_spunto"), 13, C_BONE_DIM, _serif_italic))
+		return
 	for sp in buoni:
 		_spunti_box.add_child(_cue(String(sp.get("testo", "")), bool(sp.get("rischio", false))))
 
