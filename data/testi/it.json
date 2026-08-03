@@ -10,10 +10,13 @@
   "menu": {
     "view": "View",
     "settings": "Settings",
+    "partita": "Partita",
     "vista_olimpo": "Vista Olimpo",
     "log_llm": "Log LLM",
     "impostazioni": "Modelli e chiavi API…",
-    "ciurma": "Ciurma"
+    "ciurma": "Ciurma",
+    "salva": "Salva la partita",
+    "carica": "Riprendi l'ultima partita"
   },
   "gioco": {
     "domanda": "Cosa fai, Ulisse?",
@@ -27,7 +30,15 @@
     "fine": "— FINE: %s —",
     "epitaffio_morte": "Così finì Odisseo, figlio di Laerte, che a Troia aveva veduto troppo. Dieci anni di guerra gli avevano portato via la misura, e il mare non gliela rese. Non lo uccise un mostro, né la lancia di un nemico: lo uccise ciò che si era portato dentro dalle mura bruciate, e che nessuna rotta poteva lasciarsi alle spalle. Cadde lontano da Itaca, con il nome di casa ancora in bocca, e nessuno dei suoi seppe dire dove. Piangetelo: fu uomo di molte astuzie, e nessuna gli valse contro sé stesso.",
     "epitaffio_prigionia_eterna": "E così Odisseo non tornò. Restò sull'isola dove il tempo non passa, e a poco a poco smise di contare i giorni, poi di guardare il mare, poi di ricordare perché lo guardasse. A Itaca lo attesero, e l'attesa divenne memoria, e la memoria divenne un nome che i giovani udivano senza sapere di chi fosse. Ebbe ciò che ogni uomo chiede — non morire — e lo pagò con l'unica cosa che lo faceva Odisseo: il ritorno. Di lui non si cantò più.",
-    "nessuno_spunto": "Nessun appiglio, qui. Scrivi tu cosa fa Ulisse."
+    "nessuno_spunto": "Nessun appiglio, qui. Scrivi tu cosa fa Ulisse.",
+    "bivio_titolo": "Un bivio",
+    "bivio_avviso": "Questa è una scelta, non un suggerimento: non potrai correggerla, e ciò che ne segue peserà il doppio — in bene o in male.",
+    "bivio_procedi": "Lo faccio",
+    "bivio_indietro": "Ci ripenso",
+    "salvata": "⟡ Partita salvata.",
+    "salvataggio_fallito": "⟡ Non sono riuscito a salvare la partita.",
+    "ripresa": "⟡ Partita ripresa: si riparte da dove l'avevi lasciata.",
+    "nessun_salvataggio": "⟡ Nessuna partita salvata da riprendere."
   },
   "pannelli": {
     "carta_viaggio": "CARTA DEL VIAGGIO",

@@ -127,3 +127,26 @@ func test_la_guardia_non_scatta_nei_test():
 	add_child_autofree(ui)
 	await wait_frames(2)
 	assert_false(ui._simulato_blocca(), "i test girano sul mock: non devono autobloccarsi")
+
+## Salvare e riprendere dall'interfaccia. Il codice per farlo esisteva da sempre in
+## GameManager e non era collegato a niente: una partita dura ~76 turni, e perderla
+## chiudendo la finestra e' una perdita vera.
+func test_la_partita_si_salva_e_si_riprende_dalla_gui():
+	LLMManager.mock_mode = true
+	var ui = load("res://scenes/Main.tscn").instantiate()
+	add_child_autofree(ui)
+	await wait_frames(2)
+	GameManager.vai_a_tappa("ciclope")
+	ui._input.text = "Sono io, Odisseo, che t'ho accecato!"
+	await ui._on_agisci()
+	var turno: int = GameManager.stato.turno
+
+	ui._on_menu_partita(Main.VOCE_SALVA)
+	assert_string_contains(ui._narrazione.get_parsed_text(), "salvata")
+
+	GameManager.nuova_partita(1)          # si perde tutto…
+	await ui._on_menu_partita(Main.VOCE_CARICA)   # …e si riprende
+	assert_eq(GameManager.stato.turno, turno, "si riparte da dove si era")
+	assert_string_contains(ui._narrazione.get_parsed_text(), "ripresa")
+	# Il diario non si appende: si RIDISEGNA per intero, o riprendere darebbe pagine bianche.
+	assert_eq(ui._diario_box.get_child_count(), GameManager.stato.diario.size())

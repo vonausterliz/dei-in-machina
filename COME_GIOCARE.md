@@ -92,6 +92,13 @@ Scrivi liberamente **cosa fa e dice Ulisse**, e premi Invio (o "Agisci"). Sotto 
 trovi tre appigli: sono suggerimenti contestuali, non le uniche mosse possibili — la quarta
 strada è sempre scrivere di tuo.
 
+Gli appigli in **oro** (`›`) finiscono nel campo: puoi correggerli o ignorarli. Quelli in
+**rosso** (`‡`) sono **bivi**: chiedono conferma, non si possono ritoccare, e ciò che ne
+segue pesa il doppio — in bene o in male. Rischiare vale davvero, in entrambe le direzioni.
+
+Dal menu **Partita** puoi salvare e riprendere: una partita intera dura ~76 turni, non è
+detto che tu la faccia in una sera.
+
 Quattro finestre, apribili dai pulsanti in alto:
 
 - **Olimpo** — gli dèi che si parlano fra loro, si contraddicono, e Zeus che chiude la
@@ -106,7 +113,7 @@ Quattro finestre, apribili dai pulsanti in alto:
 Le tre viste sono allineate dallo stesso ritmo: il momento del giorno e l'azione che hai
 appena compiuto fanno da intestazione ovunque.
 
-Console (headless): `:olimpo`, `:stato`, `:esci`.
+Console (headless): `:olimpo`, `:stato`, `:salva`, `:carica`, `:tappa <id>`, `:esci`.
 
 ---
 

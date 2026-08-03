@@ -84,7 +84,13 @@ Cautela obbligatoria: i falsi positivi qui **uccidono**, quindi scala dolce all'
 
 ## 7. Rigiocabilità
 
-Via di mezzo: **trigger fissi** (la logica mitologica canonica — una maestria che ti porti tra le partite), ma **capricci, umori e ordine degli episodi variabili** a ogni partita (guidati dal `seed`). La conoscenza si trasferisce, ma ogni run sorprende.
+Via di mezzo: **trigger fissi** (la logica mitologica canonica — una maestria che ti porti tra le partite), ma **capricci e umori variabili** a ogni partita (guidati dal `seed`). La conoscenza si trasferisce, ma ogni run sorprende.
+
+> **Deciso il 3 agosto 2026 — l'ordine degli episodi resta FISSO** (rev. della v0.1, che lo voleva variabile col `seed`).
+>
+> L'ordine dell'*Odissea* non è un contenitore di tappe: è la causalità della storia. Il Ciclope **deve** venire prima, perché è lì che nasce `maledizione_di_polifemo` e senza quell'evento Poseidone dorme per tutta la partita; l'Ade contiene la profezia di Tiresia che avverte di Sirene, Scilla e vacche del Sole, e spostarla dopo la svuota; Circe avverte delle stesse cose; Ogigia → naufragio → Scheria è una catena unica (la zattera che si sfascia presuppone la zattera). Rimescolare romperebbe metà del gioco; rimescolare solo le tre tappe "neutre" (Ciconi, Lotofagi, Lestrigoni) darebbe pochissimo.
+>
+> La rigiocabilità sta altrove, ed è già lì: i capricci degli dèi, gli umori, la deliberazione, e soprattutto **cosa scrivi**. Se un giorno risultasse povera, la strada è variare col seme gli umori iniziali e la suscettibilità dei singoli dèi — non l'ordine.
 
 ---
 

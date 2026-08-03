@@ -40,6 +40,28 @@ var intestazioni: Dictionary = {}
 func segna_turno(turno: int, azione: String, momento: String) -> void:
 	intestazioni[turno] = {"azione": azione.strip_edges(), "momento": momento}
 
+## --- Salvataggio ---
+##
+## Le conversazioni fanno parte della partita quanto le statistiche: riprendere con l'Olimpo
+## vuoto sarebbe riaprire un libro con le pagine bianche.
+
+func to_dict() -> Dictionary:
+	return {"canali": canali, "intestazioni": intestazioni}
+
+## JSON NON HA CHIAVI INTERE. Le intestazioni sono indicizzate per turno, e dopo un giro
+## su file tornerebbero come "1", "2"… senza combaciare piu' con nessun numero di turno:
+## il collante fra le tre viste sparirebbe in silenzio. Qui si riportano a interi.
+static func from_dict(d: Dictionary) -> Agora:
+	var a := Agora.new()
+	var canali_letti: Variant = d.get("canali", {})
+	if typeof(canali_letti) == TYPE_DICTIONARY:
+		a.canali = canali_letti
+	var teste: Variant = d.get("intestazioni", {})
+	if typeof(teste) == TYPE_DICTIONARY:
+		for k in teste:
+			a.intestazioni[int(String(k))] = teste[k]
+	return a
+
 ## Apre (o ritrova) un canale. 'membri' serve ai gruppi: chi ne fa parte.
 ## La vista si deduce dall'id (solo la ciurma sta sul ponte; tutto il resto e' Olimpo,
 ## comprese le coalizioni), cosi' nessun chiamante deve ricordarsi di dichiararla.

@@ -47,6 +47,16 @@ func fai_cadere(id: String) -> String:
 	caduti.append(id)
 	return String(c.get("nome", ""))
 
+## Rimette i caduti di una partita ripresa: chi era morto resta morto. Senza questo il
+## caricamento riportava in vita i compagni, ed e' l'unico modo in cui il gioco fa sentire
+## davvero le perdite.
+func riprendi_caduti(id_caduti: Array) -> void:
+	caduti.clear()
+	for id in id_caduti:
+		var s := String(id)
+		if not get_compagno(s).is_empty():
+			caduti.append(s)
+
 ## Compagni che muoiono entrando in una certa tappa, secondo il poema (Antifo nel Ciclope,
 ## Elpenore da Circe). Li applica il GameManager quando la tappa si chiude.
 func destinati_a_cadere(episodio: String) -> Array:

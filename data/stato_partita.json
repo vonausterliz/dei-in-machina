@@ -33,19 +33,6 @@
     "cimeli": []
   },
   "viaggio": {
-    "ordine_episodi": [
-      "ciclope",
-      "eolo",
-      "circe",
-      "ade",
-      "sirene",
-      "scilla",
-      "trinacia",
-      "ogigia",
-      "naufragio",
-      "scheria",
-      "itaca"
-    ],
     "completati": [],
     "corrente": "ciclope"
   },

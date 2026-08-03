@@ -9,9 +9,12 @@ extends SceneTree
 ##   Ollama (dei e narratore reali):     ... --script res://tools/gioca.gd -- ollama
 ##
 ## Comandi durante il gioco:
-##   :olimpo   mostra/nasconde la vista Olimpo (debug: envelope, dei svegli, delta)
-##   :stato    stat correnti di Ulisse
-##   :esci     termina
+##   :olimpo      mostra/nasconde la vista Olimpo (debug: envelope, dei svegli, delta)
+##   :stato       stat correnti di Ulisse
+##   :salva       salva la partita
+##   :carica      riprende l'ultima partita salvata
+##   :tappa <id>  salta a una tappa (collaudo: per non arrivarci giocando venti turni)
+##   :esci        termina
 
 const SEED := 4815162342
 
@@ -60,6 +63,16 @@ func _gioca() -> void:
 		if riga == ":stato":
 			_stampa_stato()
 			continue
+		if riga == ":salva":
+			print("[%s]" % ("partita salvata" if _gm.salva_partita() else "salvataggio fallito"))
+			continue
+		if riga == ":carica":
+			if _gm.carica_partita():
+				print("[partita ripresa — turno %d, a %s]\nOmero: %s" % [
+					_gm.stato.turno, _gm.stato.viaggio["corrente"], _gm._ultima_narrazione])
+			else:
+				print("[nessuna partita salvata]")
+			continue
 		# Salto di tappa: serve a collaudare gli episodi lontani (Ogigia, Trinacia) senza
 		# doverci arrivare giocando venti turni. Solo qui, mai in partita.
 		if riga.begins_with(":tappa "):
@@ -93,7 +106,7 @@ func _intro() -> void:
 	print("\n============================================================")
 	print(" DEI IN MACHINA — sei Ulisse. Scrivi cosa fai e dici.")
 	print(" Gli dei ti osservano, ma non li vedrai. Deducili.")
-	print(" Comandi: :olimpo  :stato  :esci")
+	print(" Comandi: :olimpo  :stato  :salva  :carica  :tappa <id>  :esci")
 	print("============================================================")
 	print("\nOmero: %s\nCosa fai?" % _gm.intro_corrente())
 

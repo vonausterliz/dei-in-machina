@@ -513,6 +513,27 @@ flowchart TD
 Nascono dalla stessa scena che Omero ha appena raccontato, e così costano **zero chiamate
 in più**. Sotto il tier gratuito ogni chiamata è ~1 secondo di pavimento.
 
+### I bivi: `rischio` come impegno
+
+Un appiglio marcato `rischio: true` (Omero lo apre col `!`) non è un suggerimento ma una
+**scelta**:
+
+| | Appiglio normale | Bivio (`rischio`) |
+|---|---|---|
+| Aspetto | `›` in oro | **`‡` in rosso-sangue** |
+| Cliccandolo | Riempie il campo: si può correggere o ignorare | **Chiede conferma**, poi agisce; non si corregge |
+| Conseguenza | L'intensità decisa dagli dèi | **Un grado in più**, in qualunque direzione |
+
+`GameManager.forza_con_rischio(intensita, rischio)` è la garanzia deterministica (tetto a 3);
+la conferma è forma. Amplifica **anche il bene**: un aiuto rischiato vale di più — se fosse
+solo una penalità sarebbe una trappola travestita da scelta, e si imparerebbe a non premere
+mai il bottone rosso.
+
+> Il design (§4) chiedeva «scelte discrete per i bivi veri». Costruirle davvero significava
+> un **secondo tipo di turno**, con rami scritti a mano tappa per tappa. Il campo `rischio`
+> esisteva già nei dati e serviva solo a colorare un bottone: dargli un significato costa
+> una funzione e dà il peso della scelta senza togliere la scrittura libera.
+
 ### I quattro presidi sugli spunti
 
 Gli spunti sono una **promessa**: ciò che il gioco offre, il gioco lo accetta e lo sa
@@ -542,6 +563,34 @@ storpia qualunque separatore (visto sul campo: `---\nSPUNTI---`, e perfino l'eti
 > — che il prompt gli chiede espressamente — il racconto si svuotava, e sembrava che «Omero
 > avesse smesso di scrivere». Nel dubbio, la prosa vince: perdere due suggerimenti si
 > rimedia, perdere il racconto no.
+
+---
+
+## 8-bis. Salvare e riprendere
+
+`salva_partita()` / `carica_partita()`, dal menu **Partita** o da `:salva` / `:carica` in
+console. La regola è una sola:
+
+> **Tutto ciò che `nuova_partita` costruisce, `carica_partita` lo ricostruisce.**
+
+Non è pedanteria: prima non era così, e ogni modo di sbagliare era silenzioso.
+
+| Cosa | Dove vive | Perché serve al caricamento |
+|---|---|---|
+| `_politica`, `_validazione` | Oggetti che **tengono un riferimento allo stato** | Se sopravvivono al caricamento lavorano sullo stato *vecchio*: nessun errore, e la politica divina scrive in una partita che non esiste più |
+| `ciurma` | Ricaricata dal file dati | Restava `null`: i compagni sparivano senza un errore |
+| `Agora` | **Nel salvataggio** (`stato.agora`) | Le chat sono metà del gioco: riprendere con l'Olimpo vuoto è riaprire un libro con le pagine bianche |
+| `Ciurma.caduti` | **Nel salvataggio** | I morti tornavano in vita |
+| `_ultima_narrazione` | **Nel salvataggio** | Omero deve sapere cosa aveva appena raccontato |
+| `dio.attivo` dei locali | **Non** nel salvataggio: è un flag in memoria | Va riacceso a mano (`_accendi_locali`) — ma senza «entrare» nella tappa, che azzererebbe i turni già spesi (e a Ogigia si potrebbe restare per sempre salvando e ricaricando) |
+
+Due trappole trovate scrivendo i test:
+
+- **JSON non ha chiavi intere.** Le intestazioni dell'Agora sono indicizzate per turno e
+  tornavano come `"1"`, `"2"`… senza combaciare più con nulla: il collante fra le tre viste
+  sarebbe sparito in silenzio. `Agora.from_dict` le riporta a interi.
+- **`queue_free` è differito.** Il diario si ridisegna per intero al caricamento, e senza un
+  `remove_child` immediato le voci vecchie convivevano con quelle nuove nello stesso frame.
 
 ---
 

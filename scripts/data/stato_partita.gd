@@ -45,6 +45,14 @@ var spunti_proposti: Array[String] = []
 ## succede qualcosa (Poseidone, fino all'accecamento del figlio).
 var eventi_accaduti: Array[String] = []
 
+## --- Cio' che serve per RIPRENDERE una partita ---
+## Non sono statistiche, ma senza non si riprende davvero: le conversazioni sono meta' del
+## gioco, i morti devono restare morti, e Omero deve sapere cosa aveva appena raccontato.
+## Il GameManager li allinea al momento del salvataggio (vedi salva_partita).
+var agora: Dictionary = {}
+var ciurma_caduti: Array[String] = []
+var ultima_narrazione: String = ""
+
 ## Il condensato di partenza: nessun ricordo antico, nessun conto aperto.
 static func memoria_vuota() -> Dictionary:
 	return {
@@ -71,7 +79,7 @@ static func nuova(pantheon: Pantheon, seed_partita: int, run_id: String = "") ->
 		"hybris": 0,
 		"cimeli": [],
 	}
-	s.viaggio = {"ordine_episodi": [], "completati": [], "corrente": null, "turni_in_episodio": 0}
+	s.viaggio = {"completati": [], "corrente": null, "turni_in_episodio": 0}
 	s.registro_divino = {}
 	for dio in pantheon.tutti():
 		# I persistenti attivi sono "in gioco" fin dall'inizio (sempre in ascolto);
@@ -157,6 +165,10 @@ static func from_dict(d: Dictionary) -> StatoPartita:
 		s.spunti_proposti.append(String(p))
 	for p in d.get("eventi_accaduti", []):
 		s.eventi_accaduti.append(String(p))
+	s.agora = d.get("agora", {})
+	for p in d.get("ciurma_caduti", []):
+		s.ciurma_caduti.append(String(p))
+	s.ultima_narrazione = String(d.get("ultima_narrazione", ""))
 	return s
 
 func to_dict() -> Dictionary:
@@ -187,6 +199,9 @@ func to_dict() -> Dictionary:
 		"parole_ai_compagni": parole_ai_compagni,
 		"spunti_proposti": spunti_proposti,
 		"eventi_accaduti": eventi_accaduti,
+		"agora": agora,
+		"ciurma_caduti": ciurma_caduti,
+		"ultima_narrazione": ultima_narrazione,
 	}
 
 func salva(path: String) -> bool:

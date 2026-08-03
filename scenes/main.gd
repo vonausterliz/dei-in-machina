@@ -7,7 +7,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "2.29"
+const VERSIONE := "2.30"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -27,6 +27,8 @@ const VOCE_OLIMPO := 0
 const VOCE_LOG := 1
 const VOCE_CIURMA := 2
 const VOCE_IMPOSTAZIONI := 10
+const VOCE_SALVA := 20
+const VOCE_CARICA := 21
 
 var _serif: FontFile
 var _serif_bold: FontFile
@@ -63,6 +65,8 @@ var _stat_bars := {}
 var _stat_vals := {}
 var _busy := false
 var _finita := false
+## Il dialogo di conferma dei bivi (spunti rischiosi). Creato alla prima occorrenza.
+var _conferma: ConfirmationDialog
 
 func _line() -> Color:
 	var c := C_GOLD
@@ -375,12 +379,58 @@ func _barra_menu() -> Control:
 	_menu_view.id_pressed.connect(_on_menu_view)
 	barra.add_child(_menu_view)
 
+	# Salvare e riprendere: una partita dura ~76 turni: perderla chiudendo la finestra e'
+	# una perdita vera.
+	var menu_partita := PopupMenu.new()
+	menu_partita.name = Testi.s("menu/partita")
+	menu_partita.add_item(Testi.s("menu/salva"), VOCE_SALVA)
+	menu_partita.add_item(Testi.s("menu/carica"), VOCE_CARICA)
+	menu_partita.id_pressed.connect(_on_menu_partita)
+	barra.add_child(menu_partita)
+
 	var menu_set := PopupMenu.new()
 	menu_set.name = Testi.s("menu/settings")
 	menu_set.add_item(Testi.s("menu/impostazioni"), VOCE_IMPOSTAZIONI)
 	menu_set.id_pressed.connect(func(id): if id == VOCE_IMPOSTAZIONI: _apri_impostazioni())
 	barra.add_child(menu_set)
 	return barra
+
+## Salva / riprendi. Durante un turno non si tocca niente: lo stato e' a meta' strada.
+func _on_menu_partita(id: int) -> void:
+	if _busy:
+		return
+	match id:
+		VOCE_SALVA:
+			_nota(Testi.s("gioco/salvata" if GameManager.salva_partita() else "gioco/salvataggio_fallito"))
+		VOCE_CARICA:
+			if not GameManager.carica_partita():
+				_nota(Testi.s("gioco/nessun_salvataggio"))
+				return
+			_riapri_partita_ripresa()
+
+## Rimette a schermo una partita ripresa: la scena riparte dall'ultima voce di Omero, e le
+## chat, il diario, le stat e la carta tornano com'erano.
+func _riapri_partita_ripresa() -> void:
+	_finita = GameManager.stato.stato != "in_corso"
+	_input.editable = not _finita
+	_ultima_narrazione = GameManager._ultima_narrazione
+	_ultimo_momento = ""
+	_narrazione.clear()
+	_narrazione.append_text("[color=%s]— %s —[/color]\n[i]%s[/i] %s\n\n" % [
+		C_GOLD.to_html(), _nome_tappa(), Testi.s("gioco/omero"), _ultima_narrazione])
+	_nota(Testi.s("gioco/ripresa"))
+	_episodio.text = _nome_tappa()
+	_ridisegna_diario()
+	_aggiorna_stats()
+	_aggiorna_mappa()
+	_aggiorna_olimpo()
+	_aggiorna_ciurma()
+	_pulisci_spunti()
+	if not _finita:
+		await _rigenera_spunti()
+
+func _nota(testo: String) -> void:
+	_narrazione.append_text("[color=%s]%s[/color]\n\n" % [C_VERDIGRIS.to_html(), testo])
 
 ## Scelta del motore dal menu Settings: Ollama locale o provider esterno.
 ## Il simulato NON e' fra le scelte: non e' una modalita' di gioco (vedi blocca_simulato).
@@ -702,7 +752,7 @@ func _on_invio(_t: String) -> void:
 
 ## Un turno di gioco pieno: il mondo gira e gli dei deliberano. Le parole scambiate coi
 ## compagni passano invece da _on_ciurma_invio, che costa una chiamata sola.
-func _on_agisci() -> void:
+func _on_agisci(rischio: bool = false) -> void:
 	if _busy or _finita:
 		return
 	if _simulato_blocca():
@@ -728,7 +778,7 @@ func _on_agisci() -> void:
 
 	# Mentre il turno gira, gli spunti vecchi non valgono piu': li svuoto.
 	_pulisci_spunti()
-	var esito: Dictionary = await GameManager.esegui_turno(testo)
+	var esito: Dictionary = await GameManager.esegui_turno(testo, [], rischio)
 
 	_ultima_narrazione = String(esito["voce"].get("narrazione_omero", ""))
 	if _ultima_narrazione != "":
@@ -838,14 +888,42 @@ func _cue(testo: String, rischio: bool) -> Button:
 	b.add_theme_stylebox_override("normal", _sfondo(11, Color(1, 1, 1, 0.015), _line()))
 	b.add_theme_stylebox_override("hover", _sfondo(11, Color(accento, 0.09), Color(accento, 0.5)))
 	b.add_theme_stylebox_override("pressed", _sfondo(11, Color(accento, 0.16), accento))
-	b.pressed.connect(_scegli_spunto.bind(testo))
+	# I bivi si riconoscono a vista: il segno oltre al colore, perche' il colore da solo non
+	# basta a dire «questa e' una scelta da cui non si torna».
+	b.text = ("‡  " if rischio else "›  ") + testo
+	b.pressed.connect(_scegli_spunto.bind(testo, rischio))
 	return b
 
-func _scegli_spunto(testo: String) -> void:
+## Un appiglio normale finisce nel campo: si puo' correggere, o ignorare. Un appiglio
+## RISCHIOSO no — e' un bivio: si conferma e si agisce, senza poterlo ritoccare. E' la
+## differenza fra un suggerimento e una scelta (design sez. 4).
+func _scegli_spunto(testo: String, rischio: bool = false) -> void:
 	if _busy or _finita:
+		return
+	if rischio:
+		_chiedi_conferma(testo)
 		return
 	_input.text = testo
 	_on_agisci()
+
+func _chiedi_conferma(testo: String) -> void:
+	if _conferma == null:
+		_conferma = ConfirmationDialog.new()
+		_conferma.title = Testi.s("gioco/bivio_titolo")
+		_conferma.ok_button_text = Testi.s("gioco/bivio_procedi")
+		_conferma.cancel_button_text = Testi.s("gioco/bivio_indietro")
+		add_child(_conferma)
+	_conferma.dialog_text = "%s\n\n«%s»" % [Testi.s("gioco/bivio_avviso"), testo]
+	# Si riconnette a ogni apertura: il testo del bivio cambia, e un vecchio binding
+	# farebbe partire la scelta sbagliata.
+	for c in _conferma.confirmed.get_connections():
+		_conferma.confirmed.disconnect(c["callable"])
+	_conferma.confirmed.connect(_impegnati.bind(testo))
+	_conferma.popup_centered()
+
+func _impegnati(testo: String) -> void:
+	_input.text = testo
+	_on_agisci(true)
 
 ## Avviso per l'azione fuori-mondo. Colore CHIARO e testo dritto in grassetto: il
 ## rosso-sangue scuro in corsivo, su fondo notte, era illeggibile.
@@ -904,7 +982,22 @@ func _aggiungi_diario() -> void:
 	var ultime: Array = GameManager.stato.diario
 	if ultime.is_empty():
 		return
-	var d: Dictionary = ultime[-1]
+	_riga_diario(ultime[-1])
+
+## Ricostruisce il diario per intero: serve quando si RIPRENDE una partita salvata, dove
+## non c'e' un'ultima voce da appendere ma venti da rimettere.
+func _ridisegna_diario() -> void:
+	if _diario_box == null:
+		return
+	# remove_child PRIMA di queue_free: la liberazione e' differita a fine frame, e senza
+	# toglierli subito le vecchie voci convivrebbero con quelle appena rimesse.
+	for c in _diario_box.get_children():
+		_diario_box.remove_child(c)
+		c.queue_free()
+	for d in GameManager.stato.diario:
+		_riga_diario(d)
+
+func _riga_diario(d: Dictionary) -> void:
 	var col: Color = {"ill": C_OXBLOOD, "fair": C_VERDIGRIS, "neutro": C_BONE_DIM}.get(d.get("esito", "neutro"), C_BONE_DIM)
 	var riga := HBoxContainer.new()
 	riga.add_theme_constant_override("separation", 10)

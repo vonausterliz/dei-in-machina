@@ -85,7 +85,9 @@ func nuova_partita(seed_partita: int = 0) -> void:
 	prob_coalizione = _PROB_COALIZIONE_DEFAULT
 	# Viaggio: i locali ripartono spenti; si entra nella prima tappa (accende i suoi locali).
 	PantheonManager.pantheon.spegni_locali()
-	stato.viaggio["ordine_episodi"] = episodi.ordine()
+	# NB: l'ordine delle tappe e' quello del poema, fisso, e vive in data/episodi.json.
+	# Il design v0.1 lo voleva rimescolato dal seme; deciso di no (design sez. 7): l'ordine
+	# dell'Odissea e' la causalita' della storia, non un contenitore di tappe.
 	_entra_in_episodio(episodi.primo())
 
 ## Entra in una tappa: la rende corrente, azzera i turni-in-tappa e ACCENDE i suoi
@@ -94,14 +96,20 @@ func _entra_in_episodio(id: String) -> String:
 	stato.viaggio["corrente"] = id
 	stato.viaggio["turni_in_episodio"] = 0
 	stato.ulisse["episodio_corrente"] = id
-	for dio in PantheonManager.pantheon.locali_di_episodio(id):
-		dio.attivo = true
-		if stato.registro_divino.has(dio.id):
-			stato.registro_divino[dio.id]["risvegliato"] = true
+	_accendi_locali(id)
 	var ep := episodi.get_episodio(id)
 	var intro := ep.intro if ep else ""
 	_ultima_narrazione = intro  # continuita': il primo turno prosegue dall'intro della tappa
 	return intro
+
+## Mette in ascolto i dei locali di una tappa. Separato da _entra_in_episodio perche' anche
+## riprendere una partita salvata deve riaccenderli — ma senza "entrare", che azzererebbe
+## i turni gia' spesi li' (e a Ogigia si potrebbe restare per sempre salvando e ricaricando).
+func _accendi_locali(id: String) -> void:
+	for dio in PantheonManager.pantheon.locali_di_episodio(id):
+		dio.attivo = true
+		if stato.registro_divino.has(dio.id):
+			stato.registro_divino[dio.id]["risvegliato"] = true
 
 ## Il momento del giorno, che avanza di uno a ogni turno e ricomincia. Deterministico:
 ## dipende solo dal numero del turno, quindi due partite con lo stesso seme scandiscono il
@@ -199,20 +207,51 @@ func _morale_recente(quanti: int = 4) -> String:
 func vai_a_tappa(id: String) -> void:
 	_entra_in_episodio(id)
 
+## RIPRENDERE UNA PARTITA dev'essere simmetrico a cominciarne una.
+##
+## Prima non lo era, e i modi di sbagliare erano tutti silenziosi: `_politica` non veniva
+## ricostruita (col gioco appena avviato: crash alla prima riga del turno dopo; con una
+## partita gia' in corso, peggio — continuava a scrivere nello stato VECCHIO); la ciurma
+## restava null e i compagni sparivano senza un errore; i locali della tappa, che sono un
+## flag in memoria e non nel file, restavano spenti.
+##
+## Regola: tutto cio' che `nuova_partita` costruisce, `carica_partita` lo ricostruisce.
 func carica_partita(path: String = SALVATAGGIO_DEFAULT) -> bool:
 	var s := StatoPartita.carica(path)
 	if s == null:
 		return false
 	stato = s
-	_validazione = Validazione.new(stato)  # i moduli lavorano sullo stato caricato
-	agora = Agora.new()
+	_validazione = Validazione.new(stato)
+	# Le conversazioni tornano com'erano; se il salvataggio e' anteriore a questa versione
+	# si riparte da chat vuote, ma con i canali al loro posto.
+	agora = Agora.from_dict(stato.agora) if not stato.agora.is_empty() else Agora.new()
 	agora.canale(Agora.CANALE_OLIMPO, "Olimpo")
+	agora.canale(Agora.CANALE_CIURMA, "Ciurma")
+	ciurma = Ciurma.carica()
+	ciurma.riprendi_caduti(stato.ciurma_caduti)
+	_politica = PoliticaDivina.new(stato, agora, _rng)
+	_ultima_narrazione = stato.ultima_narrazione
+	_rng.seed = stato.seed_partita
+	prob_scavalcamento = _PROB_SCAVALCAMENTO_DEFAULT
+	prob_coalizione = _PROB_COALIZIONE_DEFAULT
+	# I locali sono spenti di default e si accendono entrando in una tappa: qui non si
+	# "entra" (azzererebbe i turni gia' spesi), si riaccende soltanto chi e' di scena.
+	PantheonManager.pantheon.spegni_locali()
+	_accendi_locali(_episodio_corrente())
 	return true
 
 func salva_partita(path: String = SALVATAGGIO_DEFAULT) -> bool:
 	if stato == null:
 		push_error("GameManager: nessuna partita attiva da salvare.")
 		return false
+	# Cio' che vive fuori dallo stato viene allineato adesso: le chat, i caduti e l'ultima
+	# voce di Omero sono parte della partita quanto le statistiche.
+	stato.agora = agora.to_dict() if agora else {}
+	stato.ciurma_caduti = []
+	if ciurma:
+		for id in ciurma.caduti:
+			stato.ciurma_caduti.append(String(id))
+	stato.ultima_narrazione = _ultima_narrazione
 	return stato.salva(path)
 
 ## Esegue un turno completo (fino a Omero) sull'input libero di Ulisse.
@@ -221,7 +260,8 @@ func salva_partita(path: String = SALVATAGGIO_DEFAULT) -> bool:
 ## Le parole scambiate coi compagni NON passano di qui: sono beat (vedi esegui_beat).
 ## Ritorna un dizionario di esito: {voce, svegli, in_mondo, esito, fsm_path}.
 ## 'voce' e' anche appesa a stato.storico_olimpo (schema letto dal trace dumper).
-func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
+## `rischio`: Ulisse ha preso un BIVIO, non un suggerimento. Vedi forza_con_rischio.
+func esegui_turno(input_testo: String, eventi: Array = [], rischio: bool = false) -> Dictionary:
 	if stato == null:
 		push_error("GameManager: nessuna partita attiva.")
 		return {}
@@ -293,7 +333,8 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 			if verdetto.get("attore", "") != "" and verdetto.get("registro", "silenzio") != "silenzio":
 				percorso.append(Fase.keys()[Fase.APPLICAZIONE])
 				delta = Delta.unisci(delta, Delta.da_reazione(
-					verdetto["attore"], verdetto["registro"], int(verdetto["intensita"])))
+					verdetto["attore"], verdetto["registro"],
+					forza_con_rischio(int(verdetto["intensita"]), rischio)))
 
 			# SCAVALCAMENTO — un dio punitivo bocciato puo' agire di nascosto (raro):
 			# applica il suo delta all'insaputa di Zeus e lascia una traccia (pendente).
@@ -358,6 +399,7 @@ func esegui_turno(input_testo: String, eventi: Array = []) -> Dictionary:
 	# Registrazioni: storico_olimpo (vista Olimpo/debug) + diario (player-facing).
 	var voce := _registra(turno, input_testo, envelope, svegli, eventi_turno, conflitto,
 		proposte, verdetto, scavalcamento, resa, delta, val, narrazione, in_mondo)
+	voce["rischio"] = rischio   # perche' dal Log si capisca perche' il turno ha pesato il doppio
 
 	# ESITO — la follia (ammonizione oltre soglia) chiude la partita; altrimenti
 	# valgono i controlli sulle stat (ciurma). Gli altri esiti con le loro fasi.
@@ -534,6 +576,22 @@ func _arbitra(proposte: Array) -> Dictionary:
 		"intensita": int(best.get("intensita", 1)),
 		"dice": best.get("dice", ""),
 	}
+
+## IL BIVIO, senza una seconda macchina del turno.
+##
+## Il design (sez. 4) voleva «scelte discrete per i bivi veri: Scilla o Cariddi? apri
+## l'otre?». Costruirle davvero significherebbe un secondo tipo di turno, con rami scritti
+## a mano tappa per tappa. Ma il campo `rischio` esiste gia' negli spunti — Omero marca col
+## «!» quelli pericolosi — e finora serviva solo a colorare un bottone.
+##
+## Prendere un appiglio rischioso e' un IMPEGNO: la GUI chiede conferma e non lascia
+## correggere la frase, e la reazione degli dei sale di un grado — in QUALUNQUE direzione
+## abbiano scelto. Chi rischia rischia davvero: il castigo morde di piu', ma anche l'aiuto
+## vale di piu'. E' un bivio, non una penalita' mascherata.
+##
+## Questa e' la parte deterministica, cioe' la garanzia: il resto (la conferma) e' forma.
+static func forza_con_rischio(intensita: int, rischio: bool) -> int:
+	return clampi(intensita + (1 if rischio else 0), 1, 3)
 
 ## Validazione/ammonizione e vaglio della plausibilita' vivono in Validazione (scripts/).
 ## Qui restano solo i due punti di ingresso, per non spargere la regola in due posti.
