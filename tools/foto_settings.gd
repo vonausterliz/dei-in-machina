@@ -80,6 +80,19 @@ func _scatta() -> void:
 		_fin._opt_modello.get_popup().hide()
 		await _riposa(4)
 
+	# Il caso che confonde di piu': Gateway acceso. Li' la chiave del gioco non conta — le
+	# chiamate le fa il gateway con le sue — e il pannello deve dirlo.
+	var i_mistral: int = llm.indice_profilo("Mistral")
+	if i_mistral >= 0:
+		llm.usa_gateway = true
+		_fin._opt_provider.select(i_mistral)
+		await _fin._on_provider(i_mistral)
+		await _fin._aggiorna_gateway()
+		_fin._aggiorna_stato_chiave()
+		await _riposa(8)
+		_png("scheda_0_mistral_gateway", _fin)
+		llm.usa_gateway = false
+
 	# Il «?» di una manopola: e' il dialogo che porta la spiegazione lunga.
 	var chiave: String = Costi.descrittori().keys()[0]
 	var d: Dictionary = Costi.descrittori()[chiave]

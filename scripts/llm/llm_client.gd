@@ -287,6 +287,25 @@ func elenca_dettagli() -> Dictionary:
 			})
 	return {"ok": true, "modelli": out, "errore": ""}
 
+## Una GET qualunque su questo indirizzo, con la risposta gia' interpretata.
+## Serve a chiedere al Gateway il suo /stato — che non e' un endpoint da provider.
+func get_json(percorso: String) -> Dictionary:
+	if not is_inside_tree():
+		return {"ok": false, "dati": {}, "errore": "client non nell'albero della scena"}
+	var h := _apri()
+	var err := h.request(base_url.trim_suffix("/") + percorso, intestazioni(), HTTPClient.METHOD_GET)
+	if err != OK:
+		_chiudi(h)
+		return {"ok": false, "dati": {}, "errore": error_string(err)}
+	var r: Array = await h.request_completed
+	_chiudi(h)
+	if int(r[0]) != HTTPRequest.RESULT_SUCCESS or int(r[1]) < 200 or int(r[1]) >= 300:
+		return {"ok": false, "dati": {}, "errore": "non raggiungibile"}
+	var d: Variant = JSON.parse_string((r[3] as PackedByteArray).get_string_from_utf8())
+	if typeof(d) != TYPE_DICTIONARY:
+		return {"ok": false, "dati": {}, "errore": "risposta non-JSON"}
+	return {"ok": true, "dati": d, "errore": ""}
+
 ## Ping leggero: verifica che il provider risponda e che il modello esista.
 func disponibile() -> bool:
 	if not is_inside_tree():

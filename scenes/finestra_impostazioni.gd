@@ -65,6 +65,8 @@ var _modelli: Array = []
 ## Le taglie dei modelli installati (nome -> byte), da /api/tags. Vuoto per i provider in
 ## rete: il ferro e' loro, la domanda «ci gira?» non si pone.
 var _taglie: Dictionary = {}
+## Cosa dice il Gateway di sé: se risponde, e per quali provider ha una chiave.
+var _gateway: Dictionary = {"raggiungibile": false, "chiavi": {}}
 var _legenda: Label
 static var _pallini: Dictionary = {}
 
@@ -100,6 +102,7 @@ func _ready() -> void:
 ## All'apertura si rilegge l'hardware: fra una sessione e l'altra puoi aver scaricato o
 ## cancellato modelli, o aggiornato Ollama.
 func _on_apertura() -> void:
+	await _aggiorna_gateway()
 	await _aggiorna_taglie()
 	_sincronizza_modello()
 
@@ -534,6 +537,7 @@ func _on_autore(_i: int) -> void:
 func _on_gateway(premuto: bool) -> void:
 	LLMManager.imposta_gateway(premuto)
 	Impostazioni.scrivi("usa_gateway", premuto)
+	await _aggiorna_gateway()
 	_sincronizza_modello()
 	_stato.text = Testi.s("impostazioni/gateway_scelto" if premuto else "impostazioni/gateway_spento")
 
@@ -570,6 +574,19 @@ func _aggiorna_stato_chiave() -> void:
 	if LLMManager.e_locale():
 		_stato_chiave.text = Testi.s("impostazioni/provider_locale")
 		_stato_chiave.add_theme_color_override("font_color", C_VERDIGRIS)
+	# COL GATEWAY ACCESO LA CHIAVE DEL GIOCO NON CONTA: le chiamate le fa lui, con le sue.
+	# Mostrare «chiave presente» perché ce l'ha il gioco è la risposta a un'altra domanda —
+	# ed è il motivo per cui lo stesso 401 è tornato tre volte.
+	elif LLMManager.usa_gateway and LLMManager.gateway_disponibile():
+		if not bool(_gateway.get("raggiungibile", false)):
+			_stato_chiave.text = Testi.s("impostazioni/gateway_muto")
+			_stato_chiave.add_theme_color_override("font_color", C_OXBLOOD)
+		elif bool(Dictionary(_gateway.get("chiavi", {})).get(LLMManager.provider_id(), false)):
+			_stato_chiave.text = Testi.s("impostazioni/gateway_chiave_ok")
+			_stato_chiave.add_theme_color_override("font_color", C_VERDIGRIS)
+		else:
+			_stato_chiave.text = Testi.s("impostazioni/gateway_chiave_manca")
+			_stato_chiave.add_theme_color_override("font_color", C_OXBLOOD)
 	elif LLMManager.chiave_presente():
 		_stato_chiave.text = Testi.s("impostazioni/chiave_ok")
 		_stato_chiave.add_theme_color_override("font_color", C_VERDIGRIS)
@@ -683,6 +700,12 @@ static func _pallino(c: Color) -> ImageTexture:
 
 ## Chiede a Ollama quanto occupa ogni modello installato. Solo per i provider locali, e
 ## senza fare rumore se non risponde: il menu resta usabile, solo senza verdetti.
+## Cosa dice di sé il Gateway. Solo se la spunta è accesa: a spunta spenta non c'entra.
+func _aggiorna_gateway() -> void:
+	_gateway = {"raggiungibile": false, "chiavi": {}}
+	if LLMManager.usa_gateway and LLMManager.gateway_disponibile():
+		_gateway = await LLMManager.stato_gateway()
+
 func _aggiorna_taglie() -> void:
 	_taglie = {}
 	if not LLMManager.e_locale():

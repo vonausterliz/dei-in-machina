@@ -124,6 +124,35 @@ func attraverso_il_gateway_per_test(profilo: Dictionary) -> Dictionary:
 	gateway_cfg = prima_cfg
 	return out
 
+## CHI HA LA CHIAVE, SECONDO IL GATEWAY.
+##
+## Col gateway acceso la chiave del gioco non conta: le chiamate le fa lui, con le SUE, lette
+## dal proprio ambiente una volta sola all'avvio. E' una condizione invisibile che si
+## manifesta solo come un 401 a valle — e' successo tre volte. Qui gliela si chiede, cosi'
+## Settings puo' dirlo prima.
+## Ritorna {raggiungibile: bool, chiavi: {provider -> bool}}.
+func stato_gateway() -> Dictionary:
+	if gateway_cfg.is_empty():
+		return {"raggiungibile": false, "chiavi": {}}
+	var c := LLMClient.new()
+	add_child(c)
+	c.configura({"base_url": gateway_cfg.get("base_url", "http://localhost:8800"), "timeout_sec": 5}, "")
+	var r: Dictionary = await c.get_json("/stato")
+	remove_child(c)
+	c.queue_free()
+	if not bool(r.get("ok", false)):
+		return {"raggiungibile": false, "chiavi": {}}
+	var chiavi: Dictionary = {}
+	for nome in Dictionary(r["dati"].get("providers", {})):
+		chiavi[String(nome)] = bool(r["dati"]["providers"][nome].get("chiave", false))
+	return {"raggiungibile": true, "chiavi": chiavi}
+
+## Il nome con cui il gateway conosce il provider selezionato (il campo `provider` del profilo).
+func provider_id() -> String:
+	if profilo_idx < 0 or profilo_idx >= profili.size():
+		return ""
+	return String(profili[profilo_idx].get("provider", ""))
+
 ## C'e' un gateway configurato (config/providers/ con "trasporto": true)?
 func gateway_disponibile() -> bool:
 	return not gateway_cfg.is_empty()

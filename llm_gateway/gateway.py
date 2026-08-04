@@ -293,7 +293,13 @@ class Gateway:
         return {
             "throttling_attivo": self.throttling,
             "cache": {"colpi": self.cache.colpi, "mancati": self.cache.mancati, "ttl_s": self.cache.ttl},
-            "providers": {n: p.limitatore.stato() for n, p in self.providers.items()},
+            # CHI HA LA CHIAVE. Il gateway la legge dal proprio ambiente UNA VOLTA, all'avvio:
+            # averla nella shell adesso non conta se il processo e' partito prima. Senza, il
+            # gateway chiama il provider senza Authorization, il provider risponde 401, e dal
+            # gioco sembra che sia il gioco a non avere la chiave. Esposta qui perche' il
+            # gioco possa dirlo in chiaro invece di lasciarlo dedurre da un 401.
+            "providers": {n: dict(p.limitatore.stato(), chiave=bool(p.api_key))
+                          for n, p in self.providers.items()},
         }
 
 
