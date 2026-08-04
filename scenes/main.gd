@@ -1088,7 +1088,11 @@ func _attiva_reale() -> void:
 	if not v["attivo"]:
 		LLMManager.mock_mode = true
 		chk.set_pressed_no_signal(false)
-		var aiuto := Testi.s("motore/aiuto_ollama") if LLMManager.e_locale() else Testi.s("motore/aiuto_esterno")
+		# «Controlla la chiave API» e' un consiglio SBAGLIATO se si passa dal Gateway: li' la
+		# chiave non la tiene il gioco, e cercarla in Settings non porta da nessuna parte.
+		# Stessa correzione fatta in Impostazioni, sull'altra meta' della strada.
+		var aiuto := Testi.s("motore/aiuto_ollama") if LLMManager.e_locale() \
+			else Testi.s("motore/aiuto_gateway" if LLMManager.usa_gateway else "motore/aiuto_esterno")
 		_narrazione.append_text("[color=%s]%s[/color]\n" % [C_OXBLOOD.to_html(), Testi.s("motore/non_risponde", [dove, v.get("errore", "?"), aiuto])])
 		return
 	if v["modelli"].is_empty():
