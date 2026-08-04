@@ -127,7 +127,7 @@ func chat(messaggi: Array, opzioni: Dictionary = {}) -> Dictionary:
 
 	var url := base_url.trim_suffix("/") + chat_path
 	_log("  ⇢ POST %s · model=%s · temp=%s%s" % [url, model, corpo["temperature"], " · json" if opzioni.get("json_mode", false) else ""])
-	_log("    ⇡ invio: %s" % _tronca(_ultimo_utente(messaggi), 240))
+	_log("    ⇡ invio: %s" % Bbcode.neutro(_tronca(_ultimo_utente(messaggi), 240)))
 	var h := _apri()
 	var err := h.request(url, headers, HTTPClient.METHOD_POST, JSON.stringify(corpo))
 	if err != OK:
@@ -160,7 +160,9 @@ func chat(messaggi: Array, opzioni: Dictionary = {}) -> Dictionary:
 	if contenuto == "":
 		return _fallita("nessun contenuto nella risposta del provider")
 
-	_log("    ⇣ HTTP %d · %s" % [status, _tronca(contenuto, 320)])
+	# Il corpo della risposta e' testo del modello, e la finestra del Log lo mostra in
+	# BBCode: senza neutralizzarlo una quadra generata dal modello colorerebbe il log.
+	_log("    ⇣ HTTP %d · %s" % [status, Bbcode.neutro(_tronca(contenuto, 320))])
 	return {"ok": true, "content": contenuto, "error": "", "grezzo": parsed}
 
 ## Estrae il testo del messaggio dalla risposta chat-completions.
@@ -192,7 +194,7 @@ func _errore(msg: String) -> Dictionary:
 
 ## Come _errore ma logga l'errore in modo evidente (percorso di chat()).
 func _fallita(msg: String) -> Dictionary:
-	_log("    ⇣ [ERRORE] %s" % msg)
+	_log("    ⇣ [lb]ERRORE] %s" % Bbcode.neutro(msg))
 	return _errore(msg)
 
 func _log(riga: String) -> void:

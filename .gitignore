@@ -26,3 +26,8 @@ llm_gateway/gateway.pid
 # I brani della colonna sonora si caricano dal disco a runtime, non dall'importatore:
 # il .import che Godot genera comunque non serve a nessuno (vedi scripts/colonna_sonora.gd).
 music/*.import
+
+# Strumenti PERSONALI, che restano su questa macchina e non vanno pubblicati.
+# sync-mac.sh contiene l'utente e l'indirizzo di rete del Mac di chi sviluppa: e' un
+# attrezzo da banco, non una parte del gioco. E' stato tolto anche dalla cronologia.
+sync-mac.sh

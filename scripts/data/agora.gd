@@ -37,8 +37,9 @@ var canali: Dictionary = {}   # id canale -> {titolo, membri: Array, messaggi: A
 var intestazioni: Dictionary = {}
 
 ## Registra cosa ha fatto Ulisse in questo turno, e quando.
+## L'azione e' testo che ha scritto il GIOCATORE: si neutralizza come tutto il resto.
 func segna_turno(turno: int, azione: String, momento: String) -> void:
-	intestazioni[turno] = {"azione": azione.strip_edges(), "momento": momento}
+	intestazioni[turno] = {"azione": Bbcode.neutro(azione.strip_edges()), "momento": momento}
 
 ## --- Salvataggio ---
 ##
@@ -79,12 +80,17 @@ func canale(id: String, titolo: String = "", membri: Array = []) -> Dictionary:
 
 ## Scrive un messaggio. tipo: "voce" (una battuta), "azione" (un gesto: *si desta*),
 ## "verdetto", "sistema" (nascita del canale, esiti).
+## IL CONFINE. Qui dentro entra testo scritto da un modello (le battute degli dei, i gesti,
+## le voci dei compagni) e da chi gioca. La trascrizione lo impagina in BBCode, quindi una
+## quadra arrivata da fuori aprirebbe un marcatore vero: si neutralizza all'ingresso, una
+## volta sola, invece di ricordarsene in ognuna delle viste che lo mostrano.
 func scrivi(id_canale: String, autore: String, testo: String, turno: int,
 		tipo: String = "voce", simbolo: String = "") -> void:
 	if testo.strip_edges() == "" and tipo == "voce":
 		return  # il silenzio non si scrive
 	canale(id_canale)["messaggi"].append({
-		"autore": autore, "testo": testo, "turno": turno, "tipo": tipo, "simbolo": simbolo,
+		"autore": Bbcode.neutro(autore), "testo": Bbcode.neutro(testo),
+		"turno": turno, "tipo": tipo, "simbolo": Bbcode.neutro(simbolo),
 	})
 
 ## Canale di gruppo per una coalizione: nasce quando gli dei fanno blocco.

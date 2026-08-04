@@ -32,7 +32,7 @@ const CARTELLE := ["res://tests/unit", "res://tests/integration"]
 
 ## Erano 39 il 3 agosto 2026, 43 il 4 agosto. Il numero sale quando si aggiungono test; se
 ## scende, qualcuno ha cancellato un file — e va detto, non scoperto.
-const QUANTI_ALMENO := 43
+const QUANTI_ALMENO := 44
 
 func test_ogni_file_di_test_compila():
 	var rotti: Array = []

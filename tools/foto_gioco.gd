@@ -99,6 +99,15 @@ func _scatta() -> void:
 				for r in col.get_children():
 					print("           %-22s min %.0f" % [r.get_class(),
 						r.get_combined_minimum_size().y])
+	# MESSA IN POSA per lo scatto del README. Col motore simulato il gioco si blocca apposta
+	# e il campo d'azione mostra una barra rossa: e' il comportamento giusto, ma in una
+	# vetrina racconta una bugia — chi gioca davvero ha un motore acceso. Qui si rimette
+	# l'aspetto del caso normale, senza toccare la regola (che resta quella di sempre).
+	ui._input.editable = true
+	ui._input.placeholder_text = Testi.s("gioco/placeholder")
+	ui._btn_agisci.disabled = false
+	for i in 6:
+		await process_frame
 	_png("gioco_giocato", root)
 	ui._ingrandisci_olimpo()
 	for i in 20:

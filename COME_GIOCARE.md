@@ -92,26 +92,34 @@ Scrivi liberamente **cosa fa e dice Ulisse**, e premi Invio (o "Agisci"). Sotto 
 trovi tre appigli: sono suggerimenti contestuali, non le uniche mosse possibili — la quarta
 strada è sempre scrivere di tuo.
 
-Gli appigli in **oro** (`›`) finiscono nel campo: puoi correggerli o ignorarli. Quelli in
-**rosso** (`‡`) sono **bivi**: chiedono conferma, non si possono ritoccare, e ciò che ne
-segue pesa il doppio — in bene o in male. Rischiare vale davvero, in entrambe le direzioni.
+I tre appigli sono suggerimenti, non scelte: cliccarne uno lo mette nel campo e parte. Puoi
+sempre scrivere altro — ed è lì, nel campo libero, che si fanno le cose che nessuno ti ha
+suggerito.
 
 Dal menu **Partita** puoi salvare e riprendere: una partita intera dura ~76 turni, non è
 detto che tu la faccia in una sera.
 
-Quattro finestre, apribili dai pulsanti in alto:
+Nella colonna di destra, sempre sotto gli occhi:
 
-- **Olimpo** — gli dèi che si parlano fra loro, si contraddicono, e Zeus che chiude la
-  contesa. Si **assiste** e basta: Ulisse non li sente davvero.
-- **Ciurma** — qui invece **si scrive**. Parlare ai compagni non fa girare il mondo: costa
-  una sola chiamata e il turno non avanza. Ma le tue parole non si perdono — al prossimo
-  turno vero arrivano all'Interprete, agli dèi e a Omero, così un proposito detto a voce può
-  svegliare qualcuno. Chiama qualcuno per nome (o con `@`) e risponde lui.
-- **Log LLM** — la traccia tecnica: chi si è destato, cosa ha proposto, quanto ci ha messo.
-- **Impostazioni** — motore, provider, modello, chiavi.
+- **Carta del viaggio** — dove sei, e cosa hai già passato.
+- **Vista Olimpo** — gli dèi che si parlano fra loro, si contraddicono, e Zeus che chiude
+  la contesa. Si **assiste** e basta: Ulisse non li sente davvero. Chi la spunta non viene
+  annunciato — si vede, perché è l'unico che agisce.
+- **La ciurma** — qui invece **si scrive**. Parlare ai compagni non fa girare il mondo:
+  costa una sola chiamata e il turno non avanza. Ma le tue parole non si perdono — al
+  prossimo turno vero arrivano all'Interprete, agli dèi e a Omero, così un proposito detto
+  a voce può svegliare qualcuno. Chiama qualcuno per nome (o con `@`) e risponde lui.
 
-Le tre viste sono allineate dallo stesso ritmo: il momento del giorno e l'azione che hai
-appena compiuto fanno da intestazione ovunque.
+Ognuno dei tre ha una **lente** in alto a destra: lo apre grande quanto la schermata. Si
+chiude con `Esc` o cliccando fuori.
+
+In fondo alla pagina, su una riga: astuzia, animo, ciurma, tracotanza — e il capitolo in
+corso. Dal menu **View** si apre il **Log LLM**, la traccia tecnica di chi si è destato,
+cosa ha proposto e quanto ci ha messo. Sotto **Settings** ci sono motore, provider,
+modello, chiavi — e le *Informazioni*, con la versione.
+
+Le viste sono allineate dallo stesso ritmo: il momento del giorno e l'azione che hai appena
+compiuto fanno da intestazione ovunque.
 
 Console (headless): `:olimpo`, `:stato`, `:salva`, `:carica`, `:tappa <id>`, `:esci`.
 

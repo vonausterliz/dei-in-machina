@@ -1,3 +1,10 @@
+# Dei in machina — gioco narrativo agentico sull'Odissea.
+# Copyright (C) 2026 vonausterliz
+#
+# Programma libero: puoi ridistribuirlo e modificarlo secondo i termini della GNU Affero
+# General Public License, versione 3, pubblicata dalla Free Software Foundation. Distribuito
+# nella speranza che sia utile, ma SENZA ALCUNA GARANZIA. Il testo completo e' in LICENSE.
+
 extends Node
 
 ## Autoload. Stato della partita corrente + FSM del turno (macchina_del_turno.mermaid).

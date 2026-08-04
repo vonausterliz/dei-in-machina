@@ -1,0 +1,19 @@
+# Fine riga: normalizzata nel repository, nativa in copia di lavoro. Il progetto si
+# sviluppa su Linux e macOS, ma un clone su Windows non deve trasformare ogni file.
+* text=auto eol=lf
+
+# Binari: nessuna normalizzazione, nessun tentativo di diff testuale.
+*.ttf   binary
+*.png   binary
+*.jpg   binary
+*.ogg   binary
+*.mp3   binary
+
+# GUT e' una libreria di terzi che teniamo dentro il repository per non chiedere
+# un'installazione a chi vuole solo far girare i test. Non e' codice del progetto, e nelle
+# statistiche di GitHub lo coprirebbe: 257 file contro i nostri.
+addons/** linguist-vendored
+
+# I documenti SONO il progetto quanto il codice — non vanno contati come contorno.
+docs/**       linguist-documentation=false
+*.md          linguist-detectable=true

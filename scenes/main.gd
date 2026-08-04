@@ -1,3 +1,10 @@
+# Dei in machina — gioco narrativo agentico sull'Odissea.
+# Copyright (C) 2026 vonausterliz
+#
+# Programma libero: puoi ridistribuirlo e modificarlo secondo i termini della GNU Affero
+# General Public License, versione 3, pubblicata dalla Free Software Foundation. Distribuito
+# nella speranza che sia utile, ma SENZA ALCUNA GARANZIA. Il testo completo e' in LICENSE.
+
 class_name Main
 extends Control
 
@@ -7,7 +14,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "2.34"
+const VERSIONE := "2.35"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -461,7 +468,7 @@ func _riapri_partita_ripresa() -> void:
 	_ultimo_momento = ""
 	_narrazione.clear()
 	_narrazione.append_text("[color=%s]— %s —[/color]\n[i]%s[/i] %s\n\n" % [
-		C_GOLD.to_html(), _nome_tappa(), Testi.s("gioco/omero"), _ultima_narrazione])
+		C_GOLD.to_html(), _nome_tappa(), Testi.s("gioco/omero"), _fuori(_ultima_narrazione)])
 	_nota(Testi.s("gioco/ripresa"))
 	_episodio.text = _nome_tappa()
 	_aggiorna_stats()
@@ -471,6 +478,13 @@ func _riapri_partita_ripresa() -> void:
 	_pulisci_spunti()
 	if not _finita:
 		await _rigenera_spunti()
+
+## TESTO CHE VIENE DA FUORI dentro la narrazione: la voce di Omero, il commiato, cio' che
+## digita chi gioca, il messaggio d'errore di un server. La narrazione e' una RichTextLabel
+## in BBCode, quindi una quadra arrivata da fuori aprirebbe un marcatore vero. Si
+## neutralizza al confine — vedi scripts/data/bbcode.gd.
+func _fuori(t: String) -> String:
+	return Bbcode.neutro(t)
 
 func _nota(testo: String) -> void:
 	_narrazione.append_text("[color=%s]%s[/color]\n\n" % [C_VERDIGRIS.to_html(), testo])
@@ -763,7 +777,7 @@ func _on_llm_log(riga: String) -> void:
 func _apri_scena() -> void:
 	_episodio.text = "· %s ·" % _nome_tappa()
 	_ultima_narrazione = GameManager.intro_corrente()
-	_narrazione.append_text("[i]" + Testi.s("gioco/omero") + "[/i] %s\n\n" % _ultima_narrazione)
+	_narrazione.append_text("[i]" + Testi.s("gioco/omero") + "[/i] %s\n\n" % _fuori(_ultima_narrazione))
 	_aggiorna_stats()
 	_aggiorna_mappa()
 	# Anche l'Olimpo, non solo la ciurma: finche' era una finestra che si apriva a mano si
@@ -814,7 +828,7 @@ func _on_agisci() -> void:
 	if momento != _ultimo_momento:
 		_ultimo_momento = momento
 		_narrazione.append_text("\n[color=#5c5548]≈ %s ≈[/color]\n" % momento)
-	_narrazione.append_text("[color=#8a9bb0]› %s[/color]\n" % testo)
+	_narrazione.append_text("[color=#8a9bb0]› %s[/color]\n" % _fuori(testo))
 	_input.text = ""
 	if not LLMManager.mock_mode:
 		_on_llm_log("[color=%s]— turno %d —[/color]" % [C_VERDIGRIS.to_html(), GameManager.stato.turno + 1])
@@ -825,7 +839,7 @@ func _on_agisci() -> void:
 
 	_ultima_narrazione = String(esito["voce"].get("narrazione_omero", ""))
 	if _ultima_narrazione != "":
-		_narrazione.append_text("[i]" + Testi.s("gioco/omero") + "[/i] %s\n\n" % _ultima_narrazione)
+		_narrazione.append_text("[i]" + Testi.s("gioco/omero") + "[/i] %s\n\n" % _fuori(_ultima_narrazione))
 	# Fuori-mondo: Omero tace, al suo posto un avviso in chiaro (non è la voce del poeta).
 	var ammon := String(esito["voce"].get("ammonizione", ""))
 	if ammon != "":
@@ -844,11 +858,11 @@ func _on_agisci() -> void:
 	# "teletrasporta" da un luogo all'altro.
 	var trans := String(esito.get("transizione", ""))
 	if esito.get("avanzato", false) and trans != "":
-		_narrazione.append_text("[i]" + Testi.s("gioco/omero") + "[/i] %s\n\n" % trans)
+		_narrazione.append_text("[i]" + Testi.s("gioco/omero") + "[/i] %s\n\n" % _fuori(trans))
 	if esito.get("avanzato", false) and esito["esito"] == "continua":
 		_episodio.text = "· %s ·" % _nome_tappa()
 		_ultima_narrazione = String(esito.get("intro", ""))
-		_narrazione.append_text("[color=%s]— %s —[/color]\n[i]Omero:[/i] %s\n\n" % [C_GOLD.to_html(), _nome_tappa(), _ultima_narrazione])
+		_narrazione.append_text("[color=%s]— %s —[/color]\n[i]Omero:[/i] %s\n\n" % [C_GOLD.to_html(), _nome_tappa(), _fuori(_ultima_narrazione)])
 		_musica_del_capitolo()   # nuovo capitolo, nuovo brano (se ne ha uno)
 	_aggiorna_mappa()
 
@@ -970,7 +984,7 @@ func _congedo(testo: String) -> void:
 	if testo.strip_edges() == "":
 		return
 	_narrazione.append_text("\n[color=%s]· · ·[/color]\n\n[i][color=%s]%s[/color][/i]\n" % [
-		C_GOLD.to_html(), C_BONE.to_html(), testo.strip_edges()])
+		C_GOLD.to_html(), C_BONE.to_html(), _fuori(testo.strip_edges())])
 
 var _stat_prec := {}  # valori del turno prima: per mostrare di quanto sono cambiati
 
@@ -1075,7 +1089,7 @@ func _attiva_reale() -> void:
 		# Stessa correzione fatta in Impostazioni, sull'altra meta' della strada.
 		var aiuto := Testi.s("motore/aiuto_ollama") if LLMManager.e_locale() \
 			else Testi.s("motore/aiuto_gateway" if LLMManager.usa_gateway else "motore/aiuto_esterno")
-		_narrazione.append_text("[color=%s]%s[/color]\n" % [C_OXBLOOD.to_html(), Testi.s("motore/non_risponde", [dove, v.get("errore", "?"), aiuto])])
+		_narrazione.append_text("[color=%s]%s[/color]\n" % [C_OXBLOOD.to_html(), Testi.s("motore/non_risponde", [dove, _fuori(String(v.get("errore", "?"))), aiuto])])
 		return
 	if v["modelli"].is_empty():
 		LLMManager.mock_mode = true

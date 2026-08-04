@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Dei in machina — Copyright (C) 2026 vonausterliz — GNU AGPL-3.0 (vedi ../LICENSE).
 """Gateway LLM: coda, throttling, cache e backoff davanti ai provider free tier.
 
 E' un'APPLICAZIONE SEPARATA dal gioco: parla il protocollo OpenAI

@@ -1,4 +1,6 @@
 ; Dei in machina — progetto Godot 4
+; Copyright (C) 2026 vonausterliz — GNU AGPL-3.0. Il testo della licenza e' in LICENSE;
+; i componenti di terzi (GUT, il carattere Cardo) sono elencati in TERZE_PARTI.md.
 ; Fase 0: scaffolding. Nessuna scena principale ancora (UI = fase 8).
 
 config_version=5

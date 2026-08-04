@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Dei in machina — Copyright (C) 2026 vonausterliz — GNU AGPL-3.0 (vedi LICENSE).
 # Launcher portabile per Dei in machina.
 # Rileva il sistema operativo e usa il Godot giusto; se manca, lo scarica (una volta)
 # in tools/godot/. Stesso comando su Linux e macOS.
@@ -23,16 +24,31 @@ BASE_URL="https://github.com/godotengine/godot/releases/download/${GODOT_VER}"
 OS="$(uname -s)"
 ARCH="$(uname -m)"
 
+# L'IMPRONTA DEI FILE CHE SCARICHIAMO.
+#
+# Il launcher prende un ESEGUIBILE da internet e lo lancia sulla macchina di chi gioca. Il
+# canale e' HTTPS e la fonte sono le release ufficiali di Godot, ma «l'ho preso dal posto
+# giusto» non e' la stessa cosa di «e' il file giusto»: un mirror aziendale, un proxy che
+# intercetta, una release ripubblicata, e si esegue altro senza accorgersene.
+#
+# Sono le SHA-512 pubblicate da Godot in SHA512-SUMS.txt per questa versione. Se cambi
+# GODOT_VER devi cambiare anche queste, e il launcher si ferma finche' non lo fai: meglio
+# fermarsi che verificare contro un valore vecchio, che e' come non verificare.
+SHA_LINUX="4ccdab7a48eeccbe8819a2fc1f6262f8d72065d98601bcb3743fcbd7ebd39f373758a788ee3293a05ec5b2c48538266c437404312e372225cd2df273945a2de9"
+SHA_MACOS="a5c6443e193829de9a3237b57ef5e01c23839888900e241543da0dd4bac1050125e19469f0cca9a9958ac346070d98cab8e5d6aee16b181c6d06cda86bd07224"
+
 case "$OS" in
   Linux)
     GODOT="$DIR/tools/godot/godot4"
     ASSET="Godot_v${GODOT_VER}_linux.x86_64.zip"
     INNER="Godot_v${GODOT_VER}_linux.x86_64"
+    ATTESA="$SHA_LINUX"
     ;;
   Darwin)
     GODOT="$DIR/tools/godot/Godot.app/Contents/MacOS/Godot"
     ASSET="Godot_v${GODOT_VER}_macos.universal.zip"
     INNER=""  # lo zip contiene direttamente Godot.app
+    ATTESA="$SHA_MACOS"
     ;;
   *)
     echo "Sistema non supportato dal launcher: $OS. Apri il progetto col tuo Godot 4.7.x."
@@ -47,6 +63,28 @@ if [ ! -x "$GODOT" ]; then
   TMP="$(mktemp -d)"
   echo "  scarico $ASSET …"
   curl -fL --progress-bar -o "$TMP/godot.zip" "$BASE_URL/$ASSET"
+
+  # Verifica dell'impronta PRIMA di estrarre: uno zip non fidato non si apre nemmeno.
+  echo "  verifico l'impronta…"
+  if command -v sha512sum >/dev/null 2>&1; then
+    OTTENUTA="$(sha512sum "$TMP/godot.zip" | cut -d" " -f1)"
+  elif command -v shasum >/dev/null 2>&1; then
+    OTTENUTA="$(shasum -a 512 "$TMP/godot.zip" | cut -d" " -f1)"
+  else
+    echo "  [!] Non trovo ne' sha512sum ne' shasum: non posso verificare cosa ho scaricato."
+    echo "      Installa uno dei due, oppure scarica Godot ${GODOT_VER} a mano e mettilo in"
+    echo "      tools/godot/ ."
+    rm -rf "$TMP"; exit 1
+  fi
+  if [ "$OTTENUTA" != "$ATTESA" ]; then
+    echo "  [!] IMPRONTA SBAGLIATA: il file scaricato non e' quello atteso. NON lo eseguo."
+    echo "      attesa:   $ATTESA"
+    echo "      ottenuta: $OTTENUTA"
+    echo "      Puo' voler dire che la versione e' cambiata (aggiorna SHA_LINUX/SHA_MACOS in"
+    echo "      questo file, dalla SHA512-SUMS.txt della release) — oppure che il download"
+    echo "      e' stato manomesso. Nel dubbio, la seconda."
+    rm -rf "$TMP"; exit 1
+  fi
   echo "  estraggo…"
   unzip -q -o "$TMP/godot.zip" -d "$TMP"
   if [ "$OS" = "Darwin" ]; then
