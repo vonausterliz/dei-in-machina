@@ -35,6 +35,17 @@ rieseguono, si modificano. Nessun brano di terzi, nessun campione preso altrove.
 Il gioco funziona anche **senza nessun brano**: un momento senza musica resta in silenzio, e
 non è un errore.
 
+## Come è stato scritto
+
+Il codice, i test e questa documentazione sono stati scritti **con l'assistenza di Claude
+Code** (Anthropic), usato come strumento in tutto il progetto. Le decisioni di design, la
+direzione e la revisione sono dell'autore, che risponde di quello che c'è dentro: uno
+strumento non è un coautore, e non c'è nulla di terzi che questo introduca nel repository —
+il codice prodotto è opera dell'autore e ricade sotto l'AGPL come il resto.
+
+Sta scritto qui e non in novantun messaggi di commit perché è un'informazione che si cerca
+una volta, e in fondo a una `git log` non la trova nessuno.
+
 ## Il testo dell'*Odissea*
 
 Il poema è di dominio pubblico da qualche millennio. Le traduzioni no: nel gioco **non c'è
