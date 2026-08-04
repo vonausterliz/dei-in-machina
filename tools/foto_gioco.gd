@@ -106,7 +106,13 @@ func _scatta() -> void:
 	ui._input.editable = true
 	ui._input.placeholder_text = Testi.s("gioco/placeholder")
 	ui._btn_agisci.disabled = false
-	for i in 6:
+	# E I TRE APPIGLI. Sono la cosa che il README descrive per prima — «quello che il gioco ti
+	# propone, il gioco lo accetta» — e nello scatto restavano «… il mare suggerisce …»: la
+	# scritta d'attesa, perche' i turni girano su GameManager e nessuno chiede poi alla UI di
+	# rigenerarli. Una vetrina che mostra uno spinner.
+	llm.mock_mode = true
+	await ui._rigenera_spunti()
+	for i in 10:
 		await process_frame
 	_png("gioco_giocato", root)
 	ui._ingrandisci_olimpo()
