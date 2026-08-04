@@ -10,7 +10,9 @@ const SEED := 4815162342
 
 ## Input scriptati scelti per esercitare risvegli diversi col mock deterministico.
 const COPIONE := [
-	"Sono io, Odisseo, che t'ho accecato!",         # vanto/tracotanza -> Poseidone
+	# NON sveglia Poseidone, per quanto il vanto sia suo: `dorme_finche` la maledizione di
+	# Polifemo, e a Troia quell'evento non e' ancora accaduto. Alza solo la hybris.
+	"Sono io, Odisseo, che t'ho accecato!",         # vanto/tracotanza -> hybris
 	"Dico al gigante che il mio nome e' Nessuno.",   # astuzia/inganno  -> Atena
 	"Prendo un aereo e volo a Itaca.",               # anacronistico    -> nessun dio, richiamo
 	"Riempio gli otri d'acqua alla sorgente.",       # neutro           -> nessun dio

@@ -1,0 +1,373 @@
+{
+  "_nota": "Traccia canonica generata da TracciaCanonica.registra(). NON si modifica a mano: si rigenera con tools/golden_trace/golden_trace.gd -- aggiorna, e la differenza si LEGGE prima di accettarla.",
+  "copione": [
+    "Sono io, Odisseo, che t'ho accecato!",
+    "Dico al gigante che il mio nome e' Nessuno.",
+    "Prendo un aereo e volo a Itaca.",
+    "Riempio gli otri d'acqua alla sorgente.",
+    "Mi rivolgo al capo dell'olimpo e lo supplico.",
+    "Ordino ai compagni di tornare alle navi."
+  ],
+  "finale": {
+    "esito": "",
+    "registro": {
+      "atena": "favore=76 ira=0",
+      "calipso": "favore=60 ira=0",
+      "circe": "favore=20 ira=0",
+      "elio": "favore=0 ira=0",
+      "eolo": "favore=55 ira=0",
+      "ermes": "favore=50 ira=0",
+      "ino_leucotea": "favore=60 ira=0",
+      "polifemo": "favore=0 ira=30",
+      "poseidone": "favore=0 ira=10",
+      "scilla": "favore=0 ira=0",
+      "sirene": "favore=0 ira=0",
+      "tiresia": "favore=50 ira=0",
+      "zeus": "favore=41 ira=0"
+    },
+    "stato": {
+      "animo": 52,
+      "ciurma_vivi": 45,
+      "hybris": 8,
+      "metis": 53,
+      "tappa": "",
+      "turno": 6
+    },
+    "stato_partita": "in_corso",
+    "turni_giocati": 6,
+    "voci_diario": 6,
+    "voci_storico": 6
+  },
+  "seed": 4815162342,
+  "turni": [
+    {
+      "ammonizione": "",
+      "ammonizioni": {
+        "contatore": 0,
+        "decadimento_ogni": 3,
+        "soglia": 3,
+        "turni_puliti": 1
+      },
+      "avanzato": false,
+      "ciurma_parla": [
+        "Elpenore: Ma... e se non tornassimo piu'?"
+      ],
+      "conflitto": false,
+      "congedo": "",
+      "delta": {
+        "ulisse.hybris": 8
+      },
+      "episodio": "troia",
+      "esito": "continua",
+      "in_mondo": true,
+      "input": "Sono io, Odisseo, che t'ho accecato!",
+      "n": 1,
+      "narrazione": "Un dio - e non diro' quale - osservo' Ulisse grida il proprio nome al ciclope accecato.. Le conseguenze si vedranno.",
+      "plausibilita": "in_mondo",
+      "proposte": [],
+      "registro": {
+        "atena": "favore=75 ira=0",
+        "calipso": "favore=60 ira=0",
+        "circe": "favore=20 ira=0",
+        "elio": "favore=0 ira=0",
+        "eolo": "favore=55 ira=0",
+        "ermes": "favore=50 ira=0",
+        "ino_leucotea": "favore=60 ira=0",
+        "polifemo": "favore=0 ira=30",
+        "poseidone": "favore=0 ira=10",
+        "scilla": "favore=0 ira=0",
+        "sirene": "favore=0 ira=0",
+        "tiresia": "favore=50 ira=0",
+        "zeus": "favore=40 ira=0"
+      },
+      "scavalcamento": "",
+      "stato": {
+        "animo": 50,
+        "ciurma_vivi": 45,
+        "hybris": 8,
+        "metis": 50,
+        "tappa": "",
+        "turno": 1
+      },
+      "svegliati": [],
+      "tag": [
+        "tracotanza",
+        "vanto"
+      ],
+      "verdetto": ""
+    },
+    {
+      "ammonizione": "",
+      "ammonizioni": {
+        "contatore": 0,
+        "decadimento_ogni": 3,
+        "soglia": 3,
+        "turni_puliti": 2
+      },
+      "avanzato": false,
+      "ciurma_parla": [
+        "Perimede: Le corde sono pronte."
+      ],
+      "conflitto": false,
+      "congedo": "",
+      "delta": {
+        "atena.favore": 1,
+        "ulisse.animo": 2,
+        "ulisse.metis": 2
+      },
+      "episodio": "troia",
+      "esito": "continua",
+      "in_mondo": true,
+      "input": "Dico al gigante che il mio nome e' Nessuno.",
+      "n": 2,
+      "narrazione": "Un dio - e non diro' quale - osservo' Ulisse si presenta come 'Nessuno' al ciclope.. Le conseguenze si vedranno.",
+      "plausibilita": "in_mondo",
+      "proposte": [
+        "atena · aiuto · Usa la testa, non la spada. Chi grida, perde."
+      ],
+      "registro": {
+        "atena": "favore=76 ira=0",
+        "calipso": "favore=60 ira=0",
+        "circe": "favore=20 ira=0",
+        "elio": "favore=0 ira=0",
+        "eolo": "favore=55 ira=0",
+        "ermes": "favore=50 ira=0",
+        "ino_leucotea": "favore=60 ira=0",
+        "polifemo": "favore=0 ira=30",
+        "poseidone": "favore=0 ira=10",
+        "scilla": "favore=0 ira=0",
+        "sirene": "favore=0 ira=0",
+        "tiresia": "favore=50 ira=0",
+        "zeus": "favore=40 ira=0"
+      },
+      "scavalcamento": "",
+      "stato": {
+        "animo": 52,
+        "ciurma_vivi": 45,
+        "hybris": 8,
+        "metis": 52,
+        "tappa": "",
+        "turno": 2
+      },
+      "svegliati": [
+        "atena"
+      ],
+      "tag": [
+        "astuzia",
+        "inganno"
+      ],
+      "verdetto": "atena · aiuto"
+    },
+    {
+      "ammonizione": "richiamo",
+      "ammonizioni": {
+        "contatore": 1,
+        "decadimento_ogni": 3,
+        "soglia": 3,
+        "turni_puliti": 0
+      },
+      "avanzato": false,
+      "ciurma_parla": [
+        "Polite: Su, non litighiamo adesso."
+      ],
+      "conflitto": false,
+      "congedo": "",
+      "delta": {},
+      "episodio": "troia",
+      "esito": "continua",
+      "in_mondo": false,
+      "input": "Prendo un aereo e volo a Itaca.",
+      "n": 3,
+      "narrazione": "",
+      "plausibilita": "anacronistico",
+      "proposte": [],
+      "registro": {
+        "atena": "favore=76 ira=0",
+        "calipso": "favore=60 ira=0",
+        "circe": "favore=20 ira=0",
+        "elio": "favore=0 ira=0",
+        "eolo": "favore=55 ira=0",
+        "ermes": "favore=50 ira=0",
+        "ino_leucotea": "favore=60 ira=0",
+        "polifemo": "favore=0 ira=30",
+        "poseidone": "favore=0 ira=10",
+        "scilla": "favore=0 ira=0",
+        "sirene": "favore=0 ira=0",
+        "tiresia": "favore=50 ira=0",
+        "zeus": "favore=40 ira=0"
+      },
+      "scavalcamento": "",
+      "stato": {
+        "animo": 52,
+        "ciurma_vivi": 45,
+        "hybris": 8,
+        "metis": 52,
+        "tappa": "",
+        "turno": 3
+      },
+      "svegliati": [],
+      "tag": [],
+      "verdetto": ""
+    },
+    {
+      "ammonizione": "",
+      "ammonizioni": {
+        "contatore": 1,
+        "decadimento_ogni": 3,
+        "soglia": 3,
+        "turni_puliti": 1
+      },
+      "avanzato": false,
+      "ciurma_parla": [
+        "Antifo: Questo posto puzza di morte."
+      ],
+      "conflitto": false,
+      "congedo": "",
+      "delta": {},
+      "episodio": "troia",
+      "esito": "continua",
+      "in_mondo": true,
+      "input": "Riempio gli otri d'acqua alla sorgente.",
+      "n": 4,
+      "narrazione": "Un dio - e non diro' quale - osservo' Ulisse: \"Riempio gli otri d'acqua alla sorgente.\". Le conseguenze si vedranno.",
+      "plausibilita": "in_mondo",
+      "proposte": [],
+      "registro": {
+        "atena": "favore=76 ira=0",
+        "calipso": "favore=60 ira=0",
+        "circe": "favore=20 ira=0",
+        "elio": "favore=0 ira=0",
+        "eolo": "favore=55 ira=0",
+        "ermes": "favore=50 ira=0",
+        "ino_leucotea": "favore=60 ira=0",
+        "polifemo": "favore=0 ira=30",
+        "poseidone": "favore=0 ira=10",
+        "scilla": "favore=0 ira=0",
+        "sirene": "favore=0 ira=0",
+        "tiresia": "favore=50 ira=0",
+        "zeus": "favore=40 ira=0"
+      },
+      "scavalcamento": "",
+      "stato": {
+        "animo": 52,
+        "ciurma_vivi": 45,
+        "hybris": 8,
+        "metis": 52,
+        "tappa": "",
+        "turno": 4
+      },
+      "svegliati": [],
+      "tag": [],
+      "verdetto": ""
+    },
+    {
+      "ammonizione": "",
+      "ammonizioni": {
+        "contatore": 1,
+        "decadimento_ogni": 3,
+        "soglia": 3,
+        "turni_puliti": 2
+      },
+      "avanzato": true,
+      "ciurma_parla": [
+        "Euribate: Riferisco agli uomini."
+      ],
+      "conflitto": false,
+      "congedo": "",
+      "delta": {
+        "ulisse.metis": 1,
+        "zeus.favore": 1
+      },
+      "episodio": "troia",
+      "esito": "continua",
+      "in_mondo": true,
+      "input": "Mi rivolgo al capo dell'olimpo e lo supplico.",
+      "n": 5,
+      "narrazione": "Un dio - e non diro' quale - osservo' Ulisse invoca il signore dell'Olimpo.. Le conseguenze si vedranno.",
+      "plausibilita": "in_mondo",
+      "proposte": [
+        "zeus · segno · Ho udito entrambi. Ora tacete: decido io."
+      ],
+      "registro": {
+        "atena": "favore=76 ira=0",
+        "calipso": "favore=60 ira=0",
+        "circe": "favore=20 ira=0",
+        "elio": "favore=0 ira=0",
+        "eolo": "favore=55 ira=0",
+        "ermes": "favore=50 ira=0",
+        "ino_leucotea": "favore=60 ira=0",
+        "polifemo": "favore=0 ira=30",
+        "poseidone": "favore=0 ira=10",
+        "scilla": "favore=0 ira=0",
+        "sirene": "favore=0 ira=0",
+        "tiresia": "favore=50 ira=0",
+        "zeus": "favore=41 ira=0"
+      },
+      "scavalcamento": "",
+      "stato": {
+        "animo": 52,
+        "ciurma_vivi": 45,
+        "hybris": 8,
+        "metis": 53,
+        "tappa": "",
+        "turno": 5
+      },
+      "svegliati": [
+        "zeus"
+      ],
+      "tag": [],
+      "verdetto": "zeus · segno"
+    },
+    {
+      "ammonizione": "",
+      "ammonizioni": {
+        "contatore": 0,
+        "decadimento_ogni": 3,
+        "soglia": 3,
+        "turni_puliti": 3
+      },
+      "avanzato": false,
+      "ciurma_parla": [
+        "Euriloco: Ne abbiamo perduti abbastanza. Stavolta ascoltami."
+      ],
+      "conflitto": false,
+      "congedo": "",
+      "delta": {},
+      "episodio": "ciconi",
+      "esito": "continua",
+      "in_mondo": true,
+      "input": "Ordino ai compagni di tornare alle navi.",
+      "n": 6,
+      "narrazione": "Un dio - e non diro' quale - osservo' Ulisse: \"Ordino ai compagni di tornare alle navi.\". Le conseguenze si vedranno.",
+      "plausibilita": "in_mondo",
+      "proposte": [],
+      "registro": {
+        "atena": "favore=76 ira=0",
+        "calipso": "favore=60 ira=0",
+        "circe": "favore=20 ira=0",
+        "elio": "favore=0 ira=0",
+        "eolo": "favore=55 ira=0",
+        "ermes": "favore=50 ira=0",
+        "ino_leucotea": "favore=60 ira=0",
+        "polifemo": "favore=0 ira=30",
+        "poseidone": "favore=0 ira=10",
+        "scilla": "favore=0 ira=0",
+        "sirene": "favore=0 ira=0",
+        "tiresia": "favore=50 ira=0",
+        "zeus": "favore=41 ira=0"
+      },
+      "scavalcamento": "",
+      "stato": {
+        "animo": 52,
+        "ciurma_vivi": 45,
+        "hybris": 8,
+        "metis": 53,
+        "tappa": "",
+        "turno": 6
+      },
+      "svegliati": [],
+      "tag": [],
+      "verdetto": ""
+    }
+  ]
+}
