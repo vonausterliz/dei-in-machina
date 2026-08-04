@@ -116,7 +116,8 @@ dato.
 sono circa **450 chiamate e 1,03 milioni di token**, quasi tutti in *ingresso*: il costo di
 un gioco così è il contesto che si rilegge a ogni turno, non le parole che genera. Con
 Ollama paghi in tempo invece che in denaro. Un *profilo di costo*, dal Frugale in su,
-decide quante voci parlano per turno.
+decide quante voci parlano per turno. È una **stima**, non un tetto imposto dal gioco: cosa
+significa, e cosa non copre, sta in [Stato del collaudo](#stato-del-collaudo).
 
 ---
 
@@ -159,9 +160,113 @@ inserisce in *Impostazioni* e finisce nella cartella dati dell'utente: **mai nel
 mai in un commit**. Una variabile d'ambiente ha la precedenza, se preferisci non scriverla
 da nessuna parte.
 
-Sui piani gratuiti il collo di bottiglia sono le richieste al secondo. Per quello c'è
-`llm_gateway/`: un processo separato che mette in coda, rallenta, mette in cache e riprova
-da solo. Ascolta **solo su `127.0.0.1`** e tiene le chiavi nel proprio ambiente.
+| Provider | Collaudato davvero |
+|---|---|
+| Ollama · Mistral · Google | **sì** — partite vere, non solo test |
+| OpenAI | profilo presente, mai provato contro il servizio |
+| Anthropic · OpenRouter | profilo presente, **mai provato**, e non passano dal Gateway |
+
+I profili non collaudati sono scritti secondo la documentazione del provider, non secondo
+una risposta vista arrivare. Se ne provi uno e funziona — o non funziona — dirlo è il modo
+più utile di contribuire.
+
+### La chiave di Mistral, passo per passo
+
+È il servizio in rete su cui il gioco è tarato, e il suo piano gratuito basta per giocare.
+
+1. Registrati su **[console.mistral.ai](https://console.mistral.ai)**.
+2. Attiva il piano gratuito. Mistral chiede la **verifica del numero di telefono**: finché
+   non la fai, la chiave esiste ma ogni chiamata torna un errore di autorizzazione — ed è un
+   errore che sembra una chiave sbagliata.
+3. **API Keys → Create new key.** Il valore si vede **una volta sola**: copialo subito.
+4. Dàlla al gioco in uno dei due modi:
+   - *Impostazioni* → provider **Mistral** → incolla nel campo. Finisce in
+     `user://impostazioni.json`, fuori dal progetto e fuori da git.
+   - Oppure `export MISTRAL_API_KEY=...` prima di avviare. Ha la precedenza sul campo, e se
+     usi il Gateway è **l'unica** strada che funziona.
+5. **Aggiorna elenco** → scegli `mistral-small-latest` → **Prova il modello**. Quel pulsante
+   fa una generazione vera: è l'unico modo di sapere che la catena regge tutta.
+
+Le stesse cose valgono per Google (`GEMINI_API_KEY`, chiave da
+[aistudio.google.com](https://aistudio.google.com/apikey)).
+
+### Il Gateway: come restare dentro il piano gratuito
+
+Sui piani gratuiti il collo di bottiglia non è il volume, sono le **richieste al secondo**.
+Un turno pieno ne fa fino a nove, quasi insieme: senza freno, la maggior parte torna `429`.
+
+`llm_gateway/` è un processo Python separato — stdlib, nessuna dipendenza — che parla il
+protocollo OpenAI e sta **davanti** al provider. Il gioco lo usa cambiando solo l'indirizzo:
+tutta la logica del piano gratuito vive lì, e per toglierla si spegne il processo.
+
+Per ogni richiesta, in quest'ordine:
+
+1. **Cache** — payload identico chiesto di recente → risposta immediata, **zero quota**
+   (un'ora di validità, 500 voci).
+2. **Coda** — una FIFO per provider, un solo worker: mai due richieste in volo verso lo
+   stesso servizio.
+3. **Freno** — tre vincoli insieme: distanza minima fra due richieste (il limite di
+   *velocità*), tetto al minuto, tetto al giorno.
+4. **Ritentativo** — su `429` o `5xx` riprova con attesa che raddoppia (1s, 2s, 4s…),
+   obbedendo all'header `Retry-After` quando il provider lo manda.
+
+I limiti sono in `llm_gateway/limiti.json`, **prudenziali** di proposito: le finestre del
+provider non coincidono al millisecondo con le nostre.
+
+| Provider | Distanza minima | Al minuto | Al giorno |
+|---|---|---|---|
+| `mistral` | 1,1 s | 28 | — |
+| `google` | 4,2 s | 14 | 1400 |
+| `openrouter` | 3,1 s | 18 | **50** |
+| `openai` · `ollama` | nessun freno | | |
+
+Quel **50** è una trappola dichiarata: i modelli OpenRouter col suffisso `:free` hanno un
+tetto giornaliero *per account*, e una partita intera chiede ~450 chiamate. Non ci sta. Il
+Gateway lo scrive nel log all'avvio invece di fartelo scoprire a metà viaggio.
+
+```bash
+export MISTRAL_API_KEY=...        # le chiavi le tiene il Gateway, non il gioco
+cd llm_gateway && ./gateway.sh start
+```
+
+Poi in *Impostazioni* spunta il **Gateway**. È un *trasporto*, non un provider: si combina
+con il modello che hai già scelto.
+
+Due cose da sapere. Il Gateway legge le chiavi **dal proprio ambiente**: quella scritta in
+*Impostazioni* non gli arriva, e senza `export` ogni richiesta torna `401` sembrando un
+guasto del gioco (il log lo dice: `CHIAVE MANCANTE`). E **Anthropic non è fra i suoi
+provider**: con il Gateway acceso e Anthropic selezionato le chiamate finiscono al provider
+predefinito, cioè Mistral. Con Anthropic, per ora, il Gateway va spento.
+
+Ascolta **solo su `127.0.0.1`**, non ha autenticazione e non deve averne: non va esposto in
+rete. Dettagli in **[llm_gateway/README.md](llm_gateway/README.md)**.
+
+---
+
+## Stato del collaudo
+
+Detto chiaramente, perché stai per collegarci una chiave a pagamento.
+
+**Cos'è verificato.** 435 test automatici su 44 script, eseguiti a ogni modifica, più sei
+turni campione registrati come riferimento e confrontati voce per voce. Coprono la macchina
+deterministica — risvegli, delta, avanzamento delle tappe, interfaccia — con un motore
+simulato al posto dei modelli.
+
+**Cosa non è verificato.** Il gioco **non ha alle spalle un collaudo umano esteso**: non è
+stato giocato molte volte, da molte persone, con modelli reali. I test di sistema dicono che
+la macchina fa quello che deve; non dicono che una partita di settantasei turni con un
+modello vero non incontri niente di storto. Le integrazioni provate contro il servizio
+reale sono **Ollama, Mistral e Google**; **Anthropic e OpenRouter no**.
+
+**Nessuna garanzia.** Il software è fornito «così com'è», senza garanzie di alcun tipo,
+come previsto dalle sezioni 15 e 16 della licenza AGPL-3.0. Chi lo pubblica **non risponde**
+di malfunzionamenti, perdita di dati o partite, né di **costi verso i provider LLM** —
+compresi consumi imprevisti o eccessivi dovuti a un difetto del software, a un ciclo di
+richieste che non si ferma o a una configurazione sbagliata.
+
+La chiave è tua, il piano è tuo, la spesa è tua: **tieni d'occhio il consumo** sulla console
+del provider e imposta un tetto di spesa dove il provider lo permette. Se questa parte ti
+preoccupa, gioca con **Ollama**: nessuna chiave, nessuna fattura possibile.
 
 ---
 
@@ -177,7 +282,7 @@ cd dei_in_machina
 importa le risorse e apre il gioco. Al primo avvio ci mette un minuto; dopo, subito.
 
 ```bash
-./avvia.sh test          # la suite: 431 test, 44 script
+./avvia.sh test          # la suite: 435 test, 44 script
 ./avvia.sh installa-menu # (Linux) mette il gioco nel menu applicazioni
 ```
 
@@ -203,7 +308,7 @@ risposta attesa e un ripiego che non manda mai in pezzi il turno se il modello s
 
 Il codice attorno agli agenti è **verificabile senza modelli accesi**. Un motore simulato
 risponde al posto loro — senza rete, senza token, senza attesa — e con esso l'intera
-macchina del turno diventa ripetibile: è ciò che rende possibili **431 test** per un gioco
+macchina del turno diventa ripetibile: è ciò che rende possibili **435 test** per un gioco
 fatto di LLM. Sei turni campione a seme fisso restano registrati come riferimento, e ogni
 modifica viene confrontata con essi voce per voce.
 
@@ -272,11 +377,20 @@ So it is **not** deterministic — two playthroughs of the same moves won't tell
 story. What is fixed is the *link between cause and effect*, and that's the point: if a
 model decided who wakes, there would be nothing to deduce. Rules make the world legible;
 models give it a voice that never repeats. (With the models switched off and a fixed seed
-the whole turn machine *is* reproducible — that's how 431 tests exist for a game made of
+the whole turn machine *is* reproducible — that's how 435 tests exist for a game made of
 LLMs.)
 
 Runs on Linux and macOS. Bring your own model: Ollama locally (nothing leaves your machine)
 or any of Mistral / Google / OpenAI / Anthropic / OpenRouter. Start with `./avvia.sh`.
+
+**Testing status.** Verification rests on 435 automated tests against a simulated engine,
+**not** on extended human playtesting. Only the **Ollama, Mistral and Google** integrations
+have been exercised against the real services; **Anthropic and OpenRouter have not**, and
+Anthropic is not among the local gateway's providers. The software comes with **no warranty
+of any kind** (AGPL-3.0, §15–16): no liability is accepted for malfunctions, lost data, or
+**LLM provider costs**, including unexpected or excessive spend caused by a defect or a
+misconfiguration. Your key, your plan, your bill — watch your usage and set a spending cap.
+Or play with Ollama, where no bill is possible.
 
 Licensed under the GNU AGPL-3.0. The game and its documentation are in Italian.
 
