@@ -25,54 +25,46 @@ Sei nell'antro del Ciclope. L'hai accecato, e state scappando. Scrivi:
 
 Ecco cosa succede, nell'ordine.
 
-**1 · Qualcuno legge la tua frase e la classifica.** Un modello linguistico la traduce in
-poche etichette prese da un elenco chiuso — qui: `vanto`, `tracotanza`, intensità alta.
-Questo passaggio è un *giudizio*: il modello potrebbe classificarla diversamente, e a volte
-lo fa. È l'unico punto in cui la tua libertà di scrittura entra nel meccanismo.
+**1 · La frase viene letta e classificata.** Un modello linguistico la riduce a poche
+etichette di un elenco chiuso — qui `vanto` e `tracotanza`, ad alta intensità. È un
+giudizio, e potrebbe darne uno diverso: è l'unico punto in cui la libertà di come scrivi
+entra nel meccanismo.
 
-**2 · Da qui in poi comandano le regole.** Nella tappa del Ciclope è scritto che un `vanto`
-fa accadere un fatto preciso: *la maledizione di Polifemo*. Ed è scritto che Poseidone —
-che finora **dormiva**, e per progetto non poteva reagire a nulla — si desta esattamente su
-quel fatto. Non gliel'abbiamo chiesto in un prompt: sono due righe di dati e una funzione.
+**2 · Da qui comandano le regole.** Nella tappa del Ciclope un `vanto` fa accadere un fatto
+preciso: *la maledizione di Polifemo*. E quel fatto è ciò che desta Poseidone, che fino a
+un istante prima **dormiva** e non poteva reagire a nulla — nemmeno all'accecamento di suo
+figlio. Nessun modello ha voce in capitolo: è una riga di dati.
 
-**3 · Gli dèi svegli discutono, e qui nessuno comanda.** Poseidone dice quello che gli pare,
-in carattere. Se c'è anche Atena, si ribattono. Ognuno propone *come* agire scegliendo fra i
-modi che gli appartengono — castigo, aiuto, segno, trappola — e con quanta forza.
+**3 · Gli dèi svegli discutono, e qui non comanda nessuno.** Poseidone dice quello che gli
+pare, in carattere. Se c'è anche Atena, si ribattono. Ognuno propone *come* agire scegliendo
+fra i modi che gli appartengono — castigo, aiuto, segno, trappola — e con quanta forza.
 
-**4 · La conseguenza è di nuovo una regola.** «Castigo, intensità 2» vale sempre lo stesso:
-tot animo in meno, tot ira in più, e un compagno che non torna. Il modello ha scelto *cosa*
-fare; quanto pesa non lo decide lui.
+**4 · La conseguenza torna a essere una regola.** «Castigo, intensità 2» vale sempre lo
+stesso: quattro punti di animo in meno, quattro di ira in più, e un compagno che non torna.
+Il modello sceglie *cosa* fare; quanto pesa è deciso altrove.
 
-**5 · Omero racconta.** E non nomina nessuno. Tu leggi che il mare si è fatto nero e che un
+**5 · Omero racconta.** Senza nominare nessuno. Leggi che il mare si è fatto nero e che un
 uomo è caduto in acqua. Chi sia stato, lo devi capire tu.
 
 ---
 
-## «Allora è deterministico?»
+## Regole fisse, voci che non si ripetono
 
-No — e in una versione precedente di questo file c'era scritto di sì, il che era falso.
+Due partite con le stesse mosse non raccontano la stessa storia: a leggere la tua frase c'è
+un modello, a risponderti ce n'è un altro, e nessuno dei due si ripete. Ma il **nesso fra
+causa ed effetto** è scritto, e non cambia mai.
 
-Due partite con le stesse mosse **non** danno la stessa storia: a interpretare la tua frase
-c'è un modello, a rispondere ce n'è un altro, e nessuno dei due ripete sé stesso.
-
-Quello che è fisso è il **nesso fra causa ed effetto**:
-
-| Deciso da regole scritte (uguale ogni volta) | Deciso da un modello (mai due volte uguale) |
+| Scritto nelle regole — uguale ogni volta | Deciso da un modello — mai due volte uguale |
 |---|---|
 | Quali fatti svegliano quale dio, e chi sta ancora dormendo | Come la tua frase viene interpretata |
 | Quanto pesa una certa reazione a una certa intensità | Se punirti, aiutarti o ignorarti — e con che voce |
 | Quando la tappa avanza, e chi muore alla sua tappa | Cosa si dicono gli dèi fra loro |
 | Cosa non ti verrà mai proposto come appiglio | Come Omero racconta ciò che è successo |
 
-**Perché è organizzato così.** Se fosse un modello a decidere chi si sveglia, non potresti
-dedurre niente: la stessa mossa darebbe esiti diversi per capriccio, e la partita sarebbe un
-generatore di eventi con un bel lessico. Le regole rendono il mondo *leggibile*; i modelli
-gli danno una voce che non si ripete. Un modello rispetta un'istruzione quasi sempre, e
-«quasi sempre», in un gioco, vuol dire un buco ogni poche partite.
-
-Determinismo vero ce n'è uno solo, e non riguarda chi gioca: **a modelli spenti**, con un
-seme fisso, l'intera macchina del turno è riproducibile mossa per mossa. È così che 431 test
-possono esistere per un gioco fatto di LLM.
+Questa divisione è il gioco. Se fosse un modello a decidere chi si sveglia, non ci sarebbe
+niente da dedurre: la stessa mossa darebbe esiti diversi per capriccio, e resterebbe un
+generatore di eventi con un bel lessico. Le regole rendono il mondo **leggibile**; i modelli
+gli danno una voce che non si esaurisce.
 
 ---
 
@@ -102,23 +94,22 @@ dalla conversazione.
 
 ---
 
-## Due promesse che il gioco si è dovuto imporre
+## Tre garanzie
 
-**Gli dèi restano nascosti.** La narrazione non nomina *mai* una divinità. Non è una
-raccomandazione scritta in un prompt: è un test automatico che legge l'output e fallisce se
-ci trova un nome divino.
+**Gli dèi restano nascosti.** La narrazione non nomina mai una divinità — nemmeno per
+allusione trasparente, nemmeno quando il modello sarebbe tentato. È verificato a ogni
+esecuzione dei test, non affidato alla buona volontà.
 
-**Quello che il gioco ti propone, il gioco lo accetta.** Fra i tre appigli suggeriti era
-comparso «sguaina il bronzo e rispondi all'affronto» — perfettamente omerico — e cliccandolo
-il gioco rispondeva «quel gesto non appartiene a questo mondo». Un gioco non può rifiutare
-ciò che ha appena offerto: ora è impossibile per costruzione, non per buona volontà.
+**Quello che il gioco ti propone, il gioco lo accetta.** I tre appigli sotto la narrazione
+sono un impegno: nessuno di essi può essere rifiutato come «gesto che non appartiene a
+questo mondo», e nessuno ti offrirà di aprire l'otre dei venti prima che Eolo te l'abbia
+dato.
 
-**E una cosa da sapere prima di cominciare: costa.** Una partita intera, da Troia a Itaca,
-sono circa **450 chiamate e 1,03 milioni di token** — quasi tutti in *ingresso*, perché il
-costo di un gioco così è il contesto che si rilegge a ogni turno, non le parole che genera.
-Con Ollama non paghi nulla e paghi in tempo; con un servizio in rete succede il contrario.
-Chi gioca sceglie un *profilo di costo*, dal Frugale in su, che decide quante voci parlano
-per turno.
+**La spesa è dichiarata, non scoperta a fine mese.** Una partita intera, da Troia a Itaca,
+sono circa **450 chiamate e 1,03 milioni di token**, quasi tutti in *ingresso*: il costo di
+un gioco così è il contesto che si rilegge a ogni turno, non le parole che genera. Con
+Ollama paghi in tempo invece che in denaro. Un *profilo di costo*, dal Frugale in su,
+decide quante voci parlano per turno.
 
 ---
 
@@ -134,8 +125,8 @@ per turno.
 | **Per il Gateway** (facoltativo) | `python3` ≥ 3.9, nessuna libreria esterna |
 | **Spazio** | ~13 MB il progetto, ~138 MB Godot, più i modelli se usi Ollama |
 
-Windows non è supportato dal launcher. Il progetto è Godot puro: aprendolo con un Godot 4.7
-installato a mano dovrebbe girare, ma nessuno l'ha provato.
+Windows non è supportato dal launcher. Il progetto è Godot puro e si apre anche con un
+Godot 4.7 installato a mano, ma è una configurazione non collaudata.
 
 ### Chi dà voce agli dèi
 
@@ -203,17 +194,16 @@ risposta attesa e un ripiego che non manda mai in pezzi il turno se il modello s
 | **Compagno** | la voce di un membro della ciurma |
 | **Ricognitore** | capisce a *chi* stai pregando, quando preghi per allusione |
 
-Attorno a loro, ciò che li rende governabili:
+Il codice attorno agli agenti è **verificabile senza modelli accesi**. Un motore simulato
+risponde al posto loro — senza rete, senza token, senza attesa — e con esso l'intera
+macchina del turno diventa ripetibile: è ciò che rende possibili **431 test** per un gioco
+fatto di LLM. Sei turni campione a seme fisso restano registrati come riferimento, e ogni
+modifica viene confrontata con essi voce per voce.
 
-- **Un finto motore** che risponde senza rete, senza token e senza attesa. È la ragione per
-  cui 431 test possono esistere: l'intera macchina del turno gira in silenzio, ripetibile.
-- **Golden trace** — sei turni campione a seme fisso, registrati una volta e riconfrontati a
-  ogni modifica: *cambiato / COMPARSO / SPARITO*. Serve contro il guasto più frequente qui,
-  che non è codice sbagliato ma codice **mancante**.
-- **Strumenti che guardano** — in `tools/` c'è di che stampare la traccia di una partita,
-  stimare il costo costruendo i messaggi veri, controllare i nomi dei modelli contro i
-  cataloghi vivi, e *fotografare* l'interfaccia. Ciò che si giudica a occhio va guardato: un
-  pannello può costruirsi senza un errore ed essere illeggibile.
+In `tools/` ci sono gli strumenti per guardarci dentro: stampare la traccia completa di una
+partita, stimare il costo costruendo i messaggi veri prima di spenderli, controllare che i
+nomi dei modelli dichiarati esistano davvero nei cataloghi dei provider, fotografare
+l'interfaccia.
 
 ### I documenti
 
