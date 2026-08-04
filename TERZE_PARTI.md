@@ -10,6 +10,7 @@ non è tutto suo: qui c'è cosa arriva da altri, con che licenza, e dove trovarn
 | **Anonymous Pro** e **Courier Prime** — caratteri usati da GUT | `addons/gut/fonts/` | SIL OFL 1.1 | `addons/gut/fonts/OFL.txt` |
 | **Godot Engine** 4.7.x | *non incluso* | MIT | scaricato da `avvia.sh` dalle release ufficiali, con verifica dell'impronta |
 | Profilo delle coste del Mediterraneo | `data/` | dominio pubblico | ricavato da dati Natural Earth, ridisegnato da `tools/coste/` |
+| Brani dei quindici capitoli | `music/` | dello stesso autore del gioco | generati con **ACE-Step 1.5**; i prompt sono in `music/README.md` |
 
 ## Cosa vuol dire, in pratica
 
@@ -24,6 +25,15 @@ rinominata.
 **Godot** non è nel repository. `avvia.sh` lo scarica dalle release ufficiali di GitHub e
 **ne verifica l'impronta SHA-512** prima di eseguirlo: se il file non è quello atteso, il
 launcher si ferma invece di lanciarlo.
+
+## La musica
+
+I brani dei capitoli sono generati con **ACE-Step 1.5**, e i prompt che li hanno prodotti
+stanno in `music/README.md`: sono la partitura di questa colonna sonora — si leggono, si
+rieseguono, si modificano. Nessun brano di terzi, nessun campione preso altrove.
+
+Il gioco funziona anche **senza nessun brano**: un momento senza musica resta in silenzio, e
+non è un errore.
 
 ## Il testo dell'*Odissea*
 

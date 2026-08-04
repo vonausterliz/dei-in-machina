@@ -86,9 +86,12 @@ narrazione continua a non nominare nessuno. Puoi anche tenerla chiusa e giocare 
 
 ![La carta del viaggio](docs/immagini/carta.png)
 
-Ogni capitolo può avere la **sua musica**: basta posare un file in `music/` col nome del
-capitolo — `ciclope.mp3` — e suonerà quando ci arrivi. Nessuna importazione, nessuna
-configurazione.
+Ogni capitolo ha la **sua musica**, in strumenti dell'epoca — lira, kithara, aulos doppio,
+tamburo a cornice — e costruita per girare in anello senza cuciture: nessuna cadenza finale,
+nessuna dissolvenza, perché un brano di sottofondo non sa quanto durerà la scena. Aggiungerne
+uno è posare un file in `music/` col nome del capitolo, `ciclope.mp3`: nessuna importazione,
+nessuna configurazione. I prompt che li hanno generati sono
+[nel repository](music/README.md) — la partitura si legge e si riesegue.
 
 Le coste sono vere (dati Natural Earth, ridisegnati); la rotta è quella del poema. I
 compagni hanno un nome e un carattere, e **si può parlare con loro** — costa poco e non fa
@@ -214,12 +217,11 @@ l'interfaccia.
 | | |
 |---|---|
 | [docs/dei_in_machina_design.md](docs/dei_in_machina_design.md) | il **perché** — il design, congelato |
-| [docs/requisiti.md](docs/requisiti.md) | il **cosa** — tutti i requisiti, con lo stato verificato sul codice |
 | [docs/architettura_dettaglio.md](docs/architettura_dettaglio.md) | il **come** — componenti, agenti, i tre cancelli del risveglio, il budget delle chiamate |
 | [docs/contratto_interprete.md](docs/contratto_interprete.md) | l'elenco chiuso delle etichette |
 | [docs/guardrail_anti_assistente.md](docs/guardrail_anti_assistente.md) | il blocco incluso nel prompt di *ogni* agente |
-| [STATO_LAVORI.md](STATO_LAVORI.md) | il diario: a che punto siamo, cosa resta |
-| [CLAUDE.md](CLAUDE.md) | come si lavora qui, e perché |
+| [docs/costi.md](docs/costi.md) | quanto costa una partita, voce per voce |
+| [music/README.md](music/README.md) | la colonna sonora: com'è fatta, e come aggiungerne |
 
 ---
 

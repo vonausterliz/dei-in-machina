@@ -31,3 +31,17 @@ music/*.import
 # sync-mac.sh contiene l'utente e l'indirizzo di rete del Mac di chi sviluppa: e' un
 # attrezzo da banco, non una parte del gioco. E' stato tolto anche dalla cronologia.
 sync-mac.sh
+
+# DOCUMENTI DI LAVORO — restano su questa macchina e in un repository PRIVATO a parte
+# (vedi lavoro.sh). Non sono documentazione del gioco: sono il cantiere.
+#   STATO_LAVORI.md   il diario di sviluppo, sessione per sessione
+#   docs/requisiti.md il tracciatore dei requisiti, con gli stati
+#   CLAUDE.md         le istruzioni per l'assistente (deve stare QUI, nella radice,
+#                     o Claude Code non lo legge: per questo non e' in una sottocartella)
+#   mockup/           le bozze HTML da cui e' nata l'interfaccia
+STATO_LAVORI.md
+docs/requisiti.md
+CLAUDE.md
+mockup/
+lavoro.sh
+.git-lavoro/
