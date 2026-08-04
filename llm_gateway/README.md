@@ -14,10 +14,12 @@ export MISTRAL_API_KEY=...      # le chiavi stanno QUI, non nel gioco
 export GEMINI_API_KEY=...
 
 ./gateway.sh start     # in background (log in gateway.log)
+./gateway.sh restart   # ferma e riavvia
 ./gateway.sh fg        # in primo piano, per vedere il log dal vivo
 ./gateway.sh stato     # quote residue e cache
 ./gateway.sh stop
-./gateway.sh libero    # avvia SENZA throttling (piano a pagamento)
+./gateway.sh libero    # avvia SENZA throttling (piano a pagamento).
+                       # «libero» = senza freni, NON «libera la porta».
 ```
 
 Poi nel gioco scegli il provider **«Gateway (free tier)»**.
@@ -75,3 +77,30 @@ di stdlib, si avvia all'istante e copre esattamente i vincoli che ci servono.
 Se un domani servissero fallback tra provider, load balancing o contabilità dei token,
 LiteLLM tornerebbe la scelta giusta: basterebbe sostituire questo processo, il gioco non
 cambierebbe di una riga.
+
+## Le chiavi le tiene il gateway, non il gioco
+
+Passando di qui il gioco non manda nessuna chiave: le mette il gateway, leggendole dal
+**suo** ambiente (`MISTRAL_API_KEY`, `GEMINI_API_KEY`, …). Vanno esportate *prima* di
+avviarlo:
+
+```bash
+export MISTRAL_API_KEY=...
+./gateway.sh restart
+```
+
+Senza, il gateway parte lo stesso — lo scrive nel log, `CHIAVE MANCANTE` accanto a ogni
+provider, e ora anche `start` lo ripete — ma ogni richiesta torna **401**, e nel gioco
+sembra un problema del gioco. Metterla in Settings non serve: quella strada la salta.
+
+## Se `stop` dice «non attivo» ma la porta è occupata
+
+Non può più succedere, ma vale la pena sapere perché succedeva. `stop` si fidava solo del
+pidfile, e il pidfile vive **solo sulla macchina dove il gateway gira** (è in `.gitignore`).
+`sync-mac.sh` rsync-a con `--delete` e non lo escludeva: ogni sincronizzazione lo portava
+via, e da quel momento `stop` non sapeva più chi fermare mentre il processo continuava a
+tenersi la porta. `start` falliva per sempre con un traceback di Python.
+
+Ora `sync-mac.sh` lo esclude, e i comandi guardano **chi ascolta sulla porta** invece del
+pidfile — che è la domanda vera. Se sulla porta c'è un processo che non è il gateway, lo
+dicono e non lo toccano: si può usare un'altra porta con `PORTA=8801 ./gateway.sh start`.
