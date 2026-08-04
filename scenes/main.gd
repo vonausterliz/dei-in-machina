@@ -7,7 +7,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "2.30"
+const VERSIONE := "2.32"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -58,8 +58,6 @@ var _btn_olimpo: Button
 var _btn_log: Button
 var _btn_agisci: Button
 var _chk_reale: CheckButton
-var _opt_provider: OptionButton
-var _opt_modello: OptionButton
 var _stat_bars := {}
 var _stat_vals := {}
 var _busy := false
@@ -605,26 +603,12 @@ func _colonna_rapsodia() -> Control:
 	_chk_reale.toggled.connect(_on_toggle_reale)
 	opz.add_child(_chk_reale)
 
-	# Quale provider (Ollama locale / Mistral / Google / OpenAI / Anthropic / OpenRouter).
-	_opt_provider = OptionButton.new()
-	_opt_provider.add_theme_color_override("font_color", C_BONE)
-	_opt_provider.add_theme_font_size_override("font_size", 13)
-	_opt_provider.tooltip_text = Testi.s("impostazioni/tooltip_provider")
-	for nome in LLMManager.nomi_profili():
-		_opt_provider.add_item(String(nome))
-	_opt_provider.disabled = _opt_provider.item_count == 0
-	_opt_provider.item_selected.connect(_on_provider_scelto)
-	opz.add_child(_opt_provider)
-
-	# Selettore del modello: popolato quando Ollama e' attivo, coi modelli installati.
-	_opt_modello = OptionButton.new()
-	_opt_modello.disabled = true
-	_opt_modello.add_theme_color_override("font_color", C_BONE)
-	_opt_modello.add_theme_font_size_override("font_size", 13)
-	_opt_modello.tooltip_text = Testi.s("impostazioni/tooltip_modello")
-	_opt_modello.item_selected.connect(_on_modello_scelto)
-	opz.add_child(_opt_modello)
-
+	# I menu «provider» e «modello» stavano anche qui, invisibili: erano il doppione di
+	# quelli in Settings, da quando il provider si sceglieva in due posti. Peggio che
+	# inutili — `_on_toggle_reale` leggeva `_opt_provider.selected`, che su un menu che
+	# nessuno puo' toccare vale sempre 0: avrebbe forzato il primo provider dell'elenco
+	# sopra la scelta fatta in Settings. Un comando invisibile che decide qualcosa e' la
+	# forma peggiore di codice morto.
 	return pan
 
 func _colonna_aside() -> Control:
@@ -1079,7 +1063,6 @@ func _on_toggle_reale(premuto: bool) -> void:
 		_chk_reale.set_pressed_no_signal(false)
 		_nota_rossa(Testi.s("motore/nessun_profilo"))
 		return
-	LLMManager.imposta_profilo(_opt_provider.selected)
 	if not LLMManager.chiave_presente():
 		_chk_reale.set_pressed_no_signal(false)
 		_nota_rossa(Testi.s("motore/manca_chiave", [LLMManager.nome_profilo_corrente()]))
@@ -1089,13 +1072,6 @@ func _on_toggle_reale(premuto: bool) -> void:
 
 func _nota_rossa(testo: String) -> void:
 	_narrazione.append_text("[color=%s]%s[/color]\n" % [C_OXBLOOD.to_html(), testo])
-
-## Cambio provider dal menù: se i dèi veri sono già accesi, ri-verifica sul nuovo.
-func _on_provider_scelto(idx: int) -> void:
-	LLMManager.imposta_profilo(idx)
-	Impostazioni.scrivi("provider_nome", LLMManager.nome_profilo_corrente())
-	if _chk_reale.button_pressed and not _busy and not _finita:
-		await _attiva_reale()
 
 ## Attiva il percorso reale sul provider scelto (Ollama locale o API esterna), verifica
 ## e popola il selettore dei modelli. Se non è pronto, torna ai dèi simulati e spiega.
@@ -1132,24 +1108,10 @@ func _attiva_reale() -> void:
 		chk.set_pressed_no_signal(false)
 		_narrazione.append_text("[color=%s]%s[/color]\n" % [C_OXBLOOD.to_html(),
 			Testi.s("motore/non_genera", [scelto, dove, v.get("errore_genera", "?")])])
-		_popola_modelli(v["modelli"], scelto)
 		return
 	if not v["modello_presente"]:
 		_narrazione.append_text("[color=%s]%s[/color]\n" % [C_OXBLOOD.to_html(), Testi.s("motore/modello_assente", [scelto])])
-	_popola_modelli(v["modelli"], scelto)
 	_narrazione.append_text("[color=%s]%s[/color]\n" % [C_VERDIGRIS.to_html(), Testi.s("motore/attivo", [dove, scelto])])
 	if not _busy and not _finita:
 		await _rigenera_spunti()  # spunti contestuali generati dal modello
 
-func _popola_modelli(modelli: Array, selezionato: String) -> void:
-	_opt_modello.clear()
-	for i in modelli.size():
-		_opt_modello.add_item(String(modelli[i]))
-		if String(modelli[i]) == selezionato:
-			_opt_modello.select(i)
-	_opt_modello.disabled = modelli.is_empty()
-
-func _on_modello_scelto(idx: int) -> void:
-	var nome := _opt_modello.get_item_text(idx)
-	LLMManager.imposta_modello(nome)
-	_narrazione.append_text("[color=%s][modello impostato: %s — vale dal prossimo turno][/color]\n" % [C_VERDIGRIS.to_html(), nome])

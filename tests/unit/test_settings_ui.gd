@@ -10,19 +10,35 @@ extends GutTest
 
 var _idx_prima := 0
 var _modelli_prima: Array = []
+var _preferenze_prima: Dictionary = {}
 
+## QUESTI TEST SCRIVONO NELLE PREFERENZE VERE DELL'UTENTE.
+##
+## `_on_provider()` e `ricorda_modello()` salvano in user://impostazioni.json, che e' il file
+## del gioco vero. Senza rimettere le cose a posto, la suite lascia scelto l'ultimo provider
+## toccato da un test: all'avvio successivo il gioco cercava Anthropic — provider che
+## l'utente non ha mai scelto e per cui non ha una chiave — e si fermava con un 401.
+## L'ho visto in uno scatto della schermata di gioco, non in un test.
 func before_each():
 	LLMManager.mock_mode = true
 	LLMManager.usa_gateway = false
 	_idx_prima = LLMManager.profilo_idx
 	_modelli_prima = []
-	for p in LLMManager.profili:
-		_modelli_prima.append(String(p.get("model", "")))
+	_preferenze_prima = {"provider_nome": Impostazioni.leggi("provider_nome", null)}
+	for i in LLMManager.profili.size():
+		_modelli_prima.append(String(LLMManager.profili[i].get("model", "")))
+		_preferenze_prima[LLMManager._chiave_modello(i)] = Impostazioni.leggi(
+			LLMManager._chiave_modello(i), null)
 
 func after_each():
 	for i in LLMManager.profili.size():
 		LLMManager.profili[i]["model"] = _modelli_prima[i]
 	LLMManager.profilo_idx = _idx_prima
+	for chiave in _preferenze_prima:
+		if _preferenze_prima[chiave] == null:
+			Impostazioni.dimentica(String(chiave))
+		else:
+			Impostazioni.scrivi(String(chiave), _preferenze_prima[chiave])
 
 func _apri() -> Window:
 	var f: Window = load("res://scenes/finestra_impostazioni.gd").new()

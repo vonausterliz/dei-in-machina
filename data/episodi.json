@@ -2,7 +2,7 @@
   "_meta": {
     "gioco": "Dei in machina",
     "versione_schema": "0.1",
-    "descrizione": "Le tappe del viaggio di Ulisse. Ordine canonico. Ogni tappa accende i suoi dei locali (per 'episodio' nel pantheon) e definisce come si avanza. 'eventi_attivi' sono condizioni di mondo vere finche' si e' nella tappa (le legge il risveglio). 'avanza_su_tag' = azione che fa progredire la storia; 'turni_massimi' = tetto oltre cui si avanza comunque (niente vicoli ciechi). Contenuti-seme: facili da tarare. Itaca e' la meta: arrivarci e' la vittoria.",
+    "descrizione": "Le tappe del viaggio di Ulisse. Ordine canonico. Ogni tappa accende i suoi dei locali (per 'episodio' nel pantheon) e definisce come si avanza. 'eventi_attivi' sono condizioni di mondo vere finché si è nella tappa (le legge il risveglio). 'avanza_su_tag' = azione che fa progredire la storia; 'turni_massimi' = tetto oltre cui si avanza comunque (niente vicoli ciechi). Contenuti-seme: facili da tarare. Itaca è la meta: arrivarci è la vittoria.",
     "nota_avanzamento": "Assunzione MVP (il design lascia aperti gli obiettivi di tappa, sez. 12): si avanza quando compare 'avanza_su_tag' OPPURE al raggiungimento di 'turni_massimi'. Da raffinare episodio per episodio.",
     "_nota_mappa": "'mappa': posizione sulla carta, in coordinate 0..1 del riquadro di data/coste_mediterraneo.json. RICAVATE DA LONGITUDINE E LATITUDINE REALI (vedi tools/coste/converti_coste.py per la proiezione): prima erano tarate sul vecchio disegno a mano e le tappe cadevano nel posto sbagliato.",
     "_nota_spunti": "'non_ancora': parole che NON possono comparire in uno spunto finche', in quella tappa, la cosa non e' accaduta. 'spunti_di_riserva': gli appigli quando quelli generati vengono scartati — su misura per la tappa, perche' gli appigli generici sono stati tolti: valevano ovunque e quindi in nessun posto davvero.",
@@ -12,7 +12,7 @@
     {
       "id": "troia",
       "nome": "La partenza da Troia",
-      "intro": "Canta, o Musa, l'uomo dall'ingegno multiforme, che a lungo errò dopo aver raso al suolo la sacra rocca di Troia. Alle tue spalle la città arde, e il fumo sale nero sul mare. Dodici navi ti attendono, cariche di bottino e di uomini stanchi di dieci anni di guerra. Sciogli le vele, Ulisse: Itaca e' lontana, e gli dei non hanno ancora deciso se rivedrai la tua isola.",
+      "intro": "Canta, o Musa, l'uomo dall'ingegno multiforme, che a lungo errò dopo aver raso al suolo la sacra rocca di Troia. Alle tue spalle la città arde, e il fumo sale nero sul mare. Dodici navi ti attendono, cariche di bottino e di uomini stanchi di dieci anni di guerra. Sciogli le vele, Ulisse: Itaca è lontana, e gli dei non hanno ancora deciso se rivedrai la tua isola.",
       "dio_locale": null,
       "eventi_attivi": [],
       "avanza_su_tag": "rotta",
@@ -28,7 +28,7 @@
           "rischio": false
         },
         {
-          "testo": "Guarda un'ultima volta la citta' che brucia.",
+          "testo": "Guarda un'ultima volta la città che brucia.",
           "rischio": false
         },
         {
@@ -40,7 +40,7 @@
     {
       "id": "ciconi",
       "nome": "I Ciconi di Ismaro",
-      "intro": "Il vento ti spinge a Ismaro, citta' dei Ciconi. I tuoi uomini bramano saccheggio e vino. Puoi colpire e ripartire in fretta, o indugiare a banchettare sulla spiaggia mentre i Ciconi dell'interno corrono alle armi.",
+      "intro": "Il vento ti spinge a Ismaro, città dei Ciconi. I tuoi uomini bramano saccheggio e vino. Puoi colpire e ripartire in fretta, o indugiare a banchettare sulla spiaggia mentre i Ciconi dell'interno corrono alle armi.",
       "dio_locale": null,
       "eventi_attivi": [],
       "avanza_su_tag": "fuga",
@@ -68,7 +68,7 @@
     {
       "id": "lotofagi",
       "nome": "La terra dei Lotofagi",
-      "intro": "Una costa mite, un popolo che offre un fiore dolcissimo. Chi ne mangia dimentica la casa, il ritorno, se stesso, e vuole solo restare a brucare loto. Alcuni dei tuoi hanno gia' assaggiato: piangono se li chiami.",
+      "intro": "Una costa mite, un popolo che offre un fiore dolcissimo. Chi ne mangia dimentica la casa, il ritorno, se stesso, e vuole solo restare a brucare loto. Alcuni dei tuoi hanno già assaggiato: piangono se li chiami.",
       "dio_locale": null,
       "eventi_attivi": [],
       "avanza_su_tag": "fuga",
@@ -169,7 +169,7 @@
     {
       "id": "laestrigoni",
       "nome": "Il porto dei Lestrigoni",
-      "intro": "Un porto chiuso tra alte scogliere, fin troppo tranquillo. E' la terra dei Lestrigoni, giganti cannibali. Se le navi entrano tutte nella rada, dai dirupi possono piovere massi a fracassarle. La tua e' l'ultima, ancora al largo dell'imboccatura.",
+      "intro": "Un porto chiuso tra alte scogliere, fin troppo tranquillo. È la terra dei Lestrigoni, giganti cannibali. Se le navi entrano tutte nella rada, dai dirupi possono piovere massi a fracassarle. La tua è l'ultima, ancora al largo dell'imboccatura.",
       "dio_locale": null,
       "eventi_attivi": [],
       "avanza_su_tag": "fuga",
@@ -197,7 +197,7 @@
     {
       "id": "circe",
       "nome": "Il palazzo di Circe",
-      "intro": "L'isola di Eea. Dal folto sale il fumo del palazzo di Circe, la maga. I tuoi uomini sono gia' andati avanti.",
+      "intro": "L'isola di Eea. Dal folto sale il fumo del palazzo di Circe, la maga. I tuoi uomini sono già andati avanti.",
       "dio_locale": "circe",
       "eventi_attivi": [],
       "avanza_su_tag": "rotta",
@@ -308,7 +308,7 @@
           "rischio": false
         },
         {
-          "testo": "Taci con la ciurma su cio' che vi aspetta.",
+          "testo": "Taci con la ciurma su ciò che vi aspetta.",
           "rischio": false
         }
       ]
@@ -452,7 +452,7 @@
           "rischio": false
         },
         {
-          "testo": "Cerca chi ti e' rimasto fedele.",
+          "testo": "Cerca chi ti è rimasto fedele.",
           "rischio": false
         },
         {
