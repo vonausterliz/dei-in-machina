@@ -59,6 +59,19 @@ Il testo viene neutralizzato **al confine** — quando entra, non quando si dise
 `scripts/data/bbcode.gd`. Un modello ostile per finta lo verifica in
 `tests/unit/test_bbcode_ostile.gd`.
 
+## L'unico indirizzo che il gioco apre
+
+Il menu **Aiuto** ha un bottone «Apri su GitHub», e quel bottone chiama `OS.shell_open()` —
+cioè consegna un indirizzo al browser del sistema. È l'unico punto del gioco che lo fa, e
+l'indirizzo è una **costante** (`Main.REPOSITORY`): non si compone da un file di
+configurazione, non da una preferenza, e soprattutto **non da ciò che dice un modello**.
+
+La distinzione conta. Un `shell_open` con un indirizzo costruito da un dato è un modo per far
+aprire al giocatore qualcosa che non ha scelto, e un modello che decide dove mandarlo sarebbe
+il caso peggiore. Un test lo tiene fermo
+(`test_l_indirizzo_del_repository_e_una_costante_https`), e vale come regola per chi tocca
+quel file dopo: se un giorno servisse un secondo indirizzo, dev'essere un'altra costante.
+
 ## Il binario di Godot
 
 `avvia.sh` scarica un **eseguibile** da internet e lo lancia. Il canale è HTTPS e la fonte

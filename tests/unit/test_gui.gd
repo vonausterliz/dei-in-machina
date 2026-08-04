@@ -276,3 +276,75 @@ func test_agire_senza_motore_apre_il_popup_e_non_sporca_la_narrazione():
 	ui._guaio_motore(Testi.s("motore/serve_un_motore"))
 	assert_true(ui._dlg_guaio.visible, "la finestra si apre")
 	assert_eq(ui._narrazione.get_parsed_text(), prima, "e il racconto non cresce di una riga")
+
+# --- Il menu Aiuto ---
+
+## Le regole del gioco erano solo nei documenti: chi apre il gioco e non il repository non
+## aveva modo di sapere che gli dei dormono, che i tre appigli non sono le uniche mosse, che
+## parlare alla ciurma non fa avanzare il turno. Sono le REGOLE — non appartengono a un file.
+func test_c_e_un_menu_aiuto_con_regole_e_faq():
+	var ui = load("res://scenes/Main.tscn").instantiate()
+	add_child_autofree(ui)
+	await wait_frames(2)
+	var barra: MenuBar = null
+	for n in ui.find_children("*", "MenuBar", true, false):
+		barra = n
+	assert_not_null(barra, "la barra dei menu dev'esserci")
+	var menu: PopupMenu = null
+	for i in barra.get_child_count():
+		var p := barra.get_child(i)
+		if p is PopupMenu and p.name == Testi.s("menu/aiuto"):
+			menu = p
+	assert_not_null(menu, "dev'esserci un menu «%s»" % Testi.s("menu/aiuto"))
+	var voci: Array = []
+	for i in menu.item_count:
+		voci.append(menu.get_item_id(i))
+	for atteso in [Main.VOCE_REGOLE, Main.VOCE_FAQ, Main.VOCE_REPO]:
+		assert_true(voci.has(atteso), "manca la voce %d in Aiuto" % atteso)
+
+## Una pagina d'aiuto: il testo c'e', e finisce col rimando ai documenti veri.
+func test_una_pagina_di_aiuto_si_apre_e_rimanda_ai_documenti():
+	var ui = load("res://scenes/Main.tscn").instantiate()
+	add_child_autofree(ui)
+	await wait_frames(2)
+	ui._on_menu_aiuto(Main.VOCE_REGOLE)
+	assert_not_null(ui._dlg_aiuto)
+	assert_true(ui._dlg_aiuto.visible)
+	assert_string_contains(ui._testo_aiuto.text, "Ulisse")
+	assert_string_contains(ui._testo_aiuto.text, "COME_GIOCARE.md",
+		"il gioco non contiene il manuale: lo indica")
+
+## La stessa finestra serve tutte le voci: due finestre gemelle divergono su cio' che si
+## dimentica di copiare.
+func test_le_pagine_di_aiuto_condividono_una_finestra_sola():
+	var ui = load("res://scenes/Main.tscn").instantiate()
+	add_child_autofree(ui)
+	await wait_frames(2)
+	ui._on_menu_aiuto(Main.VOCE_REGOLE)
+	var prima = ui._dlg_aiuto
+	var testo_regole: String = ui._testo_aiuto.text
+	ui._on_menu_aiuto(Main.VOCE_FAQ)
+	assert_eq(ui._dlg_aiuto, prima, "una finestra sola, riempita di volta in volta")
+	assert_ne(ui._testo_aiuto.text, testo_regole, "e il contenuto cambia davvero")
+
+## IL TESTO DEVE SCORRERE. Con il testo dentro `dialog_text` il riquadro cresce quanto serve
+## e non guarda lo schermo: le regole chiedevano 972 px su una finestra di 1033, e su un
+## portatile piu' corto i bottoni sarebbero finiti sotto il bordo — senza modo di chiudere.
+func test_la_pagina_di_aiuto_scorre_invece_di_crescere():
+	var ui = load("res://scenes/Main.tscn").instantiate()
+	add_child_autofree(ui)
+	await wait_frames(2)
+	ui._on_menu_aiuto(Main.VOCE_REGOLE)
+	var scorre := false
+	for n in ui._dlg_aiuto.find_children("*", "ScrollContainer", true, false):
+		scorre = true
+	assert_true(scorre, "il testo lungo sta in un ScrollContainer, non nel dialogo nudo")
+	assert_eq(ui._dlg_aiuto.dialog_text, "",
+		"il testo NON e' in dialog_text: sarebbe quello a far crescere la finestra")
+
+## L'unico indirizzo che il gioco apra e' una COSTANTE. Il giorno in cui lo si componesse da
+## un dato — peggio, da cio' che dice un modello — OS.shell_open diventerebbe un modo per
+## far aprire al giocatore qualcosa che non ha scelto.
+func test_l_indirizzo_del_repository_e_una_costante_https():
+	assert_true(Main.REPOSITORY.begins_with("https://github.com/"),
+		"un solo indirizzo, fisso e in chiaro: %s" % Main.REPOSITORY)

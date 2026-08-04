@@ -37,6 +37,14 @@ const VOCE_IMPOSTAZIONI := 10
 const VOCE_ABOUT := 11
 const VOCE_SALVA := 20
 const VOCE_CARICA := 21
+const VOCE_REGOLE := 30
+const VOCE_FAQ := 31
+const VOCE_REPO := 32
+
+## La documentazione lunga vive qui, non nel gioco. L'indirizzo e' una COSTANTE: e' l'unico
+## URL che il gioco apra, non si compone da nessun dato e men che meno da cio' che dice un
+## modello. La regola vale anche per chi tocchera' questo file dopo — vedi SECURITY.md.
+const REPOSITORY := "https://github.com/vonausterliz/dei-in-machina"
 
 var _serif: FontFile
 var _serif_bold: FontFile
@@ -64,6 +72,9 @@ var _fin_impostazioni: FinestraImpostazioni
 var _dlg_about: AcceptDialog
 ## L'unica finestra che interrompe: un problema col motore. Vedi _guaio_motore().
 var _dlg_guaio: AcceptDialog
+## Le pagine del menu Aiuto: una finestra sola, riempita di volta in volta.
+var _dlg_aiuto: AcceptDialog
+var _testo_aiuto: Label
 var _btn_log: Button
 var _btn_agisci: Button
 var _chk_reale: CheckButton
@@ -437,12 +448,87 @@ func _barra_menu() -> Control:
 	menu_set.add_item(Testi.s("menu/about"), VOCE_ABOUT)
 	menu_set.id_pressed.connect(_on_menu_settings)
 	barra.add_child(menu_set)
+
+	# AIUTO. Due voci sole, e corte: le regole del gioco e i guai piu' comuni. Tutto il
+	# resto — installazione, Gateway, costi, come e' fatto dentro — sta nei documenti del
+	# repository, che si aggiornano senza ricompilare e si leggono su uno schermo intero.
+	# Un manuale dentro una finestra modale e' un manuale che nessuno finisce di leggere.
+	var menu_aiuto := PopupMenu.new()
+	menu_aiuto.name = Testi.s("menu/aiuto")
+	menu_aiuto.add_item(Testi.s("menu/regole"), VOCE_REGOLE)
+	menu_aiuto.add_item(Testi.s("menu/faq"), VOCE_FAQ)
+	menu_aiuto.add_separator()
+	menu_aiuto.add_item(Testi.s("menu/documentazione"), VOCE_REPO)
+	menu_aiuto.id_pressed.connect(_on_menu_aiuto)
+	barra.add_child(menu_aiuto)
 	return barra
 
 func _on_menu_settings(id: int) -> void:
 	match id:
 		VOCE_IMPOSTAZIONI: _apri_impostazioni()
 		VOCE_ABOUT: _mostra_about()
+
+func _on_menu_aiuto(id: int) -> void:
+	match id:
+		VOCE_REGOLE: _mostra_aiuto(Testi.s("aiuto/regole_titolo"), Testi.s("aiuto/regole"))
+		VOCE_FAQ: _mostra_aiuto(Testi.s("aiuto/faq_titolo"), Testi.s("aiuto/faq"))
+		VOCE_REPO: OS.shell_open(REPOSITORY)
+
+## Una pagina d'aiuto: testo corto, e in fondo il rimando ai documenti veri.
+##
+## Una finestra sola per tutte le voci. Averne una per pagina significa che la seconda nasce
+## copiando la prima, e da quel momento le due divergono su tutto cio' che si dimentica di
+## copiare — la scala, la veste, il bottone.
+##
+## IL TESTO SCORRE. Con `dialog_text` il riquadro cresce quanto serve al contenuto, e non
+## guarda lo schermo: misurato, la pagina delle regole chiedeva 972 px di altezza su una
+## finestra di 1033 — su un portatile piu' corto i due bottoni sarebbero finiti sotto il
+## bordo, e chi legge non avrebbe avuto modo di chiudere. Con un ScrollContainer l'altezza
+## la decide la finestra e il testo si adatta: qualunque cosa ci si scriva dentro, domani.
+func _mostra_aiuto(titolo: String, corpo: String) -> void:
+	if _dlg_aiuto == null:
+		_dlg_aiuto = AcceptDialog.new()
+		_dlg_aiuto.ok_button_text = Testi.s("finestre/chiudi")
+		_dlg_aiuto.add_button(Testi.s("aiuto/apri_github"), true, "repo")
+		_dlg_aiuto.custom_action.connect(func(azione: StringName):
+			if azione == &"repo":
+				OS.shell_open(REPOSITORY))
+		var scorri := ScrollContainer.new()
+		scorri.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		_testo_aiuto = Label.new()
+		_testo_aiuto.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_testo_aiuto.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_testo_aiuto.add_theme_color_override("font_color", C_BONE)
+		_testo_aiuto.add_theme_font_override("font", _serif)
+		_testo_aiuto.add_theme_font_size_override("font_size", 17)
+		# Le righe respirano: un muro di testo a interlinea stretta non si legge a schermo.
+		_testo_aiuto.add_theme_constant_override("line_spacing", 6)
+		scorri.add_child(_testo_aiuto)
+		# Uno stacco fra il testo e i bottoni. Senza, l'ultima riga visibile finisce tagliata
+		# a filo di «Chiudi» e sembra rotta invece che scorrevole.
+		var stacco := MarginContainer.new()
+		stacco.add_theme_constant_override("margin_bottom", 14)
+		stacco.add_child(scorri)
+		_dlg_aiuto.add_child(stacco)
+		add_child(_dlg_aiuto)
+		_veste_dialogo(_dlg_aiuto)   # pannello e bottoni; il testo e' il Label qui sopra
+	# Passare da una pagina all'altra con la finestra gia' aperta: si richiude prima di
+	# ripresentarla. `popup_centered()` su una Window gia' visibile e' un'operazione che il
+	# server delle finestre non gradisce, e in headless lo dice con un assert.
+	if _dlg_aiuto.visible:
+		_dlg_aiuto.hide()
+	_dlg_aiuto.title = titolo
+	_testo_aiuto.text = "%s\n\n%s" % [corpo, Testi.s("aiuto/rimando")]
+	# Il riquadro riparte dall'inizio: aperta la seconda pagina, si legge da capo.
+	for s in _dlg_aiuto.find_children("*", "ScrollContainer", true, false):
+		s.scroll_vertical = 0
+	# La scala non si eredita, e la dimensione va moltiplicata di conseguenza. L'altezza si
+	# ferma comunque sotto quella dello schermo utile: e' la finestra a doverci stare, non
+	# lo schermo a doversi adeguare al testo.
+	var scala := get_window().content_scale_factor
+	var alto := mini(int(460 * scala), int(DisplayServer.screen_get_usable_rect().size.y * 0.85))
+	_dlg_aiuto.content_scale_factor = scala
+	_dlg_aiuto.popup_centered(Vector2i(int(660 * scala), alto))
 
 ## I DIALOGHI SONO FINESTRE DI SISTEMA, e nascono col tema grigio di Godot: fondo chiaro,
 ## carattere di sistema, testo appiccicato al bordo. In mezzo a una schermata di mare

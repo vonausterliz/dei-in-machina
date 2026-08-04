@@ -220,6 +220,9 @@ In fondo alla pagina, su una riga: astuzia, animo, ciurma, tracotanza — e il c
 corso. Sotto **Settings** ci sono motore, provider, modello, chiavi — e le *Informazioni*,
 con la versione. Dal menu **View** si apre il **Log LLM**: vedi sotto.
 
+Il menu **Aiuto** ha le regole in breve e i problemi più comuni, più un collegamento a questi
+documenti. Nel gioco c'è il minimo che serve a giocare; il resto sta qui.
+
 Le viste sono allineate dallo stesso ritmo: il momento del giorno e l'azione che hai appena
 compiuto fanno da intestazione ovunque.
 

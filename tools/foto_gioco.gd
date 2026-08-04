@@ -130,6 +130,22 @@ func _scatta() -> void:
 		await process_frame
 	_png("guaio_motore", ui._dlg_guaio)
 	ui._dlg_guaio.hide()
+
+	# LE PAGINE D'AIUTO. Sono testo lungo dentro un riquadro a dimensione fissa: o ci sta, o
+	# esce dal bordo — e un test che legge `dialog_text` direbbe di si' in entrambi i casi.
+	#
+	# Le costanti si leggono DALL'ISTANZA (`ui.VOCE_REGOLE`), mai da `Main.VOCE_REGOLE`.
+	# Nominare la classe qui e' una dipendenza di COMPILAZIONE: obbliga `main.gd` a compilare
+	# quando questo file viene caricato, e in modalita' `--script` gli autoload non sono
+	# ancora identificatori globali — `LLMManager` non esiste, main.gd non compila, e lo
+	# strumento prosegue su una scena a meta' facendo scatti di una partita mai iniziata.
+	# E' la stessa ragione per cui `ui` qui sopra non e' tipizzato.
+	for voce in [ui.VOCE_REGOLE, ui.VOCE_FAQ]:
+		ui._on_menu_aiuto(voce)
+		for i in 20:
+			await process_frame
+		_png("aiuto_%d" % voce, ui._dlg_aiuto)
+	ui._dlg_aiuto.hide()
 	quit(0)
 
 ## Input scelti per SVEGLIARE qualcuno: una chat degli dei senza dei e' una finestra vuota.

@@ -17,7 +17,11 @@
     "ciurma": "Ciurma",
     "salva": "Salva la partita",
     "carica": "Riprendi l'ultima partita",
-    "about": "Informazioni su Dei in machina"
+    "about": "Informazioni su Dei in machina",
+    "aiuto": "Aiuto",
+    "regole": "Come si gioca",
+    "faq": "Problemi frequenti",
+    "documentazione": "Documentazione su GitHub"
   },
   "gioco": {
     "domanda": "Cosa fai, Ulisse?",
@@ -212,5 +216,13 @@
   "about": {
     "titolo": "Dei in machina",
     "corpo": "%s\n\nversione %s · Godot %s\n\nUn gioco narrativo sull'Odissea: tu sei Ulisse, e gli dèi sono agenti che non vedrai mai."
+  },
+  "aiuto": {
+    "regole_titolo": "Come si gioca",
+    "regole": "Sei Ulisse. Scrivi in italiano cosa fai e cosa dici: non c'è un menù di comandi, e la frase libera è la mossa. I tre appigli sotto la narrazione sono suggerimenti — la quarta strada è sempre scrivere di tuo.\n\nGLI DÈI SONO NASCOSTI. Omero racconta le conseguenze e non nomina mai nessuno: il gioco vero è capire chi hai svegliato, e come. Ogni divinità dorme finché un fatto preciso non la desta, e quale fatto desti quale dio è scritto nelle regole — non lo decide un modello. La Vista Olimpo, a destra, ti mostra il concilio: tu lo vedi, Ulisse no.\n\nParlare con la ciurma non fa avanzare il turno, ma le tue parole arrivano agli dèi al turno dopo. In fondo alla pagina: astuzia, animo, ciurma, tracotanza. Quindici tappe da Troia a Itaca, circa settanta turni — dal menu Partita si salva e si riprende.",
+    "faq_titolo": "Problemi frequenti",
+    "faq": "«Nessun motore attivo» — gli dèi sono simulati e il gioco si ferma apposta. Accendine uno da Settings › Modelli e chiavi API, poi «Prova il modello».\n\nManca la chiave — si mette in Settings, o in una variabile d'ambiente. Se passi dal Gateway la chiave la tiene lui: va esportata nel SUO ambiente prima di avviarlo.\n\nIl provider non risponde — con Ollama, «ollama serve». Con un servizio in rete, controlla chiave e connessione.\n\nIl modello è elencato ma non risponde — il provider l'ha ritirato continuando a elencarlo. Scegline un altro da Settings.\n\nGli dèi sembrano fuori parte — quasi sempre il modello è troppo piccolo. Il gioco è tarato su Mistral Small 3.2, 24 miliardi di parametri.\n\nPer vedere cosa è successo davvero: menu View › Log LLM.",
+    "rimando": "Il resto è nella documentazione: COME_GIOCARE.md per giocare e installare, README.md per com'è fatto dentro.",
+    "apri_github": "Apri su GitHub"
   }
 }
