@@ -92,6 +92,7 @@ static func _un_turno(n: int, r: Dictionary, gm: Node) -> Dictionary:
 		"registro": _registro(stato),
 		"ammonizioni": _ammonizioni(stato),
 		"ciurma_parla": _ciurma(gm, n),
+		"olimpo_parla": _olimpo(gm, n),
 	}
 
 static func _stato(stato) -> Dictionary:
@@ -160,6 +161,28 @@ static func _ciurma(gm: Node, turno: int) -> Array:
 		if int(m.get("turno", -1)) == turno and String(m.get("autore", "")) != "Ulisse":
 			out.append("%s: %s" % [String(m["autore"]), String(m.get("testo", "")).substr(0, 60)])
 	out.sort()
+	return out
+
+## Cio' che si LEGGE nella Vista Olimpo, in ordine e col tipo di riga.
+##
+## Mancava, e la mancanza si e' pagata: la traccia teneva d'occhio la chat della ciurma e
+## non quella degli dei, cosi' e' rimasta a schermo per settimane una riga di servizio
+## («Nessuno si oppone: la volonta' di X passa») che nessuno strumento poteva vedere. Le
+## proposte c'erano gia' nella traccia, ma come dati: la traccia sapeva cosa il gioco
+## aveva DECISO, non cosa il giocatore avrebbe LETTO.
+##
+## Qui l'ordine conta, al contrario della ciurma: prima si parla, poi agisce chi la spunta.
+## E conta il TIPO — voce, azione, verdetto, sistema — perche' il difetto era esattamente
+## quello: la cosa giusta scritta nel registro sbagliato.
+static func _olimpo(gm: Node, turno: int) -> Array:
+	var out: Array = []
+	var canale: Dictionary = gm.agora.canali.get(Agora.CANALE_OLIMPO, {})
+	for m in canale.get("messaggi", []):
+		if int(m.get("turno", -1)) != turno:
+			continue
+		out.append("%s · %s: %s" % [
+			String(m.get("tipo", "?")), String(m.get("autore", "—")),
+			String(m.get("testo", "")).substr(0, 80)])
 	return out
 
 static func _finale(gm: Node) -> Dictionary:

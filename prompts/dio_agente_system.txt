@@ -33,5 +33,9 @@ Rispondi SOLO con questo oggetto JSON, senza testo attorno:
 {
   "registro": uno dei tuoi registri qui sopra (o "silenzio"),
   "intensita": intero 1-3 (quanto forte reagisci),
-  "dice": una sola battuta breve e in carattere — MAI vuota, nemmeno col silenzio
+  "dice": una sola battuta breve e in carattere — MAI vuota, nemmeno col silenzio,
+  "gesto": il tuo atto in TERZA persona, brevissimo (max 12 parole), senza il tuo nome
+           e senza asterischi — per esempio «alza la mano, e il mare si gonfia».
+           È ciò che FAI, non ciò che dici, e deve corrispondere al registro scelto.
+           Stringa VUOTA se il registro è "silenzio": chi tace non muove un dito.
 }

@@ -174,7 +174,33 @@
     "prosegui": "un tasto, e il viaggio comincia"
   },
   "olimpo": {
-    "senza_contesa": "Nessuno si oppone: la volontà di %s passa.",
-    "zeus_chiude": "E così sia. La volontà di %s si compie."
+    "zeus_chiude": "E così sia. La volontà di %s si compie.",
+    "gesti": {
+      "castigo": {
+        "1": "corruga la fronte, e qualcosa si guasta.",
+        "2": "alza la mano, e il colpo arriva dove fa male.",
+        "3": "scarica la sua ira senza contare chi resta a terra."
+      },
+      "aiuto": {
+        "1": "sposta una cosa piccola, e nessuno se ne accorge.",
+        "2": "gli tiene la mano dietro la nuca e lo sorregge.",
+        "3": "gli spalanca la strada davanti."
+      },
+      "aiuto_negato": {
+        "1": "volta il capo dall'altra parte.",
+        "2": "ritira la mano che avrebbe potuto reggerlo.",
+        "3": "chiude ogni via d'aiuto e lo lascia solo."
+      },
+      "segno": {
+        "1": "lascia cadere un presagio così piccolo che quasi si perde.",
+        "2": "manda un segno che chi ha occhi non può ignorare.",
+        "3": "squarcia il cielo con un presagio che nessuno oserà leggere ad alta voce."
+      },
+      "trappola": {
+        "1": "porge un dono, e non dice quanto costa.",
+        "2": "gli apre una strada facile, e sorride.",
+        "3": "prepara la rovina e la chiama fortuna."
+      }
+    }
   }
 }

@@ -63,6 +63,7 @@
       "input": "Sono io, Odisseo, che t'ho accecato!",
       "n": 1,
       "narrazione": "Un dio - e non diro' quale - osservo' Ulisse grida il proprio nome al ciclope accecato.. Le conseguenze si vedranno.",
+      "olimpo_parla": [],
       "plausibilita": "in_mondo",
       "proposte": [],
       "registro": {
@@ -121,6 +122,11 @@
       "input": "Dico al gigante che il mio nome e' Nessuno.",
       "n": 2,
       "narrazione": "Un dio - e non diro' quale - osservo' Ulisse si presenta come 'Nessuno' al ciclope.. Le conseguenze si vedranno.",
+      "olimpo_parla": [
+        "azione · Atena: si desta.",
+        "voce · Atena: Usa la testa, non la spada. Chi grida, perde.",
+        "azione · Atena: sposta una cosa piccola, e nessuno se ne accorge."
+      ],
       "plausibilita": "in_mondo",
       "proposte": [
         "atena · aiuto · Usa la testa, non la spada. Chi grida, perde."
@@ -179,6 +185,7 @@
       "input": "Prendo un aereo e volo a Itaca.",
       "n": 3,
       "narrazione": "",
+      "olimpo_parla": [],
       "plausibilita": "anacronistico",
       "proposte": [],
       "registro": {
@@ -230,6 +237,7 @@
       "input": "Riempio gli otri d'acqua alla sorgente.",
       "n": 4,
       "narrazione": "Un dio - e non diro' quale - osservo' Ulisse: \"Riempio gli otri d'acqua alla sorgente.\". Le conseguenze si vedranno.",
+      "olimpo_parla": [],
       "plausibilita": "in_mondo",
       "proposte": [],
       "registro": {
@@ -284,6 +292,11 @@
       "input": "Mi rivolgo al capo dell'olimpo e lo supplico.",
       "n": 5,
       "narrazione": "Un dio - e non diro' quale - osservo' Ulisse invoca il signore dell'Olimpo.. Le conseguenze si vedranno.",
+      "olimpo_parla": [
+        "azione · Zeus: si desta.",
+        "voce · Zeus: Ho udito entrambi. Ora tacete: decido io.",
+        "azione · Zeus: lascia cadere un presagio così piccolo che quasi si perde."
+      ],
       "plausibilita": "in_mondo",
       "proposte": [
         "zeus · segno · Ho udito entrambi. Ora tacete: decido io."
@@ -339,6 +352,7 @@
       "input": "Ordino ai compagni di tornare alle navi.",
       "n": 6,
       "narrazione": "Un dio - e non diro' quale - osservo' Ulisse: \"Ordino ai compagni di tornare alle navi.\". Le conseguenze si vedranno.",
+      "olimpo_parla": [],
       "plausibilita": "in_mondo",
       "proposte": [],
       "registro": {

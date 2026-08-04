@@ -23,13 +23,40 @@ func test_la_coalizione_apre_un_canale_di_gruppo():
 	assert_true(c.has("canale"), "la coalizione ha il suo canale")
 	assert_string_contains(GameManager.agora.trascrizione(), "Blocco:")
 
-## Il verdetto chiude la discussione, ma con delle PAROLE: «prevale X: castigo» era un
-## verbale. Senza contesa basta una riga di servizio; con la contesa parla Zeus.
+## Il verdetto chiude la discussione con un ATTO, non con un annuncio. «prevale X:
+## castigo» era un verbale; «Nessuno si oppone: la volonta' di X passa» era un narratore
+## dentro una chat, e per giunta non diceva quale fosse la volonta'. Ora si vede il gesto.
 func test_il_verdetto_chiude_la_discussione():
 	await GameManager.esegui_turno("Sono io, Odisseo, che t'ho accecato!")
 	var t := GameManager.agora.trascrizione()
 	assert_false(t.contains("prevale "), "niente referti nella chat")
-	assert_string_contains(t, "volontà", "la chiusura si legge come una frase")
+	assert_false(t.contains("la volontà di"), "nessun narratore annuncia chi ha vinto")
+
+## Chi la spunta si vede AGIRE: e' l'unico modo in cui il giocatore capisce quale volonta'
+## e' passata. Il registro (castigo, aiuto, segno...) muove i numeri e prima non arrivava
+## mai a schermo: la chat mostrava le parole e nascondeva l'atto.
+func test_chi_vince_agisce_in_chat():
+	await GameManager.esegui_turno("Sono io, Odisseo, che t'ho accecato!")
+	var v: Dictionary = GameManager.stato.storico_olimpo[-1]["verdetto"]
+	assert_ne(String(v.get("attore", "")), "", "questo turno ha un vincitore")
+	var atteso := Gesto.da_proposta(v)
+	assert_ne(atteso, "", "un registro attivo ha sempre un gesto (almeno di ripiego)")
+	assert_string_contains(GameManager.agora.trascrizione(), atteso)
+
+## Solo CHI VINCE agisce. Se agissero tutti non si capirebbe piu' niente: e' il gesto
+## unico a dire chi l'ha spuntata, senza bisogno di dirlo.
+## Si guardano i messaggi, non la trascrizione: due dei con lo stesso registro alla stessa
+## intensita' condividono il gesto di ripiego, e cercarlo nel testo direbbe il falso.
+func test_solo_il_vincitore_agisce():
+	await GameManager.esegui_turno("Sono io, Odisseo, che t'ho accecato!")
+	var voce: Dictionary = GameManager.stato.storico_olimpo[-1]
+	var dio := PantheonManager.get_dio(String(voce["verdetto"].get("attore", "")))
+	var gesti: Array = []
+	for m in GameManager.agora.canale(Agora.CANALE_OLIMPO)["messaggi"]:
+		if String(m["tipo"]) == "azione" and not String(m["testo"]).begins_with("si desta"):
+			gesti.append(m)
+	assert_eq(gesti.size(), 1, "un turno, un gesto: quello di chi l'ha spuntata")
+	assert_eq(String(gesti[0]["autore"]), dio.nome)
 
 func test_una_voce_ha_sempre_lo_stesso_colore():
 	assert_eq(Agora.tinta("Atena"), Agora.tinta("Atena"))

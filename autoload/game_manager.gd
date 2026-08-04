@@ -463,13 +463,13 @@ func _delibera(svegli: Array, envelope: Dictionary) -> Dictionary:
 	if not conflitto:
 		var prep := _prepara_per_arbitrato(attive)
 		var v := _arbitra(prep)
-		_verdetto_in_chat(v, false)
+		_verdetto_in_chat(v, false, prep)
 		return {"proposte": prep, "conflitto": false, "verdetto": v}
 
 	# CONFLITTO: dopo il botta e risposta, Zeus chiude.
 	var prep_c := _prepara_per_arbitrato(attive)
 	var verdetto: Dictionary = await LLMManager.verdetto_arbitro(prep_c)
-	_verdetto_in_chat(verdetto, true)
+	_verdetto_in_chat(verdetto, true, prep_c)
 	return {"proposte": prep_c, "conflitto": true, "verdetto": verdetto}
 
 ## Sfondo (fase 6-bis) sulle proposte prima del verdetto: strategie (piano) e peso di
@@ -571,6 +571,7 @@ func _arbitra(proposte: Array) -> Dictionary:
 		"registro": best.get("registro", "silenzio"),
 		"intensita": int(best.get("intensita", 1)),
 		"dice": best.get("dice", ""),
+		"gesto": best.get("gesto", ""),
 	}
 
 ## IL BIVIO, senza una seconda macchina del turno.
@@ -787,31 +788,48 @@ func _in_chat(p: Dictionary) -> void:
 		if c.get("membri", []).has(dio.id) and c.has("canale"):
 			agora.scrivi(String(c["canale"]), dio.nome, battuta, stato.turno, "voce", dio.simbolo)
 
-## Il verdetto: se c'e' stato conflitto lo pronuncia Zeus, altrimenti prevale chi ha
-## spinto piu' forte. In chat si legge come la parola che chiude la discussione.
-func _verdetto_in_chat(verdetto: Dictionary, arbitrato: bool) -> void:
+## Come si chiude la discussione, in chat.
+##
+## LA VOLONTA' CHE PASSA NON SI ANNUNCIA: SI VEDE. Prima qui usciva una riga di servizio,
+## «Nessuno si oppone: la volonta' di Atena passa» — un narratore che parla dentro una
+## chat, e per giunta senza dire QUALE fosse quella volonta': il registro (castigo, aiuto,
+## segno, trappola) e' cio' che muove i numeri e non arrivava mai a schermo. Ora chi la
+## spunta AGISCE, e l'atto e' un suo messaggio. Chi perde ha parlato e basta: non serve
+## dire chi ha vinto, si vede chi ha mosso la mano.
+##
+## Con la contesa Zeus parla comunque: li' c'e' una sentenza, e la sentenza ha una voce.
+## Ma anche dopo la sua parola il gesto lo fa il dio, non lui.
+func _verdetto_in_chat(verdetto: Dictionary, arbitrato: bool, proposte: Array = []) -> void:
 	var attore := String(verdetto.get("attore", ""))
 	if attore == "":
 		return
 	var dio := PantheonManager.get_dio(attore)
 	var nome: String = dio.nome if dio else attore
-	var chi := "Zeus" if arbitrato else nome
+
 	# LE PAROLE DI ZEUS, non un referto. L'Arbitro produce gia' una battuta da sovrano che
-	# chiude la contesa («dice»), e il codice la buttava via per scrivere «prevale X: Y» —
-	# in una chat quello e' un verbale, e il registro e' roba da traccia tecnica.
-	# Senza arbitrato non c'e' contesa da chiudere: si annota in una riga di servizio che
-	# la volonta' di quel dio e' passata, e basta.
-	var testo := String(verdetto.get("dice", "")).strip_edges()
-	if not arbitrato:
-		agora.scrivi(Agora.CANALE_OLIMPO, "",
-			Testi.s("olimpo/senza_contesa", [nome]), stato.turno, "sistema")
-		return
-	if testo == "":
-		testo = Testi.s("olimpo/zeus_chiude", [nome])
-	# Il distintivo e' di CHI parla: Zeus se ha arbitrato, altrimenti il dio che ha vinto.
-	var zeus: Dio = PantheonManager.get_dio("zeus")
-	var simbolo := (zeus.simbolo if zeus else "") if arbitrato else (dio.simbolo if dio else "")
-	agora.scrivi(Agora.CANALE_OLIMPO, chi, testo, stato.turno, "verdetto", simbolo)
+	# chiude la contesa («dice»), e il codice la buttava via per scrivere «prevale X: Y».
+	if arbitrato:
+		var testo := String(verdetto.get("dice", "")).strip_edges()
+		if testo == "":
+			testo = Testi.s("olimpo/zeus_chiude", [nome])
+		var zeus: Dio = PantheonManager.get_dio("zeus")
+		agora.scrivi(Agora.CANALE_OLIMPO, "Zeus", testo, stato.turno, "verdetto",
+			zeus.simbolo if zeus else "")
+
+	# Il gesto lo propone il dio stesso; il verdetto dell'Arbitro pero' e' un dizionario a
+	# se' e non porta quel campo, quindi si va a riprenderlo dalla sua proposta.
+	var g := Gesto.da_proposta(_proposta_di(attore, proposte, verdetto), nome)
+	if g != "":
+		agora.scrivi(Agora.CANALE_OLIMPO, nome, g, stato.turno, "azione",
+			dio.simbolo if dio else "")
+
+## La proposta di quel dio fra quelle in campo; in mancanza, il verdetto stesso (che ha
+## comunque registro e intensita': basta al ripiego).
+func _proposta_di(id: String, proposte: Array, verdetto: Dictionary) -> Dictionary:
+	for p in proposte:
+		if String(p.get("dio", "")) == id:
+			return p
+	return verdetto
 
 ## Registra il turno nei due archivi: storico_olimpo (tutto, per la vista dietro le quinte)
 ## e diario (reticente, per il giocatore). Ritorna la voce appena scritta.

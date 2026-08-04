@@ -98,13 +98,22 @@ func proponi(dio: Dio, contesto: Dictionary, chat_fn: Callable, seed: int = 0) -
 	var registro := String(grezzo.get("registro", "silenzio"))
 	var intensita: int = clampi(int(grezzo.get("intensita", 1)), 1, 3)
 	var dice := String(grezzo.get("dice", "")).strip_edges()
+	# Il GESTO: cio' che il dio fa, se la sua volonta' passa. Ripulito qui e non a valle,
+	# perche' e' output di un modello: arriva col nome in testa, fra asterischi, o lungo
+	# un paragrafo. Se manca, resta "" e la vista mette il ripiego per quel registro.
+	var gesto := Gesto.ripulisci(String(grezzo.get("gesto", "")), dio.nome)
 	# Vincolo ai registri ammessi: un registro inventato non si applica. Ma la BATTUTA
 	# resta: prima si ripiegava su _silenzio(), che azzera anche `dice`, e la voce del dio
 	# spariva per un errore di etichetta — nella Vista Olimpo restava solo «si desta.».
 	# Agire e parlare sono due cose diverse anche quando il modello sbaglia.
 	if registro != "silenzio" and not dio.registri.has(registro):
-		return {"dio": dio.id, "registro": "silenzio", "intensita": 1, "dice": dice}
-	return {"dio": dio.id, "registro": registro, "intensita": intensita, "dice": dice}
+		return {"dio": dio.id, "registro": "silenzio", "intensita": 1, "dice": dice, "gesto": ""}
+	# Col silenzio il gesto si butta: e' la definizione di silenzio (non agisco), e un
+	# modello che sceglie "silenzio" e poi descrive un atto sta contraddicendo se stesso.
+	return {
+		"dio": dio.id, "registro": registro, "intensita": intensita, "dice": dice,
+		"gesto": "" if registro == "silenzio" else gesto,
+	}
 
 func _silenzio(dio: Dio) -> Dictionary:
-	return {"dio": dio.id, "registro": "silenzio", "intensita": 1, "dice": ""}
+	return {"dio": dio.id, "registro": "silenzio", "intensita": 1, "dice": "", "gesto": ""}

@@ -376,18 +376,32 @@ una conversazione a cinque non è più una conversazione. Chi non replica **tien
 proposta** — non sparisce dal campo. Se il modello non produce nulla di nuovo, resta valida
 la prima battuta: meglio una voce sola che una voce persa.
 
-### Il verdetto si legge come una frase
+### La volontà che passa non si annuncia: si vede
 
 ```
 Ψ  Poseidone   Credi che il mare dimentichi?
 Α  Atena       È mio. L'ho seguito da Troia.
 Ζ  Zeus — Che il mare lo provi, ma non lo inghiotta. Così ho detto.
+Ψ  Poseidone gonfia l'onda sotto la chiglia, e non di più.
 ```
 
-L'Arbitro **produceva già** quella battuta da sovrano nel campo `dice`, e il codice la
-buttava via per stampare `prevale atena: aiuto`. Senza contesa non c'è niente da chiudere:
-si scrive una riga di servizio (*«Nessuno si oppone: la volontà di Poseidone passa»*). Il
-registro tecnico resta dove serve — nel Log, non in chat.
+Due difetti, corretti in due tempi. Il primo: l'Arbitro **produceva già** quella battuta da
+sovrano nel campo `dice`, e il codice la buttava via per stampare `prevale atena: aiuto` —
+un referto al posto di una sentenza.
+
+Il secondo, visto giocando: al suo posto era arrivata una riga di servizio, *«Nessuno si
+oppone: la volontà di Atena passa»*. Un **narratore dentro una chat** — e per giunta muto
+sul punto, perché *quale* fosse la volontà non lo diceva: il registro (`castigo`, `aiuto`,
+`segno`, `trappola`) è ciò che muove i numeri e non arrivava mai a schermo.
+
+Ora **chi la spunta agisce**, e l'atto è un suo messaggio (`azione`, come *«si desta»*).
+Chi perde ha parlato e basta: non serve dire chi ha vinto, si vede chi ha mosso la mano.
+
+Il gesto lo propone il dio stesso — campo `gesto` della sua risposta, in carattere e in
+terza persona, **senza costare una chiamata in più**. Quando il modello lo dimentica (e lo
+dimentica) subentra il ripiego di `Gesto`: una frase per registro e intensità, in
+`data/testi/it.json` sotto `olimpo/gesti`. Col registro `silenzio` il gesto si butta:
+chi tace non muove un dito. Il registro tecnico resta dove serve — nel Log, non in chat.
 
 ### Il conflitto, definito dal codice
 
@@ -780,7 +794,12 @@ una cosa che c'è continui a esserci.
 Il golden trace sì. `scripts/traccia_canonica.gd` esegue sei turni canonici col mock e un
 seed fisso, e registra tutto ciò che ne esce: tag e plausibilità, ammonizione, dèi svegliati,
 proposte, verdetto, delta, stato di Ulisse, registro divino, voci di ciurma, la narrazione
-per intero. Il confronto è **per percorso** — `turni/3/svegliati` dice subito dove — e
+per intero — e **le righe della Vista Olimpo**, in ordine e col tipo (`voce`, `azione`,
+`verdetto`, `sistema`). Quest'ultimo campo è arrivato tardi, e il ritardo si è pagato: la
+traccia sorvegliava la chat della ciurma e non quella degli dèi, così è rimasta a schermo
+per settimane una riga di servizio che nessuno strumento poteva vedere. Le proposte c'erano
+già, ma come *dati*: la traccia sapeva cosa il gioco aveva **deciso**, non cosa il giocatore
+avrebbe **letto**. Il confronto è **per percorso** — `turni/3/svegliati` dice subito dove — e
 distingue tre casi che un `!=` fra dizionari confonderebbe in uno: cambiato, **COMPARSO**,
 **SPARITO**.
 

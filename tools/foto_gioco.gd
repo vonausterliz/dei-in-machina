@@ -7,7 +7,7 @@ extends SceneTree
 ##       (serve un DISPLAY: una Window headless non ha un viewport da cui leggere)
 
 const DOVE := "user://scatti"
-const SECONDI_MASSIMI := 40.0
+const SECONDI_MASSIMI := 120.0
 
 var _t0 := 0.0
 
@@ -38,8 +38,43 @@ func _scatta() -> void:
 	for i in 40:
 		await process_frame
 
-	var img := root.get_texture().get_image()
-	var percorso := "%s/gioco.png" % DOVE
+	_png("gioco", root)
+
+	# LA VISTA OLIMPO, DOPO QUALCHE TURNO. Vuota non dice niente, ed e' vuota all'avvio:
+	# per settimane e' rimasta a schermo una riga di servizio («Nessuno si oppone: la
+	# volonta' di X passa») che nessuno strumento guardava, perche' nessuno strumento
+	# arrivava fin qui. Si gioca qualche turno col mock e si ritrae la chat che ne esce.
+	# Il mock si riafferma QUI: la scena, avviandosi, rilegge le impostazioni dell'utente e
+	# se trovasse il motore vero acceso partirebbe a chiamare la rete — e uno scatto
+	# diventerebbe un'attesa di minuti a ogni turno.
+	var llm: Node = root.get_node("LLMManager")
+	llm.mock_mode = true
+	var gm: Node = root.get_node("GameManager")
+	for battuta in COPIONE:
+		print("  … turno: %s" % battuta)
+		await gm.esegui_turno(battuta)
+	ui._on_toggle_olimpo(true)
+	# La finestra nasce piccola e si apre gia' in fondo: allargata si legge lo SCAMBIO, che
+	# e' il punto — chi parla, chi ribatte, chi alla fine muove la mano.
+	ui._fin_olimpo.size = Vector2i(900, 760)
+	for i in 20:
+		await process_frame
+	_png("olimpo", ui._fin_olimpo)
+	quit(0)
+
+## Input scelti per SVEGLIARE qualcuno: una chat degli dei senza dei e' una finestra vuota.
+## Il vanto al ciclope tira in ballo Poseidone, l'astuzia Atena, la supplica Zeus.
+const COPIONE := [
+	"Dico al gigante che il mio nome e' Nessuno.",
+	"Sono io, Odisseo, che t'ho accecato!",
+	"Mi rivolgo al capo dell'olimpo e lo supplico.",
+]
+
+func _png(nome: String, w: Window) -> void:
+	if w == null or not w.visible:
+		printerr("[!] %s: finestra non visibile, salto" % nome)
+		return
+	var img := w.get_texture().get_image()
+	var percorso := "%s/%s.png" % [DOVE, nome]
 	img.save_png(percorso)
 	print("  %s  (%dx%d)" % [percorso, img.get_width(), img.get_height()])
-	quit(0)
