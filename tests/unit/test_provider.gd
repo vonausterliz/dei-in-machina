@@ -242,3 +242,37 @@ func test_il_tetto_della_prova_vale_per_tutti_i_provider():
 		LLMManager.imposta_profilo(LLMManager.indice_profilo(n))
 		assert_eq(float(LLMManager._config_prova().get("timeout_sec", 0)),
 			float(LLMManager.SECONDI_PROVA), "tetto diverso su «%s»" % n)
+
+# --- Richieste che si sovrappongono ---
+
+## DUE DOMANDE INDIPENDENTI NON DEVONO CONTENDERSI UN TUBO SOLO.
+##
+## LLMClient aveva un HTTPRequest solo, riusato da tutti, e HTTPRequest ne regge una alla
+## volta. Ci ho messo una guardia, ed è stato peggio: la collisione è diventata un errore
+## visibile che accusava la rete — «Non raggiungo http://localhost:11434» con Ollama
+## perfettamente in ascolto. Bastava aprire Impostazioni (che chiede le taglie dei modelli)
+## mentre il motore si stava accendendo.
+##
+## Qui si puntano due richieste a una porta che rifiuta subito: devono fallire ENTRAMBE per
+## il motivo vero — nessuno risponde — e nessuna delle due per essersi trovata la strada
+## occupata dall'altra.
+func test_due_richieste_insieme_non_si_ostacolano():
+	var c := LLMClient.new()
+	add_child_autofree(c)
+	await wait_frames(1)
+	c.configura({"base_url": "http://127.0.0.1:9", "model": "m", "timeout_sec": 3}, "")
+
+	var esiti: Array = []
+	var prendi := func(): esiti.append(await c.elenca_modelli())
+	prendi.call_deferred()
+	prendi.call_deferred()
+	for i in 200:
+		if esiti.size() >= 2:
+			break
+		await wait_frames(1)
+
+	assert_eq(esiti.size(), 2, "tutt'e due devono tornare, non una sola")
+	for e in esiti:
+		assert_false(bool(e["ok"]), "quella porta non risponde")
+		assert_false(String(e["errore"]).contains("in volo"),
+			"il motivo dev'essere il server, non la coda interna: «%s»" % e["errore"])

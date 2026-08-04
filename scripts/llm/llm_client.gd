@@ -36,21 +36,22 @@ const SEGNAPOSTO_CHIAVE := "$CHIAVE"
 ## (cosa viene mandato / cosa viene ricevuto). La GUI lo collega alla finestra di log.
 var logger: Callable = Callable()
 
-## UNA RICHIESTA ALLA VOLTA. C'e' un solo HTTPRequest, e chiamarne due in parallelo fa
-## sputare a Godot un «Condition "requesting" is true» che non dice niente a nessuno e
-## lascia il chiamante con una risposta mai arrivata. Non e' un caso di scuola: appena
-## Impostazioni ha cominciato a chiedere le taglie dei modelli all'apertura, si e'
-## sovrapposta alle verifiche gia' in volo. Meglio un errore in chiaro e subito.
-var _in_corso := false
-
-var _http: HTTPRequest
+## UN HTTPRequest PER RICHIESTA, non uno per client.
+##
+## C'era un nodo solo, riusato da tutti: e HTTPRequest ne serve una alla volta. Due chiamate
+## sovrapposte facevano sputare a Godot un «Condition "requesting" is true» e lasciavano il
+## secondo chiamante con una risposta mai arrivata. Ho provato a metterci una guardia, ed e'
+## stato peggio: la collisione e' diventata un errore VISIBILE che accusava la rete —
+## «Non raggiungo http://localhost:11434» con Ollama perfettamente in ascolto. Bastava aprire
+## Impostazioni mentre il motore si stava accendendo.
+##
+## La guardia curava il sintomo. La causa e' che due domande indipendenti — «quali modelli
+## hai?» e «rispondi a questo turno?» — si contendevano un tubo solo. Un nodo per richiesta,
+## creato e buttato: si sovrappongono quante ne servono, e nessuna aspetta l'altra.
 var _hb: Timer          # battito d'attesa: mostra nel log che la richiesta e' viva
 var _t_inizio: int = 0
 
 func _ready() -> void:
-	_http = HTTPRequest.new()
-	_http.timeout = timeout_sec
-	add_child(_http)
 	_hb = Timer.new()
 	_hb.wait_time = 8.0
 	_hb.one_shot = false
@@ -75,8 +76,18 @@ func configura(config: Dictionary, chiave: String = "") -> void:
 	models_path = config.get("models_path", "/v1/models")
 	tags_path = config.get("tags_path", "")
 	intestazioni_extra = config.get("intestazioni", {})
-	if _http:
-		_http.timeout = timeout_sec
+
+## Il tubo per UNA richiesta. Chi lo apre lo chiude: `_chiudi()` in ogni uscita.
+func _apri() -> HTTPRequest:
+	var h := HTTPRequest.new()
+	h.timeout = timeout_sec
+	add_child(h)
+	return h
+
+func _chiudi(h: HTTPRequest) -> void:
+	if h:
+		remove_child(h)   # subito, non a fine fotogramma: e' un nodo per richiesta
+		h.queue_free()
 
 ## Le intestazioni di autenticazione, uguali per chat ed elenco dei modelli. Erano scritte
 ## due volte, e con Anthropic le due copie avrebbero dovuto divergere: un posto solo.
@@ -95,10 +106,8 @@ func intestazioni() -> PackedStringArray:
 
 ## messaggi: Array di {role, content}. opzioni: {temperature, seed, json_mode}.
 func chat(messaggi: Array, opzioni: Dictionary = {}) -> Dictionary:
-	if _http == null:
-		return _errore("HTTPRequest non pronto (client non nell'albero)")
-	if _in_corso:
-		return _errore("c'e' gia' una richiesta in volo su questo client")
+	if not is_inside_tree():
+		return _errore("client non nell'albero della scena")
 
 	var corpo := {
 		"model": model,
@@ -119,17 +128,17 @@ func chat(messaggi: Array, opzioni: Dictionary = {}) -> Dictionary:
 	var url := base_url.trim_suffix("/") + chat_path
 	_log("  ⇢ POST %s · model=%s · temp=%s%s" % [url, model, corpo["temperature"], " · json" if opzioni.get("json_mode", false) else ""])
 	_log("    ⇡ invio: %s" % _tronca(_ultimo_utente(messaggi), 240))
-	_in_corso = true
-	var err := _http.request(url, headers, HTTPClient.METHOD_POST, JSON.stringify(corpo))
+	var h := _apri()
+	var err := h.request(url, headers, HTTPClient.METHOD_POST, JSON.stringify(corpo))
 	if err != OK:
-		_in_corso = false
+		_chiudi(h)
 		return _fallita("richiesta HTTP fallita in partenza: %s" % error_string(err))
 
 	_t_inizio = Time.get_ticks_msec()
 	_hb.start()
-	var risultato: Array = await _http.request_completed
+	var risultato: Array = await h.request_completed
 	_hb.stop()
-	_in_corso = false
+	_chiudi(h)
 	# risultato = [result, response_code, headers, body]
 	var result_code: int = risultato[0]
 	var status: int = risultato[1]
@@ -189,18 +198,16 @@ func _ultimo_utente(messaggi: Array) -> String:
 ## Elenca i modelli disponibili sul provider (formato OpenAI /v1/models, supportato da
 ## Ollama). Ritorna {ok, modelli: Array[String], errore}. Serve alla verifica pre-partita.
 func elenca_modelli() -> Dictionary:
-	if _in_corso:
-		return {"ok": false, "modelli": [], "errore": "c'e' gia' una richiesta in volo su questo client"}
-	if _http == null:
-		return {"ok": false, "modelli": [], "errore": "client non pronto"}
+	if not is_inside_tree():
+		return {"ok": false, "modelli": [], "errore": "client non nell'albero della scena"}
 	var url := base_url.trim_suffix("/") + models_path
-	_in_corso = true
-	var err := _http.request(url, intestazioni(), HTTPClient.METHOD_GET)
+	var h := _apri()
+	var err := h.request(url, intestazioni(), HTTPClient.METHOD_GET)
 	if err != OK:
-		_in_corso = false
+		_chiudi(h)
 		return {"ok": false, "modelli": [], "errore": "connessione fallita: %s" % error_string(err)}
-	var r: Array = await _http.request_completed
-	_in_corso = false
+	var r: Array = await h.request_completed
+	_chiudi(h)
 	if int(r[0]) != HTTPRequest.RESULT_SUCCESS:
 		return {"ok": false, "modelli": [], "errore": "server non raggiungibile (result=%d)" % int(r[0])}
 	if int(r[1]) < 200 or int(r[1]) >= 300:
@@ -223,18 +230,16 @@ func elenca_modelli() -> Dictionary:
 ## dichiara non ha nulla di simile, e qui si risponde «non lo so» invece di indovinare.
 ## Ritorna {ok, modelli: [{nome, byte, parametri, quantizzazione}], errore}.
 func elenca_dettagli() -> Dictionary:
-	if _in_corso:
-		return {"ok": false, "modelli": [], "errore": "c'e' gia' una richiesta in volo su questo client"}
-	if _http == null or tags_path == "":
+	if not is_inside_tree() or tags_path == "":
 		return {"ok": false, "modelli": [], "errore": "nessun elenco dettagliato per questo provider"}
 	var url := base_url.trim_suffix("/") + tags_path
-	_in_corso = true
-	var err := _http.request(url, intestazioni(), HTTPClient.METHOD_GET)
+	var h := _apri()
+	var err := h.request(url, intestazioni(), HTTPClient.METHOD_GET)
 	if err != OK:
-		_in_corso = false
+		_chiudi(h)
 		return {"ok": false, "modelli": [], "errore": "connessione fallita: %s" % error_string(err)}
-	var r: Array = await _http.request_completed
-	_in_corso = false
+	var r: Array = await h.request_completed
+	_chiudi(h)
 	if int(r[0]) != HTTPRequest.RESULT_SUCCESS:
 		return {"ok": false, "modelli": [], "errore": "server non raggiungibile (result=%d)" % int(r[0])}
 	if int(r[1]) < 200 or int(r[1]) >= 300:
@@ -256,11 +261,14 @@ func elenca_dettagli() -> Dictionary:
 
 ## Ping leggero: verifica che il provider risponda e che il modello esista.
 func disponibile() -> bool:
-	if _http == null:
+	if not is_inside_tree():
 		return false
 	var url := base_url.trim_suffix("/") + models_path
-	var err := _http.request(url, intestazioni(), HTTPClient.METHOD_GET)
+	var h := _apri()
+	var err := h.request(url, intestazioni(), HTTPClient.METHOD_GET)
 	if err != OK:
+		_chiudi(h)
 		return false
-	var risultato: Array = await _http.request_completed
+	var risultato: Array = await h.request_completed
+	_chiudi(h)
 	return risultato[0] == HTTPRequest.RESULT_SUCCESS and int(risultato[1]) == 200
