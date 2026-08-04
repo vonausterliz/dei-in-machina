@@ -92,7 +92,13 @@ func _attraverso_il_gateway(profilo: Dictionary) -> Dictionary:
 	var cfg := profilo.duplicate(true)
 	cfg["base_url"] = gateway_cfg.get("base_url", "http://localhost:8800")
 	cfg["chat_path"] = gateway_cfg.get("chat_path", "/v1/chat/completions")
-	cfg["models_path"] = gateway_cfg.get("models_path", "/v1/models")
+	# CHI vogliamo elencare. L'endpoint dei modelli non porta il nome del modello, quindi il
+	# gateway non aveva modo di sapere per quale provider stessimo chiedendo, e rispondeva
+	# sempre col suo predefinito: con Google selezionato tornavano i modelli di Mistral. Il
+	# provider si dice in query string; un gateway vecchio la ignora e si comporta come prima.
+	var elenco: String = gateway_cfg.get("models_path", "/v1/models")
+	var chi := String(profilo.get("provider", ""))
+	cfg["models_path"] = "%s?provider=%s" % [elenco, chi.uri_encode()] if chi != "" else elenco
 	cfg["timeout_sec"] = gateway_cfg.get("timeout_sec", 300)
 	cfg["api_key_env"] = ""
 	var provider := String(profilo.get("provider", ""))

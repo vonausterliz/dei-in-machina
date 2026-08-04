@@ -144,3 +144,36 @@ func test_il_prefisso_dell_elenco_non_si_porta_dietro():
 	LLMManager.usa_gateway = true
 	assert_eq(LLMManager.modello_atteso(), "google/gemini-3.5-flash",
 		"col gateway il prefisso e' quello d'instradamento, non quello dell'elenco")
+
+## L'ELENCO DEI MODELLI DEVE DIRE PER CHI.
+##
+## L'endpoint /v1/models non porta il nome del modello, quindi passando dal gateway non
+## c'era niente che dicesse quale provider ci interessasse: il gateway rispondeva sempre col
+## suo predefinito. Con Mistral selezionato andava bene per caso — è il predefinito — ma con
+## Google si ottenevano i modelli di Mistral etichettati come suoi. È la risposta di un
+## altro, cioè lo stesso difetto di «Aggiorna elenco» che interrogava il motore acceso.
+func test_col_gateway_l_elenco_dice_di_quale_provider():
+	var cfg := LLMManager.attraverso_il_gateway_per_test(
+		{"provider": "google", "model": "gemini-3.5-flash"})
+	assert_string_contains(String(cfg["models_path"]), "provider=google")
+
+func test_senza_provider_dichiarato_non_si_inventa_una_query():
+	var cfg := LLMManager.attraverso_il_gateway_per_test({"model": "qualcosa"})
+	assert_false(String(cfg["models_path"]).contains("?"),
+		"un gateway vecchio deve continuare a funzionare come prima")
+
+## Il messaggio di un 401 deve dire CHI chiede la chiave. Passando dal gateway il consiglio
+## solito — «mettila in Settings» — sarebbe sbagliato: la chiave ce l'ha lui, nel suo ambiente.
+func test_un_401_dal_gateway_manda_a_cercare_la_chiave_nel_posto_giusto():
+	var c := LLMClient.new()
+	add_child_autofree(c)
+	c.configura({"base_url": "http://localhost:8800", "model": "m"}, "")
+	var msg := c._perche(401, "no api key".to_utf8_buffer())
+	assert_string_contains(msg, "Gateway")
+	assert_string_contains(msg, "no api key", "il motivo del provider non si butta via")
+
+func test_un_401_diretto_accusa_il_provider_non_il_gateway():
+	var c := LLMClient.new()
+	add_child_autofree(c)
+	c.configura({"base_url": "https://api.mistral.ai", "model": "m"}, "")
+	assert_false(c._perche(401, PackedByteArray()).contains("Gateway"))

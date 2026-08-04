@@ -172,6 +172,21 @@ func _estrai_contenuto(risposta: Dictionary) -> String:
 	var messaggio: Dictionary = primo.get("message", {})
 	return messaggio.get("content", "")
 
+## «HTTP 401» e basta non dice niente a nessuno: non chi ha risposto, non perche'. Il corpo
+## della risposta di solito lo dice in chiaro («No API key found in request»), e finora lo
+## buttavamo via — chat() lo teneva, l'elenco dei modelli no. E se si sta passando dal
+## Gateway, il consiglio giusto e' l'OPPOSTO di quello solito: la chiave non va messa nel
+## gioco, ce l'ha lui, e va nel SUO ambiente.
+func _perche(stato: int, corpo: PackedByteArray) -> String:
+	var testo := corpo.get_string_from_utf8().strip_edges().replace("\n", " ")
+	var fine := " — %s" % testo.substr(0, 200) if testo != "" else ""
+	if stato in [401, 403]:
+		var dove := "il Gateway (che le chiavi le tiene lui: mettila nel suo ambiente, non in Settings)" \
+			if base_url.contains("localhost:8800") or base_url.contains("127.0.0.1:8800") \
+			else "il provider"
+		return "HTTP %d: chiave API rifiutata o assente. La chiede %s%s" % [stato, dove, fine]
+	return "HTTP %d%s" % [stato, fine]
+
 func _errore(msg: String) -> Dictionary:
 	return {"ok": false, "content": "", "error": msg, "grezzo": {}}
 
@@ -211,7 +226,7 @@ func elenca_modelli() -> Dictionary:
 	if int(r[0]) != HTTPRequest.RESULT_SUCCESS:
 		return {"ok": false, "modelli": [], "errore": "server non raggiungibile (result=%d)" % int(r[0])}
 	if int(r[1]) < 200 or int(r[1]) >= 300:
-		return {"ok": false, "modelli": [], "errore": "HTTP %d" % int(r[1])}
+		return {"ok": false, "modelli": [], "errore": _perche(int(r[1]), r[3])}
 	var body: PackedByteArray = r[3]
 	var parsed = JSON.parse_string(body.get_string_from_utf8())
 	var modelli: Array = []
@@ -243,7 +258,7 @@ func elenca_dettagli() -> Dictionary:
 	if int(r[0]) != HTTPRequest.RESULT_SUCCESS:
 		return {"ok": false, "modelli": [], "errore": "server non raggiungibile (result=%d)" % int(r[0])}
 	if int(r[1]) < 200 or int(r[1]) >= 300:
-		return {"ok": false, "modelli": [], "errore": "HTTP %d" % int(r[1])}
+		return {"ok": false, "modelli": [], "errore": _perche(int(r[1]), r[3])}
 	var parsed = JSON.parse_string((r[3] as PackedByteArray).get_string_from_utf8())
 	var out: Array = []
 	if typeof(parsed) == TYPE_DICTIONARY:

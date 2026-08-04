@@ -30,6 +30,7 @@ import sys
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -313,9 +314,19 @@ class Handler(BaseHTTPRequestHandler):
         if self.path.rstrip("/") in ("/stato", "/v1/stato"):
             self._rispondi(200, json.dumps(self.gateway.stato(), indent=2, ensure_ascii=False).encode())
             return
-        if self.path.rstrip("/").endswith("/models"):
-            p = self.gateway.providers[self.gateway.predefinito]
-            stato, corpo = p.modelli()
+        percorso, _, query = self.path.partition("?")
+        if percorso.rstrip("/").endswith("/models"):
+            # QUALE provider. Prima si rispondeva SEMPRE col predefinito, qualunque cosa
+            # avesse scelto il gioco: con Mistral (che e' il predefinito) andava bene per
+            # caso, con Google si ottenevano i modelli di Mistral etichettati come suoi —
+            # la risposta di un altro, che e' il difetto peggiore perche' sembra giusta.
+            # Il gioco lo dice in query string; senza, si ripiega sul predefinito come prima.
+            voluto = urllib.parse.parse_qs(query).get("provider", [""])[0]
+            nome = voluto if voluto in self.gateway.providers else self.gateway.predefinito
+            if voluto and voluto not in self.gateway.providers:
+                log(f"  ⚠ elenco modelli chiesto per «{voluto}», che non conosco: "
+                    f"rispondo con {nome}. Aggiungilo a limiti.json.")
+            stato, corpo = self.gateway.providers[nome].modelli()
             self._rispondi(stato, corpo)
             return
         self._rispondi(404, b'{"error":{"message":"non trovato"}}')
