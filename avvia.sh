@@ -7,6 +7,8 @@
 #   ./avvia.sh            # finestra grafica (GUI)
 #   ./avvia.sh console    # gioco testuale nel terminale (headless)
 #   ./avvia.sh test       # esegue i test (dev)
+#   ./avvia.sh musica     # rigenera la musica della schermata d'apertura
+#   ./avvia.sh installa-menu   # mette il gioco nel menu applicazioni col suo nome
 #   Aggiungi "-- ollama mistral-small3.2:latest" a 'console' per i dei reali.
 #
 # Scelta del modello Ollama (senza toccare il config):
@@ -117,8 +119,27 @@ ollama_preflight() {
 
 MODE="${1:-gui}"
 case "$MODE" in
-  gui)     ollama_preflight; exec "$GODOT" --path "$DIR" --audio-driver Dummy ;;  # gioco testuale: niente audio (evita l'avviso CoreAudio su macOS)
+  # NIENTE --audio-driver Dummy qui. C'era, con un commento che parlava del gioco testuale:
+  # copiato dalla riga sotto e mai riletto. Con l'audio spento la musica della schermata
+  # d'apertura non si sarebbe sentita, e non ci sarebbe stato niente da cui accorgersene —
+  # solo un'apertura muta che sembra voluta.
+  gui)     ollama_preflight; exec "$GODOT" --path "$DIR" ;;
   console) shift; ollama_preflight; exec "$GODOT" --headless --path "$DIR" --script res://tools/gioca.gd "$@" ;;
   test)    exec "$GODOT" --headless --path "$DIR" -s addons/gut/gut_cmdln.gd -gconfig=res://.gutconfig.json ;;
-  *)       echo "Uso: ./avvia.sh [gui|console|test]"; exit 1 ;;
+  # Fa comparire il gioco nel menu applicazioni COL SUO NOME. Nella barra si legge
+  # «godot» perche' l'eseguibile in esecuzione e' il motore, non il gioco: il file .desktop
+  # dice al desktop che quelle finestre sono nostre. Spiegazione intera nel file stesso.
+  installa-menu)
+    DEST="$HOME/.local/share/applications"
+    mkdir -p "$DEST"
+    sed -e "s|AVVIA_QUI|$DIR/avvia.sh|" -e "s|ICONA_QUI|$DIR/assets/icona.png|" \
+      "$DIR/distribuzione/dei-in-machina.desktop" > "$DEST/dei-in-machina.desktop"
+    chmod +x "$DEST/dei-in-machina.desktop"
+    command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$DEST" || true
+    echo "Installato in $DEST/dei-in-machina.desktop"
+    echo "La barra delle applicazioni ora dice «Dei in machina» invece di «godot»."
+    echo "(Su alcuni desktop serve un logout, o 'killall plasmashell && plasmashell &'.)"
+    ;;
+  musica)  exec python3 "$DIR/tools/musica/genera_proemio.py" ;;
+  *)       echo "Uso: ./avvia.sh [gui|console|test|musica|installa-menu]"; exit 1 ;;
 esac

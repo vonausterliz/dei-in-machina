@@ -14,14 +14,24 @@ extends CanvasLayer
 ## layout del genitore per avere una dimensione, e al primo tentativo il fondo copriva
 ## solo un angolo. Un CanvasLayer sta sopra tutto e misura la finestra, punto.
 ##
-## Si toglie da sola dopo qualche istante, o al primo tasto/clic: una schermata d'apertura
-## che non si puo' saltare diventa un pedaggio.
+## Si toglie al primo tasto/clic, oppure tre secondi dopo che la musica e' finita: una
+## schermata d'apertura che non si puo' saltare diventa un pedaggio, ma una che sparisce
+## mentre la musica sta ancora suonando e' peggio — taglia la frase a meta'.
 
 signal finito
 
 const LIVELLO := 100         # sopra ogni cosa
-const DURATA := 3.4          # quanto resta prima di sfumare da sola
+## Quanto resta SENZA musica (headless, o se il file non c'e'): giusto il tempo di leggere
+## il nome. Con la musica comanda lei — vedi ATTESA_DOPO_MUSICA.
+const DURATA := 3.4
+## Il respiro dopo l'ultima nota. Il brano finisce sfumando, e togliere la schermata
+## nell'istante esatto del silenzio fa sembrare che sia stata interrotta.
+const ATTESA_DOPO_MUSICA := 3.0
 const DISSOLVENZA := 0.7     # durata della sfumatura d'uscita
+
+## Il proemio: circa trenta secondi di lira e bordone, generati da
+## tools/musica/genera_proemio.py (che e' anche la partitura: si legge e si riesegue).
+const MUSICA := "res://assets/audio/proemio.ogg"
 
 const C_SEA_DEEP := Color("131020")
 const C_SEA := Color("1a1630")
@@ -41,6 +51,9 @@ var solo_marchio := false
 
 var _t := 0.0
 var _uscita := -1.0
+var _suono: AudioStreamPlayer
+## Da quando la musica e' finita, o -1 se sta ancora suonando (o se non c'e' musica).
+var _muto_da := -1.0
 var _tela: Control          # dove si disegna, e cio' che sfuma all'uscita
 var _posto_marchio: Control # riserva lo spazio: il marchio si disegna esattamente qui
 var _titolo: Label
@@ -90,7 +103,25 @@ func _ready() -> void:
 	if solo_marchio:
 		_posto_marchio.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
+	_avvia_musica()
 	set_process(true)
+
+## La musica, se c'e'. Se il file manca il gioco parte lo stesso e la schermata torna a
+## reggersi sul tempo: un'apertura non deve dipendere da un asset per esistere.
+func _avvia_musica() -> void:
+	if solo_marchio or DisplayServer.get_name() == "headless":
+		return
+	if not ResourceLoader.exists(MUSICA):
+		return
+	var flusso: AudioStream = load(MUSICA)
+	if flusso == null:
+		return
+	_suono = AudioStreamPlayer.new()
+	_suono.stream = flusso
+	_suono.bus = "Master"
+	add_child(_suono)
+	_suono.finished.connect(func(): _muto_da = 0.0)
+	_suono.play()
 
 func _riga(testo: String, dim: int, col: Color, font: FontFile) -> Label:
 	var l := Label.new()
@@ -106,17 +137,32 @@ func _riga(testo: String, dim: int, col: Color, font: FontFile) -> Label:
 func _process(delta: float) -> void:
 	_t += delta
 	_aggiorna_opacita()
-	if _uscita < 0.0 and _t >= DURATA:
+	if _uscita < 0.0 and _t >= _quando_congedarsi(delta):
 		congeda()
 	if _uscita >= 0.0:
 		_uscita += delta
 		_tela.modulate.a = maxf(0.0, 1.0 - _uscita / DISSOLVENZA)
+		# La musica se ne va con l'immagine: un suono che continua su una schermata sparita
+		# e' un pezzo di apertura rimasto indietro.
+		if _suono and _suono.playing:
+			_suono.volume_db = linear_to_db(maxf(0.0001, 1.0 - _uscita / DISSOLVENZA))
 		if _uscita >= DISSOLVENZA:
 			set_process(false)
 			finito.emit()
 			queue_free()
 			return
 	_tela.queue_redraw()
+
+## L'istante in cui congedarsi. Senza musica e' un tempo fisso; con la musica si aspetta
+## che finisca, e poi ancora tre secondi. Ritorna un traguardo per `_t`, cosi' il confronto
+## nel processo resta uno solo.
+func _quando_congedarsi(delta: float) -> float:
+	if _suono == null:
+		return DURATA
+	if _muto_da < 0.0:
+		return INF        # sta ancora suonando: non c'e' nessun traguardo
+	_muto_da += delta
+	return _t + (ATTESA_DOPO_MUSICA - _muto_da)
 
 ## Le righe compaiono sfalsate: prima il marchio, poi il nome, poi il resto.
 func _aggiorna_opacita() -> void:

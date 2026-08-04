@@ -1,0 +1,31 @@
+[Desktop Entry]
+Type=Application
+Name=Dei in machina
+GenericName=Gioco narrativo
+Comment=L'Odissea, e gli dèi che ti ascoltano
+Categories=Game;RolePlaying;
+Terminal=false
+Exec=AVVIA_QUI
+Icon=ICONA_QUI
+# LA RIGA CHE CONTA.
+#
+# Nella barra delle applicazioni compariva «godot», non «Dei in machina». Il motivo sta nel
+# WM_CLASS della finestra, che X11 usa per riconoscere a quale applicazione appartiene:
+#
+#     WM_CLASS(STRING) = "Godot_Engine", "Dei in machina"
+#
+# Il secondo campo e' giusto — lo prende da application/config/name — ma il primo, quello
+# che quasi tutte le barre usano per l'etichetta e l'icona, e' il nome dell'ESEGUIBILE che
+# sta girando. E l'eseguibile e' Godot: `avvia.sh` lancia il motore sul progetto, non un
+# programma a se'. Nessuna impostazione del progetto puo' cambiarlo, perche' non e' il
+# progetto a essere in esecuzione.
+#
+# StartupWMClass dice al desktop «le finestre con questo WM_CLASS sono mie»: da quel momento
+# la barra mostra il Name e l'Icon di questo file al posto di quelli di Godot.
+#
+# Il rimedio DEFINITIVO e' un altro: esportare il gioco come eseguibile suo
+# (`dei_in_machina`), e allora il WM_CLASS sarebbe giusto da solo e sparirebbe anche il
+# «(DEBUG)» che il motore aggiunge al titolo nelle build di sviluppo. Serve pero' scaricare
+# i template d'esportazione di Godot, quasi un giga. Questo file costa zero e risolve il
+# sintomo che si vede.
+StartupWMClass=Godot_Engine
