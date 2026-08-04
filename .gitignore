@@ -45,3 +45,8 @@ CLAUDE.md
 mockup/
 lavoro.sh
 .git-lavoro/
+
+# Python: un .pyc contiene il PERCORSO ASSOLUTO del sorgente da cui e' stato compilato,
+# cioe' la home dell'utente col suo nome. Ne e' finito uno in un commit.
+__pycache__/
+*.pyc

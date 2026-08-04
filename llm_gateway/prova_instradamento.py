@@ -28,6 +28,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 QUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, QUI)
 
+# NESSUN __pycache__. Importare `gateway` fa scrivere a Python un .pyc accanto al sorgente,
+# e dentro un .pyc c'e' il PERCORSO ASSOLUTO del file da cui e' stato compilato — cioe' la
+# home dell'utente, col suo nome. Una volta e' finito in un commit (`git add -A` dopo aver
+# eseguito questa prova) ed e' stato l'unico dato personale rimasto nella cronologia. Il
+# .gitignore lo copre, ma la riga giusta e' questa: non generarlo affatto.
+sys.dont_write_bytecode = True
+
 import gateway as G  # noqa: E402
 
 # Cosa ha ricevuto ogni provider finto: [(percorso, modello, intestazioni), ...]
