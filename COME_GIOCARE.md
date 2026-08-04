@@ -132,6 +132,7 @@ le finestre di conteggio non coincidono mai al millisecondo con le nostre.
 | `mistral` | 1,1 s | 28 | — |
 | `google` | 4,2 s | 14 | 1400 |
 | `openrouter` | 3,1 s | 18 | **50** |
+| `anthropic` | 1,4 s | 45 | — |
 | `openai` · `ollama` | nessun freno | | |
 
 Se cambi piano e i freni non ti servono più: `./gateway.sh libero`, oppure
@@ -139,14 +140,29 @@ Se cambi piano e i freni non ti servono più: `./gateway.sh libero`, oppure
 
 ### Due cose da sapere
 
-**Anthropic non passa dal Gateway.** Non è fra i suoi provider: con il Gateway acceso e
-Anthropic selezionato, le chiamate finiscono al provider predefinito — Mistral. Riceveresti
-risposte plausibili da un modello che non hai scelto. Con Anthropic, per ora, tieni il
-Gateway spento.
+**Anthropic non ha un piano gratuito.** Passa dal Gateway come tutti gli altri — la spunta
+funziona, le chiavi le tiene lui — ma davanti ad Anthropic il Gateway non fa risparmiare
+nulla: fa da coda, da cache e da ritentativo, e si paga a consumo comunque. All'avvio lo
+scrive: `⚠ SEMPRE A PAGAMENTO`.
 
 **Il tetto di OpenRouter è 50 al giorno**, per account, sui modelli col suffisso `:free`.
 Una partita intera ne chiede ~450: non ci sta. Il Gateway lo scrive nel log all'avvio invece
 di fartelo scoprire a metà viaggio.
+
+### Se il provider non è configurato
+
+Il Gateway **non ripiega mai su un altro**. Se gli chiedi un provider che non ha in
+`limiti.json`, risponde con un errore che dice quali conosce e dove aggiungerlo:
+
+```
+provider «cohere» non configurato nel gateway. Conosco: anthropic, google,
+mistral, ollama, openai, openrouter. Aggiungilo a limiti.json, oppure togli la
+spunta «Gateway» nel gioco per andare diretto al provider.
+```
+
+Prima ripiegava sul predefinito, ed era il difetto peggiore possibile: una configurazione
+mancante — che si vede e si aggiusta — diventava la risposta di un altro modello, che non si
+vede affatto. Un test lo tiene fermo: `llm_gateway/prova_instradamento.py`.
 
 Il Gateway ascolta **solo su `127.0.0.1`**, non ha autenticazione e non deve averne: non va
 esposto in rete. Se la porta 8800 è occupata: `PORTA=8801 ./gateway.sh start`. Dettagli in

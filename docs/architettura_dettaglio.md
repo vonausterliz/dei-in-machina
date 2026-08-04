@@ -739,7 +739,7 @@ flowchart LR
     MK -->|no| CL["LLMClient<br/>chat-completions"]
     CL --> GW{"usa_gateway?"}
     GW -->|no| PRV["Provider diretto<br/>Ollama locale · Mistral · Google<br/>OpenAI · Anthropic · OpenRouter"]
-    GW -->|sì| GATE["localhost:8800<br/>coda che rispetta i limiti<br/>modello ← provider/modello"]
+    GW -->|sì| GATE["localhost:8800<br/>coda che rispetta i limiti<br/>?provider= dichiarato, mai dedotto"]
     GATE --> PRV
 ```
 
@@ -783,6 +783,31 @@ prossimo provider con le sue manie si aggiunge senza toccare il client.
 sceglierlo significava *non* scegliere Gemini. Ma «con quale modello parlo» e «passo dalla
 coda che rispetta i limiti del piano gratuito» sono due domande indipendenti. Ora il profilo
 resta quello e cambia solo la strada; le chiavi le tiene il gateway.
+
+**Il gateway non indovina mai il destinatario, e non ripiega mai su un altro** (v2.36). Il
+provider viaggiava solo nel *prefisso del modello* — `anthropic/claude-sonnet-5` — e un
+prefisso non si distingue da un nome di modello che contiene una barra
+(`mistralai/mistral-small:free`). Il gateway doveva interpretare, e quando non riconosceva il
+prefisso ripiegava sul `provider_predefinito`: con Anthropic scelto e non configurato in
+`limiti.json`, le chiamate finivano a **Mistral** e l'elenco dei modelli mostrava quelli di
+Mistral etichettati come suoi. Un errore di configurazione — che si vede e si aggiusta in
+dieci secondi — diventava la risposta di un altro modello, che non si vede affatto. È la
+stessa classe di guasto di «Aggiorna elenco» che interrogava il motore acceso, e dello stesso
+`?provider=` nato per curarla su `/models`.
+
+Ora il provider si dichiara in **query string** anche sulla chat, il prefisso resta come
+ripiego per i client che non la mandano, e un provider sconosciuto è un `400` che dice quali
+ci sono e dove aggiungerlo. Anthropic è fra loro: passa dal gateway come tutti, con le sue
+`intestazioni` (stesso `$CHIAVE` dei profili di gioco) e con `"gratuito": false`, che fa
+scrivere all'avvio che lì non c'è nessun piano gratuito da rispettare.
+
+Due presidi, su due piani diversi. `llm_gateway/prova_instradamento.py` alza due provider
+finti e verifica diciassette scenari — instradamento, intestazioni, prefisso tolto una volta
+sola, provider ignoto respinto. Dal lato del gioco,
+`test_il_gateway_conosce_tutti_i_provider_fra_cui_si_puo_scegliere` confronta
+`config/providers/` con `limiti.json`: un provider fra cui si può scegliere e che il gateway
+non conosce renderebbe la spunta «Gateway» una trappola, e la scoperta arriverebbe a partita
+iniziata.
 
 **Il modello è ricordato per provider.** C'era una preferenza sola per tutto il gioco, e
 veniva riapplicata all'avvio quando il percorso esterno non è ancora acceso: finiva nel

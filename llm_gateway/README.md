@@ -40,6 +40,8 @@ Poi nel gioco scegli il provider **«Gateway (free tier)»**.
 |---|---|---|---|
 | `mistral` | 1,1 s | 28 | — |
 | `google`  | 4,2 s | 14 | 1400 |
+| `openrouter` | 3,1 s | 18 | **50** |
+| `anthropic` | 1,4 s | 45 | — |
 | `openai`  | — | — | — |
 | `ollama`  | — | — | — |
 
@@ -50,17 +52,60 @@ ritocca solo questo file: `min_intervallo_s`, `rpm`, `rpd`.
 Per disattivare il throttling senza toccare nulla d'altro: `"throttling_attivo": false`
 in `limiti.json`, oppure `./gateway.sh libero`.
 
-## Scelta del modello
+**`"gratuito": false`** dice che quel provider non ha un piano gratuito: non cambia nulla nel
+comportamento, lo fa scrivere all'avvio. Anthropic è così — davanti a lui il gateway non fa
+risparmiare, fa da coda, cache e ritentativo.
 
-Il campo `model` può avere il prefisso del provider:
+## A chi va la richiesta
 
-- `mistral/mistral-small-latest` → va a Mistral
-- `google/gemini-2.0-flash` → va a Gemini
-- `mistral-small-latest` (senza prefisso) → va al `provider_predefinito`
+Tre strade, in ordine di autorevolezza:
+
+1. **La query string** `?provider=anthropic`, su `/chat/completions` e su `/models`. È
+   l'unica cosa che non si può confondere con un nome di modello: comanda su tutto.
+2. **Il prefisso del modello**: `mistral/mistral-small-latest` → Mistral. Resta come ripiego
+   per i client che non mandano la query.
+3. **Niente prefisso e niente barra**: `provider_predefinito`.
+
+**Non si ripiega mai su un altro provider.** Un provider chiesto e non configurato dà
+`400` con un messaggio che dice quali ci sono e dove aggiungerlo — e lo stesso vale per un
+prefisso sconosciuto: `mistralai/mistral-small:free` senza `?provider=` è un errore, non un
+invito a scegliere per conto altrui (per OpenRouter il nome giusto è
+`openrouter/mistralai/mistral-small:free`, e il gateway spezza solo sulla prima barra).
+
+> **Perché la regola è così rigida.** Prima si ripiegava sul predefinito. Con Anthropic
+> selezionato nel gioco e non configurato qui, le chiamate finivano a Mistral e l'elenco dei
+> modelli mostrava quelli di Mistral etichettati come suoi. Un errore di configurazione — che
+> si vede e si aggiusta in dieci secondi — diventava la risposta di un altro modello, che non
+> si vede affatto.
+
+## Provider che non parlano OpenAI
+
+Un provider può dichiarare le intestazioni che gli servono, con `$CHIAVE` al posto della
+chiave vera. È la stessa convenzione dei profili del gioco (`config/providers/*.json`):
+
+```json
+"intestazioni": {
+  "x-api-key": "$CHIAVE",
+  "anthropic-version": "2023-06-01"
+}
+```
+
+Anthropic è il caso che l'ha resa necessaria: il suo layer di compatibilità accetta
+`/chat/completions` col `Bearer`, ma `/models` pretende `x-api-key` e il Bearer lo rifiuta
+con un 401. Le intestazioni si aggiungono a quella di autorizzazione, e sono **le stesse**
+per chat ed elenco: erano scritte in due punti, e con Anthropic le due copie avrebbero
+dovuto divergere.
 
 ## Verificato
 
-Provato con un provider finto che registra i tempi d'arrivo:
+**L'instradamento**, con `python3 prova_instradamento.py` — due provider finti su localhost
+che registrano chi ha ricevuto cosa e con quali intestazioni. Diciassette controlli:
+Anthropic instradato e con le sue intestazioni, il prefisso tolto una volta sola, l'elenco
+modelli del provider giusto, un provider sconosciuto respinto con `400` senza che nessuno
+risponda al posto suo, e il nome nudo che continua ad andare al predefinito come prima.
+Si esegue in un secondo, senza rete e senza chiavi vere.
+
+**I tempi**, con un provider finto che registra gli istanti d'arrivo:
 
 - **throttling**: 5 richieste simultanee → intervalli di 1,00 s; con `rpm: 4` la quinta
   ha atteso la scadenza della finestra (57 s);

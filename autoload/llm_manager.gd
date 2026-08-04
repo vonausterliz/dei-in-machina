@@ -98,7 +98,14 @@ func _attraverso_il_gateway(profilo: Dictionary) -> Dictionary:
 		return profilo   # un server in casa non ha limiti da rispettare: la coda non serve
 	var cfg := profilo.duplicate(true)
 	cfg["base_url"] = gateway_cfg.get("base_url", "http://localhost:8800")
-	cfg["chat_path"] = gateway_cfg.get("chat_path", "/v1/chat/completions")
+	# ANCHE LA CHAT DICE PER CHI. Il provider viaggiava solo nel prefisso del modello, e un
+	# prefisso non si distingue da un nome di modello che contiene una barra: il gateway
+	# doveva indovinare, e indovinando sbagliava — con Anthropic non configurato la chiamata
+	# finiva al provider predefinito. In query string non c'e' niente da interpretare, e un
+	# gateway vecchio la ignora comportandosi come prima.
+	var chi_chat := String(profilo.get("provider", ""))
+	var strada: String = gateway_cfg.get("chat_path", "/v1/chat/completions")
+	cfg["chat_path"] = "%s?provider=%s" % [strada, chi_chat.uri_encode()] if chi_chat != "" else strada
 	# CHI vogliamo elencare. L'endpoint dei modelli non porta il nome del modello, quindi il
 	# gateway non aveva modo di sapere per quale provider stessimo chiedendo, e rispondeva
 	# sempre col suo predefinito: con Google selezionato tornavano i modelli di Mistral. Il

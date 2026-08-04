@@ -164,7 +164,7 @@ da nessuna parte.
 |---|---|
 | Ollama · Mistral · Google | **sì** — partite vere, non solo test |
 | OpenAI | profilo presente, mai provato contro il servizio |
-| Anthropic · OpenRouter | profilo presente, **mai provato**, e non passano dal Gateway |
+| Anthropic · OpenRouter | profilo presente, **mai provato** contro il servizio vero |
 
 I profili non collaudati sono scritti secondo la documentazione del provider, non secondo
 una risposta vista arrivare. Se ne provi uno e funziona — o non funziona — dirlo è il modo
@@ -218,11 +218,18 @@ provider non coincidono al millisecondo con le nostre.
 | `mistral` | 1,1 s | 28 | — |
 | `google` | 4,2 s | 14 | 1400 |
 | `openrouter` | 3,1 s | 18 | **50** |
+| `anthropic` | 1,4 s | 45 | — |
 | `openai` · `ollama` | nessun freno | | |
 
 Quel **50** è una trappola dichiarata: i modelli OpenRouter col suffisso `:free` hanno un
 tetto giornaliero *per account*, e una partita intera chiede ~450 chiamate. Non ci sta. Il
-Gateway lo scrive nel log all'avvio invece di fartelo scoprire a metà viaggio.
+Gateway lo scrive nel log all'avvio invece di fartelo scoprire a metà viaggio. Anthropic non
+ha un piano gratuito affatto, e anche questo viene detto all'avvio.
+
+**E non ripiega mai su un altro provider.** Se gliene chiedi uno che non conosce, risponde
+con un errore che dice quali ha e dove aggiungerlo. Prima ripiegava sul predefinito, e una
+configurazione mancante diventava la risposta di un altro modello: `prova_instradamento.py`
+tiene ferma la regola con otto scenari e provider finti.
 
 ```bash
 export MISTRAL_API_KEY=...        # le chiavi le tiene il Gateway, non il gioco
@@ -232,11 +239,9 @@ cd llm_gateway && ./gateway.sh start
 Poi in *Impostazioni* spunta il **Gateway**. È un *trasporto*, non un provider: si combina
 con il modello che hai già scelto.
 
-Due cose da sapere. Il Gateway legge le chiavi **dal proprio ambiente**: quella scritta in
+Una cosa da sapere. Il Gateway legge le chiavi **dal proprio ambiente**: quella scritta in
 *Impostazioni* non gli arriva, e senza `export` ogni richiesta torna `401` sembrando un
-guasto del gioco (il log lo dice: `CHIAVE MANCANTE`). E **Anthropic non è fra i suoi
-provider**: con il Gateway acceso e Anthropic selezionato le chiamate finiscono al provider
-predefinito, cioè Mistral. Con Anthropic, per ora, il Gateway va spento.
+guasto del gioco (il log lo dice: `CHIAVE MANCANTE`).
 
 Ascolta **solo su `127.0.0.1`**, non ha autenticazione e non deve averne: non va esposto in
 rete. Dettagli in **[llm_gateway/README.md](llm_gateway/README.md)**.
@@ -385,8 +390,9 @@ or any of Mistral / Google / OpenAI / Anthropic / OpenRouter. Start with `./avvi
 
 **Testing status.** Verification rests on 435 automated tests against a simulated engine,
 **not** on extended human playtesting. Only the **Ollama, Mistral and Google** integrations
-have been exercised against the real services; **Anthropic and OpenRouter have not**, and
-Anthropic is not among the local gateway's providers. The software comes with **no warranty
+have been exercised against the real services; **Anthropic and OpenRouter have not**. The
+local gateway routes all of them, and never silently falls back to a different provider.
+The software comes with **no warranty
 of any kind** (AGPL-3.0, §15–16): no liability is accepted for malfunctions, lost data, or
 **LLM provider costs**, including unexpected or excessive spend caused by a defect or a
 misconfiguration. Your key, your plan, your bill — watch your usage and set a spending cap.

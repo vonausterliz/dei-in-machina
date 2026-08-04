@@ -38,9 +38,35 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 QUI = os.path.dirname(os.path.abspath(__file__))
 
+# Nelle intestazioni extra di un provider, questo valore viene sostituito con la chiave API
+# vera. E' la stessa convenzione dei profili del gioco (config/providers/*.json): i due file
+# si leggono allo stesso modo, e chi aggiunge un provider non impara due grammatiche.
+SEGNAPOSTO_CHIAVE = "$CHIAVE"
+
 
 def log(msg: str) -> None:
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
+
+
+class ProviderIgnoto(Exception):
+    """Ci e' stato chiesto un provider che non conosciamo.
+
+    NON si ripiega su un altro. Prima si ripiegava sul predefinito, ed e' il difetto
+    peggiore possibile qui: con Anthropic selezionato e non configurato, le chiamate
+    finivano a Mistral. La risposta di un altro sembra giusta, e non c'e' niente
+    nell'interfaccia che possa smentirla.
+    """
+
+    def __init__(self, voluto: str, noti) -> None:
+        super().__init__(voluto)
+        self.voluto = voluto
+        self.noti = sorted(noti)
+
+    def messaggio(self) -> str:
+        return (f"provider «{self.voluto}» non configurato nel gateway. "
+                f"Conosco: {', '.join(self.noti)}. "
+                f"Aggiungilo a limiti.json, oppure togli la spunta «Gateway» nel gioco "
+                f"per andare diretto al provider.")
 
 
 class Limitatore:
@@ -161,6 +187,14 @@ class Provider:
         self.chat_path = cfg.get("chat_path", "/v1/chat/completions")
         self.models_path = cfg.get("models_path", "/v1/models")
         self.api_key = os.environ.get(cfg.get("api_key_env", ""), "")
+        # Intestazioni che appartengono a QUESTO provider. Anthropic non parla del tutto la
+        # lingua di OpenAI: il suo /models pretende «x-api-key» e rifiuta il Bearer con un
+        # 401, e ogni chiamata vuole «anthropic-version». Invece di un ramo «se e' Anthropic»
+        # dentro il codice, il provider dichiara cosa gli serve: resta un dato.
+        self.intestazioni_extra: dict = cfg.get("intestazioni", {})
+        # Falso = questo provider non ha un piano gratuito: si paga sempre. Serve a dirlo
+        # all'avvio, non a impedirlo.
+        self.gratuito = bool(cfg.get("gratuito", True))
         self.tentativi = int(cfg.get("tentativi", 5))
         self.timeout = float(cfg.get("timeout_s", 180))
         self.limitatore = Limitatore(cfg)
@@ -186,13 +220,27 @@ class Provider:
                 lavoro["pronto"].set()
                 self.coda.task_done()
 
+    ## Le intestazioni di autenticazione, UGUALI per chat ed elenco dei modelli. Erano
+    ## scritte due volte, e con Anthropic le due copie avrebbero dovuto divergere: un posto
+    ## solo. (Stessa correzione gia' fatta nel client del gioco, per la stessa ragione.)
+    def _intestazioni(self) -> dict:
+        h: dict[str, str] = {}
+        if self.api_key:
+            h["Authorization"] = f"Bearer {self.api_key}"
+        for nome, valore in self.intestazioni_extra.items():
+            v = str(valore)
+            if v == SEGNAPOSTO_CHIAVE:
+                if not self.api_key:
+                    continue   # senza chiave l'intestazione sarebbe vuota: meglio non mandarla
+                v = self.api_key
+            h[nome] = v
+        return h
+
     def _inoltra(self, payload: dict) -> tuple[int, bytes]:
         """Chiama il provider con backoff esponenziale su 429/5xx."""
         url = self.base_url + self.chat_path
         dati = json.dumps(payload).encode("utf-8")
-        intestazioni = {"Content-Type": "application/json"}
-        if self.api_key:
-            intestazioni["Authorization"] = f"Bearer {self.api_key}"
+        intestazioni = {"Content-Type": "application/json", **self._intestazioni()}
 
         attesa = 1.0
         for tentativo in range(1, self.tentativi + 1):
@@ -238,9 +286,7 @@ class Provider:
 
     def modelli(self) -> tuple[int, bytes]:
         url = self.base_url + self.models_path
-        intestazioni = {}
-        if self.api_key:
-            intestazioni["Authorization"] = f"Bearer {self.api_key}"
+        intestazioni = self._intestazioni()
         try:
             req = urllib.request.Request(url, headers=intestazioni, method="GET")
             with urllib.request.urlopen(req, timeout=30) as r:
@@ -278,16 +324,35 @@ class Gateway:
         log(f"  ⚠ ATTENZIONE: «{modello}» non e' tra i modelli del piano gratuito di "
             f"{provider} ({', '.join(elenco)}). Potrebbe essere a pagamento.")
 
-    def scegli(self, modello: str) -> tuple[Provider, str]:
-        """«mistral/mistral-small-latest» -> (provider mistral, «mistral-small-latest»).
+    def scegli(self, modello: str, voluto: str = "") -> tuple[Provider, str]:
+        """Decide A CHI va la richiesta. Non indovina mai, e non ripiega mai su un altro.
 
-        Senza prefisso si usa il provider predefinito: cosi' il gioco puo' mandare il
-        nome del modello cosi' com'e'.
+        Tre strade, in ordine di autorevolezza:
+
+        1. `voluto` — il provider detto ESPLICITAMENTE dal client (query string
+           `?provider=`). Comanda su tutto. Se non lo conosciamo: ProviderIgnoto.
+        2. Il PREFISSO del modello: «mistral/mistral-small-latest». Se c'e' una barra e
+           il pezzo davanti non e' un provider che conosciamo, e' ProviderIgnoto — non e'
+           un invito a mandarlo altrove. Chi ha un nome di modello che contiene davvero
+           una barra (OpenRouter: «mistralai/…») deve dire il provider, davanti o in
+           query: «openrouter/mistralai/…».
+        3. Nessun prefisso e nessuna barra: il provider predefinito, come sempre.
+
+        LA REGOLA E' NATA DA UN DANNO. Con Anthropic scelto nel gioco e non configurato
+        qui, «anthropic/claude-sonnet-5» finiva a Mistral: il ripiego trasformava una
+        configurazione mancante — che si vede e si aggiusta — in risposte di un altro
+        modello, che non si vedono affatto.
         """
+        if voluto:
+            if voluto not in self.providers:
+                raise ProviderIgnoto(voluto, self.providers)
+            pref = voluto + "/"
+            return self.providers[voluto], modello[len(pref):] if modello.startswith(pref) else modello
         if "/" in modello:
             pref, resto = modello.split("/", 1)
-            if pref in self.providers:
-                return self.providers[pref], resto
+            if pref not in self.providers:
+                raise ProviderIgnoto(pref, self.providers)
+            return self.providers[pref], resto
         return self.providers[self.predefinito], modello
 
     def stato(self) -> dict:
@@ -329,17 +394,22 @@ class Handler(BaseHTTPRequestHandler):
             # la risposta di un altro, che e' il difetto peggiore perche' sembra giusta.
             # Il gioco lo dice in query string; senza, si ripiega sul predefinito come prima.
             voluto = urllib.parse.parse_qs(query).get("provider", [""])[0]
-            nome = voluto if voluto in self.gateway.providers else self.gateway.predefinito
             if voluto and voluto not in self.gateway.providers:
-                log(f"  ⚠ elenco modelli chiesto per «{voluto}», che non conosco: "
-                    f"rispondo con {nome}. Aggiungilo a limiti.json.")
+                # Prima si rispondeva col predefinito. Un elenco di modelli SBAGLIATO e' la
+                # peggiore delle risposte: chi lo legge sceglie da quell'elenco.
+                e = ProviderIgnoto(voluto, self.gateway.providers)
+                log(f"  ✗ elenco modelli per «{voluto}»: {e.messaggio()}")
+                self._rispondi(400, json.dumps({"error": {"message": e.messaggio()}}).encode())
+                return
+            nome = voluto or self.gateway.predefinito
             stato, corpo = self.gateway.providers[nome].modelli()
             self._rispondi(stato, corpo)
             return
         self._rispondi(404, b'{"error":{"message":"non trovato"}}')
 
     def do_POST(self):
-        if not self.path.rstrip("/").endswith("/chat/completions"):
+        percorso, _, query = self.path.partition("?")
+        if not percorso.rstrip("/").endswith("/chat/completions"):
             self._rispondi(404, b'{"error":{"message":"non trovato"}}')
             return
         lunghezza = int(self.headers.get("Content-Length", 0))
@@ -349,7 +419,16 @@ class Handler(BaseHTTPRequestHandler):
             self._rispondi(400, b'{"error":{"message":"JSON non valido"}}')
             return
 
-        provider, modello = self.gateway.scegli(str(payload.get("model", "")))
+        # Il provider si dice in query string, come per /models: e' l'unica cosa che non si
+        # puo' confondere con un nome di modello che contiene una barra. Il prefisso resta
+        # come ripiego per i client che non la mandano.
+        voluto = urllib.parse.parse_qs(query).get("provider", [""])[0]
+        try:
+            provider, modello = self.gateway.scegli(str(payload.get("model", "")), voluto)
+        except ProviderIgnoto as e:
+            log(f"  ✗ {e.messaggio()}")
+            self._rispondi(400, json.dumps({"error": {"message": e.messaggio()}}).encode())
+            return
         self.gateway.avvisa_se_a_pagamento(provider.nome, modello)
         payload["model"] = modello
         t0 = time.time()
@@ -385,8 +464,13 @@ def main() -> int:
     log(f"Gateway LLM su http://localhost:{porta}  ·  throttling {stato}")
     for nome, p in Handler.gateway.providers.items():
         chiave = "chiave OK" if p.api_key else "CHIAVE MANCANTE"
+        # «Nessun piano gratuito» va detto all'avvio, non scoperto in fattura: questo gateway
+        # nasce per stare dentro i tier gratuiti, e davanti a un provider che non ne ha uno
+        # fa solo da coda.
+        paga = "" if p.gratuito else "  ⚠ SEMPRE A PAGAMENTO (nessun piano gratuito)"
         log(f"  · {nome}: {p.base_url} ({chiave}) "
-            f"min {p.limitatore.min_intervallo}s, {p.limitatore.rpm}/min, {p.limitatore.rpd}/giorno")
+            f"min {p.limitatore.min_intervallo}s, {p.limitatore.rpm}/min, {p.limitatore.rpd}/giorno"
+            f"{paga}")
     log("  Punta il gioco a questo indirizzo. Stato: curl localhost:%d/stato" % porta)
     try:
         ThreadingHTTPServer(("127.0.0.1", porta), Handler).serve_forever()

@@ -177,3 +177,39 @@ func test_un_401_diretto_accusa_il_provider_non_il_gateway():
 	add_child_autofree(c)
 	c.configura({"base_url": "https://api.mistral.ai", "model": "m"}, "")
 	assert_false(c._perche(401, PackedByteArray()).contains("Gateway"))
+
+## ANCHE LA CHAT DEVE DIRE PER CHI.
+##
+## Il provider viaggiava solo nel prefisso del modello, e un prefisso non si distingue da un
+## nome di modello che contiene una barra: il gateway doveva indovinare. Con Anthropic
+## scelto e non configurato la' dentro, «anthropic/claude-sonnet-5» finiva al provider
+## predefinito — Mistral — e nel gioco non c'era niente che potesse smentirlo.
+func test_col_gateway_anche_la_chat_dice_di_quale_provider():
+	var cfg := LLMManager.attraverso_il_gateway_per_test(
+		{"provider": "anthropic", "model": "claude-sonnet-5"})
+	assert_string_contains(String(cfg["chat_path"]), "provider=anthropic",
+		"il gateway non deve dedurre il destinatario: glielo si dice")
+
+func test_senza_provider_dichiarato_la_chat_non_inventa_una_query():
+	var cfg := LLMManager.attraverso_il_gateway_per_test({"model": "qualcosa"})
+	assert_false(String(cfg["chat_path"]).contains("?"),
+		"un gateway vecchio deve continuare a funzionare come prima")
+
+## Il gateway deve conoscere OGNI provider fra cui il gioco lascia scegliere, o la spunta
+## «Gateway» diventa una trappola: con quel provider selezionato le chiamate verrebbero
+## respinte. Ollama e' l'eccezione dichiarata — gira in casa, e il trasporto si tira
+## indietro da solo.
+func test_il_gateway_conosce_tutti_i_provider_fra_cui_si_puo_scegliere():
+	var noti := {}
+	var d: Variant = JSON.parse_string(
+		FileAccess.get_file_as_string("res://llm_gateway/limiti.json"))
+	assert_true(typeof(d) == TYPE_DICTIONARY, "limiti.json dev'essere leggibile")
+	for p in d.get("providers", []):
+		noti[String(p.get("nome", ""))] = true
+	for profilo in LLMManager.profili:
+		var chi := String(profilo.get("provider", ""))
+		if chi == "" or bool(profilo.get("locale", false)):
+			continue
+		assert_true(noti.has(chi),
+			"«%s» si puo' scegliere nel gioco ma il gateway non lo conosce: con la spunta "
+			% chi + "accesa le sue chiamate verrebbero respinte")
