@@ -66,6 +66,20 @@ func _scatta() -> void:
 		await _riposa(6)
 		_png("scheda_0_openrouter", _fin)
 
+	# OLLAMA: e' il solo provider con i verdetti «ci gira su questa macchina?». Il menu si
+	# apre davvero, perche' i pallini colorati si giudicano a occhio e in nessun altro modo.
+	var i_ollama: int = llm.indice_profilo("Ollama locale")
+	if i_ollama >= 0:
+		_fin._opt_provider.select(i_ollama)
+		await _fin._on_provider(i_ollama)
+		await _riposa(8)
+		_png("scheda_0_ollama", _fin)
+		_fin._opt_modello.show_popup()
+		await _riposa(8)
+		_png("ollama_modelli_aperti", _fin._opt_modello.get_popup())
+		_fin._opt_modello.get_popup().hide()
+		await _riposa(4)
+
 	# Il «?» di una manopola: e' il dialogo che porta la spiegazione lunga.
 	var chiave: String = Costi.descrittori().keys()[0]
 	var d: Dictionary = Costi.descrittori()[chiave]

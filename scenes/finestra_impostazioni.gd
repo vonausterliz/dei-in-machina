@@ -62,6 +62,12 @@ var _scala := 1.0
 ## dopo «Aggiorna» quelli che il provider ha appena elencato.
 var _modelli: Array = []
 
+## Le taglie dei modelli installati (nome -> byte), da /api/tags. Vuoto per i provider in
+## rete: il ferro e' loro, la domanda «ci gira?» non si pone.
+var _taglie: Dictionary = {}
+var _legenda: Label
+static var _pallini: Dictionary = {}
+
 func _init() -> void:
 	title = Testi.s("finestre/impostazioni_titolo")
 	size = DIM_BASE
@@ -71,6 +77,10 @@ func _init() -> void:
 func _ready() -> void:
 	if not close_requested.is_connected(hide):
 		close_requested.connect(hide)
+	# Le taglie dei modelli si chiedono quando la finestra si APRE, non quando si costruisce:
+	# costruirla e' un'operazione muta (i test ne fanno una per prova), aprirla e' un gesto.
+	if not about_to_popup.is_connected(_on_apertura):
+		about_to_popup.connect(_on_apertura)
 	var sfondo := ColorRect.new()
 	sfondo.color = C_SEA
 	sfondo.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -86,6 +96,12 @@ func _ready() -> void:
 	_scheda_modelli(schede)
 	_scheda_costi(schede)
 	_sincronizza()
+
+## All'apertura si rilegge l'hardware: fra una sessione e l'altra puoi aver scaricato o
+## cancellato modelli, o aggiornato Ollama.
+func _on_apertura() -> void:
+	await _aggiorna_taglie()
+	_sincronizza_modello()
 
 # --- Scheda «Modelli» ---
 
@@ -155,8 +171,11 @@ func _scheda_modelli(schede: TabContainer) -> void:
 	_opt_modello = OptionButton.new()
 	_opt_modello.custom_minimum_size = Vector2(300, 0)
 	# Ricordato PER PROVIDER: un modello appartiene al suo provider.
+	# Dai METADATI, non dal testo: il testo porta davanti il simbolo del verdetto, e ricavare
+	# il nome togliendoglielo sarebbe la stessa manipolazione di stringhe che ha prodotto il
+	# 404 di OpenRouter. Il nome vero viaggia a parte e non lo tocca nessuno.
 	_opt_modello.item_selected.connect(func(i):
-		LLMManager.ricorda_modello(_opt_modello.get_item_text(i)))
+		LLMManager.ricorda_modello(_nome_voce(i)))
 	riga_m.add_child(_opt_modello)
 	_btn_aggiorna = Button.new()
 	_btn_aggiorna.text = Testi.s("impostazioni/aggiorna_elenco")
@@ -168,6 +187,12 @@ func _scheda_modelli(schede: TabContainer) -> void:
 	_btn_prova.tooltip_text = Testi.s("impostazioni/tooltip_prova")
 	_btn_prova.pressed.connect(_prova_modello)
 	riga_m.add_child(_btn_prova)
+
+	# La legenda dei verdetti: compare solo dove ha senso, cioe' davanti a un provider locale.
+	_legenda = _etichetta(Testi.s("hardware/legenda"), 11, C_BONE_DIM)
+	_legenda.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_legenda.custom_minimum_size = Vector2(600, 0)
+	v.add_child(_legenda)
 
 	_chk_gateway = CheckBox.new()
 	_chk_gateway.text = Testi.s("impostazioni/gateway")
@@ -491,6 +516,9 @@ func _on_provider(idx: int) -> void:
 	var nomi: Array = LLMManager.nomi_profili()
 	Impostazioni.scrivi("provider_nome", String(nomi[idx]) if idx < nomi.size() else "")
 	LLMManager.imposta_profilo(idx)
+	# Scegliere un provider LOCALE fa scattare la verifica sull'hardware: e' il momento in
+	# cui la domanda «questo modello ci gira?» diventa pertinente.
+	await _aggiorna_taglie()
 	_sincronizza_modello()
 
 func _on_autore(_i: int) -> void:
@@ -498,7 +526,7 @@ func _on_autore(_i: int) -> void:
 	# Cambiare autore cambia il modello mostrato: se non lo si registra, il gioco resta
 	# su quello di prima mentre il menu ne mostra un altro.
 	if _opt_modello.item_count > 0:
-		LLMManager.ricorda_modello(_opt_modello.get_item_text(maxi(0, _opt_modello.selected)))
+		LLMManager.ricorda_modello(_nome_voce(maxi(0, _opt_modello.selected)))
 
 ## La spunta e' ORTOGONALE al provider: dice solo se passare dalla coda locale. Prima
 ## selezionava il "profilo gateway", e quindi accenderla voleva dire perdere il provider
@@ -534,6 +562,7 @@ func _sincronizza_modello() -> void:
 		elenco.append(attuale)
 	_usa_elenco(elenco, attuale)
 	_aggiorna_stato_chiave()
+	_legenda.visible = LLMManager.e_locale()
 
 ## Un provider locale non vuole chiavi; uno remoto senza chiave non puo' funzionare, e
 ## dirlo qui evita di scoprirlo a partita iniziata con gli dei muti.
@@ -579,12 +608,84 @@ func _riempi_modelli(autore: String, selezionato: String) -> void:
 	_opt_modello.clear()
 	var suoi := LLMManager.modelli_di(autore, _modelli)
 	for i in suoi.size():
-		_opt_modello.add_item(String(suoi[i]))
-		if String(suoi[i]) == selezionato:
+		var nome := String(suoi[i])
+		# I VERDETTI SOLO DAVANTI A UN PROVIDER LOCALE. Su un servizio in rete «ci gira?» non
+		# e' una domanda: il ferro e' loro. Un pallino grigio accanto a ogni modello di
+		# OpenRouter sarebbe rumore che sembra un'informazione.
+		if not LLMManager.e_locale():
+			_opt_modello.add_item(nome)
+			_opt_modello.set_item_metadata(i, nome)
+			if nome == selezionato:
+				_opt_modello.select(i)
+			continue
+		var v := _verdetto(nome)
+		var segno := String(v["segno"])
+		# Il SIMBOLO nel testo (la forma, che si legge anche senza distinguere i colori) e il
+		# PALLINO come icona (il colore). Il nome vero sta nei metadati: il testo qui davanti
+		# ha un simbolo, e chi legge il nome dal testo prenderebbe anche quello.
+		_opt_modello.add_item("%s  %s" % [VerdettoModello.simbolo(segno), nome])
+		_opt_modello.set_item_metadata(i, nome)
+		_opt_modello.set_item_icon(i, _pallino(VerdettoModello.colore(segno)))
+		_opt_modello.set_item_tooltip(i, String(v["motivo"]))
+		if nome == selezionato:
 			_opt_modello.select(i)
 	if _opt_modello.item_count > 0 and _opt_modello.selected < 0:
 		_opt_modello.select(0)
 	_opt_modello.disabled = _opt_modello.item_count == 0
+
+## Il nome VERO del modello alla voce i. Mai `get_item_text()`: quello porta il simbolo.
+func _nome_voce(i: int) -> String:
+	if i < 0 or i >= _opt_modello.item_count:
+		return ""
+	var m: Variant = _opt_modello.get_item_metadata(i)
+	return String(m) if m != null else _opt_modello.get_item_text(i)
+
+## QUESTO MODELLO GIRA SU QUESTA MACCHINA?
+##
+## Si chiede solo ai provider locali: davanti a un servizio in rete la domanda non ha senso,
+## il ferro e' loro. Il verdetto tiene conto sia della memoria sia di cio' che una prova
+## precedente ha gia' misurato — e il misurato vince.
+func _verdetto(nome: String) -> Dictionary:
+	if not LLMManager.e_locale():
+		return {"segno": VerdettoModello.IGNOTO, "motivo": ""}
+	if _taglie.is_empty():
+		return {"segno": VerdettoModello.IGNOTO, "motivo": Testi.s("hardware/non_giudicabile")}
+	var v := VerdettoModello.giudica(int(_taglie.get(nome, 0)),
+		Hardware.vram_gb(), Hardware.ram_gb(), LLMManager.fallimento(nome))
+	v["motivo"] = "%s\n\n%s" % [String(v["motivo"]), Testi.s("hardware/titolo", [Hardware.descrizione()])]
+	return v
+
+## Un dischetto colorato, disegnato una volta per colore: OptionButton non sa colorare il
+## testo di una singola voce, ma un'icona per voce ce l'ha.
+static func _pallino(c: Color) -> ImageTexture:
+	var chiave := c.to_html()
+	if _pallini.has(chiave):
+		return _pallini[chiave]
+	var lato := 14
+	var img := Image.create(lato, lato, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var r := lato / 2.0 - 1.0
+	for y in lato:
+		for x in lato:
+			var d := Vector2(x - lato / 2.0 + 0.5, y - lato / 2.0 + 0.5).length()
+			if d <= r:
+				# Bordo morbido: un cerchio a pixel secchi su 14px sembra un quadrato storto.
+				img.set_pixel(x, y, Color(c, clampf(r - d, 0.0, 1.0)))
+	var tex := ImageTexture.create_from_image(img)
+	_pallini[chiave] = tex
+	return tex
+
+## Chiede a Ollama quanto occupa ogni modello installato. Solo per i provider locali, e
+## senza fare rumore se non risponde: il menu resta usabile, solo senza verdetti.
+func _aggiorna_taglie() -> void:
+	_taglie = {}
+	if not LLMManager.e_locale():
+		return
+	var r: Dictionary = await LLMManager.dettagli_modelli_del_profilo()
+	if not r.get("ok", false):
+		return
+	for m in r["modelli"]:
+		_taglie[String(m["nome"])] = int(m["byte"])
 
 ## CHIEDE L'ELENCO AL PROVIDER SELEZIONATO NEL MENU.
 ##
@@ -596,17 +697,21 @@ func _aggiorna_modelli() -> void:
 	_btn_aggiorna.disabled = true
 	_stato.add_theme_color_override("font_color", C_BONE_DIM)
 	_stato.text = Testi.s("impostazioni/interrogo", [LLMManager.nome_profilo_corrente()])
+	# Su un provider locale si chiede l'elenco DETTAGLIATO: stessa richiesta, ma porta anche
+	# le taglie — senza le quali non c'e' niente da confrontare con la memoria di questa
+	# macchina, e i verdetti resterebbero tutti grigi.
+	await _aggiorna_taglie()
 	var r: Dictionary = await LLMManager.elenca_modelli_del_profilo()
 	_btn_aggiorna.disabled = false
 	if not r["ok"]:
-		_verdetto(Testi.s("impostazioni/non_raggiungibile", [String(r["dove"]), String(r["errore"])]), false)
+		_esito(Testi.s("impostazioni/non_raggiungibile", [String(r["dove"]), String(r["errore"])]), false)
 		return
 	var modelli: Array = r["modelli"]
 	if modelli.is_empty():
-		_verdetto(Testi.s("impostazioni/elenco_vuoto", [LLMManager.nome_profilo_corrente()]), false)
+		_esito(Testi.s("impostazioni/elenco_vuoto", [LLMManager.nome_profilo_corrente()]), false)
 		return
 	_usa_elenco(modelli, LLMManager.modello_del_profilo())
-	_verdetto(Testi.s("impostazioni/modelli_trovati",
+	_esito(Testi.s("impostazioni/modelli_trovati",
 		[_modelli.size(), LLMManager.nome_profilo_corrente(), modelli.size()]), true)
 
 ## Prova il modello configurato QUI, non quello che sta girando: si sta configurando
@@ -620,19 +725,23 @@ func _prova_modello() -> void:
 	_btn_prova.disabled = false
 
 	# L'elenco appena arrivato dal provider: se qualcosa non va, le alternative sono li'.
+	# E il verdetto di QUESTO modello e' appena cambiato — segnato rosso perche' non genera,
+	# o sbiancato perche' invece genera: il menu va ridisegnato, o mostra quello di prima.
 	if not v["modelli"].is_empty():
 		_usa_elenco(v["modelli"], String(v["atteso"]))
+	else:
+		_riempi_modelli(_autore_scelto(), LLMManager.modello_del_profilo())
 
 	if not v["raggiungibile"]:
-		_verdetto(Testi.s("impostazioni/prova_irraggiungibile", [v["dove"], v["errore"]]), false)
+		_esito(Testi.s("impostazioni/prova_irraggiungibile", [v["dove"], v["errore"]]), false)
 	elif not v["genera"]:
-		_verdetto(Testi.s("impostazioni/prova_non_genera", [v["atteso"], v["errore"]]), false)
+		_esito(Testi.s("impostazioni/prova_non_genera", [v["atteso"], v["errore"]]), false)
 	elif not v["elencato"]:
 		# Genera ma non compare in elenco: funziona, quindi va bene — capita con gli alias.
-		_verdetto(Testi.s("impostazioni/prova_ok_non_elencato", [v["atteso"], v["ms"]]), true)
+		_esito(Testi.s("impostazioni/prova_ok_non_elencato", [v["atteso"], v["ms"]]), true)
 		_accendi_se_spento()
 	else:
-		_verdetto(Testi.s("impostazioni/prova_ok", [v["atteso"], v["ms"]]), true)
+		_esito(Testi.s("impostazioni/prova_ok", [v["atteso"], v["ms"]]), true)
 		_accendi_se_spento()
 
 ## Una prova riuscita mentre il gioco e' rimasto sul simulato lascia l'utente in trappola:
@@ -646,6 +755,6 @@ func _accendi_se_spento() -> void:
 	motore_scelto.emit(true)
 	_stato.text += "\n" + Testi.s("impostazioni/motore_acceso")
 
-func _verdetto(testo: String, buono: bool) -> void:
+func _esito(testo: String, buono: bool) -> void:
 	_stato.text = testo
 	_stato.add_theme_color_override("font_color", C_VERDIGRIS if buono else C_OXBLOOD)

@@ -244,12 +244,23 @@ func modelli_noti() -> Array:
 ##  - il modello genera?       (nome ritirato, chiave mancante, quota finita)
 ## Un modello puo' comparire nell'elenco ed essere morto: e' successo due volte in una
 ## sera con Gemini. Per questo si tenta una generazione vera da un token.
+##
+## LA PROVA HA UN TETTO SUO, piu' basso di quello della partita. Il profilo di Ollama
+## concede 300 secondi, che per un turno vero sono ragionevoli — un modello grosso ci mette
+## a caricarsi. Ma per rispondere «ok» a una parola sola, cinque minuti di attesa davanti a
+## una finestra ferma non sono una verifica: sono un blocco. Trenta secondi, poi si chiude e
+## si dice cosa e' successo. Con un modello enorme puo' voler dire «non ha fatto in tempo a
+## caricarsi» invece di «e' rotto» — e infatti il messaggio dice proprio quello.
+const SECONDI_PROVA := 30
+
 func prova_profilo() -> Dictionary:
 	if _client == null:
 		_inizializza_reale()
 	var cfg := config_del_profilo()
 	var atteso := String(cfg.get("model", "?"))
-	_client.configura(cfg, _leggi_chiave(cfg))
+	var cfg_prova := cfg.duplicate(true)
+	cfg_prova["timeout_sec"] = SECONDI_PROVA
+	_client.configura(cfg_prova, _leggi_chiave(cfg))
 	var t0 := Time.get_ticks_msec()
 	var elenco: Dictionary = await _client.elenca_modelli()
 	var esito := {
@@ -266,8 +277,70 @@ func prova_profilo() -> Dictionary:
 		if not prova["ok"]:
 			esito["errore"] = prova["errore"]
 	esito["ms"] = Time.get_ticks_msec() - t0
+	# L'ESITO SI RICORDA. Un modello provato e muto viene segnato, e il menu lo mostra rosso
+	# col motivo vero — che la stima sulla memoria non avrebbe mai indovinato. Uno che genera
+	# cancella il segno: se aggiorni Ollama e riparte, il rosso deve sparire da solo.
+	if esito["raggiungibile"]:
+		if esito["genera"]:
+			dimentica_fallimento(atteso)
+		else:
+			segna_fallimento(atteso, String(esito["errore"]))
 	_riconfigura()   # la partita non deve accorgersi della prova
 	return esito
+
+## I MODELLI DEL PROFILO SELEZIONATO, con la loro taglia dove il provider sa dirla.
+##
+## Serve al verdetto «questo modello gira su questa macchina?»: senza la dimensione non c'e'
+## niente da confrontare con la memoria. Solo Ollama la espone (`tags_path`); per gli altri
+## la domanda non si pone — il ferro e' loro.
+## Ritorna {ok, modelli: [{nome, byte, parametri, quantizzazione}], errore, dove}.
+func dettagli_modelli_del_profilo() -> Dictionary:
+	if _client == null:
+		_inizializza_reale()
+	var cfg := config_del_profilo()
+	var dove := String(cfg.get("base_url", "?"))
+	if cfg.is_empty() or String(cfg.get("tags_path", "")) == "":
+		return {"ok": false, "modelli": [], "errore": "nessun elenco dettagliato", "dove": dove}
+	_client.configura(cfg, _leggi_chiave(cfg))
+	var r: Dictionary = await _client.elenca_dettagli()
+	_riconfigura()
+	r["dove"] = dove
+	return r
+
+# --- La memoria dei fallimenti ---
+#
+# ESSERE ELENCATO NON VUOL DIRE FUNZIONARE, e la stima sulla memoria non lo sa. Su questa
+# macchina `mistral-small3.2` occupa 15 GB su 60 di RAM — ci starebbe comodo — ma non parte,
+# perche' Ollama 0.5.11 non lo conosce. La stima gli darebbe il segno giallo «lento»; la
+# verita' e' che non si avvia. Quando una prova lo scopre, il gioco se lo ricorda: e' un
+# dato misurato, e batte qualunque previsione.
+#
+# Si ricorda PER PROVIDER e si dimentica appena quel modello genera: se aggiorni Ollama e
+# il modello riparte, il primo «Prova il modello» riuscito cancella il segno rosso.
+
+func _chiave_falliti(idx: int) -> String:
+	return "falliti:%s" % (String(profili[idx].get("nome", idx)) if idx >= 0 and idx < profili.size() else "?")
+
+func _falliti() -> Dictionary:
+	var v: Variant = Impostazioni.leggi(_chiave_falliti(profilo_idx), {})
+	return v if typeof(v) == TYPE_DICTIONARY else {}
+
+## Il motivo per cui quel modello non e' partito l'ultima volta che ci si e' provati.
+## "" = non e' mai stato provato, oppure l'ultima prova e' andata bene.
+func fallimento(modello: String) -> String:
+	return String(_falliti().get(modello, ""))
+
+func segna_fallimento(modello: String, motivo: String) -> void:
+	if modello == "" or motivo == "":
+		return
+	var d := _falliti()
+	d[modello] = motivo.substr(0, 300)
+	Impostazioni.scrivi(_chiave_falliti(profilo_idx), d)
+
+func dimentica_fallimento(modello: String) -> void:
+	var d := _falliti()
+	if d.erase(modello):
+		Impostazioni.scrivi(_chiave_falliti(profilo_idx), d)
 
 ## SOLO L'ELENCO DEI MODELLI, e solo dal provider SELEZIONATO nel menu.
 ##

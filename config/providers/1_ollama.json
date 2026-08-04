@@ -6,6 +6,8 @@
   "model": "mistral-small3.2:latest",
   "api_key_env": "",
   "timeout_sec": 300,
+  "tags_path": "/api/tags",
+  "_nota_tags": "L'endpoint NATIVO di Ollama, non quello in formato OpenAI: /v1/models dà solo i nomi, /api/tags dà anche la dimensione sul disco, i parametri e la quantizzazione. Servono per dire, accanto a ogni modello, se questa macchina ce la fa a farlo girare.",
   "_nota": "Ollama gira sulla TUA macchina: nessuna chiave, nessun costo, nessun limite di richieste — solo la RAM e la pazienza. E' il provider con cui il gioco e' stato collaudato (mistral-small3.2 su un MacBook M1). Prima era un motore a parte, scelto da un interruttore suo: ma «con quale modello parlo» e' una domanda sola, e averla in due posti voleva dire che scegliendo Ollama non si poteva scegliere il modello.",
   "_nota_modelli": "L'elenco vero dipende da cosa hai installato tu: «Aggiorna elenco» lo chiede a Ollama. Quelli qui sotto sono solo un punto di partenza; se non li hai, scaricali con «ollama pull <nome>».",
   "modelli_noti": [

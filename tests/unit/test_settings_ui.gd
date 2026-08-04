@@ -46,18 +46,21 @@ func _apri() -> Window:
 	await wait_frames(2)
 	return f
 
+## `_on_provider` e' una coroutine: davanti a un provider locale chiede a Ollama le taglie
+## dei modelli prima di ridisegnare il menu. Senza `await` il test tirava dritto e leggeva
+## un pannello ancora fermo allo stato di prima — verde per caso, non per merito.
 func _scegli(f: Window, nome: String) -> void:
 	var i := LLMManager.indice_profilo(nome)
 	assert_gte(i, 0, "serve il provider «%s»" % nome)
 	f._opt_provider.select(i)
-	f._on_provider(i)
+	await f._on_provider(i)
 
 # --- La cascata autore → modello ---
 
 ## Con OpenRouter l'elenco e' di oltre trecento voci: un menu piatto e' un muro.
 func test_con_openrouter_compare_l_autore():
 	var f := await _apri()
-	_scegli(f, "OpenRouter")
+	await _scegli(f, "OpenRouter")
 	assert_true(f._riga_autore.visible, "i nomi sono «autore/modello»: l'autore si sceglie")
 	assert_gt(f._opt_autore.item_count, 0)
 	assert_gt(f._opt_modello.item_count, 0)
@@ -67,13 +70,13 @@ func test_con_openrouter_compare_l_autore():
 ## Su un provider a nome semplice la riga non deve comparire vuota o con un autore inventato.
 func test_su_un_provider_a_nome_semplice_l_autore_sparisce():
 	var f := await _apri()
-	_scegli(f, "Mistral")
+	await _scegli(f, "Mistral")
 	assert_false(f._riga_autore.visible)
 	assert_gt(f._opt_modello.item_count, 0)
 
 func test_cambiare_autore_cambia_i_modelli_offerti():
 	var f := await _apri()
-	_scegli(f, "OpenRouter")
+	await _scegli(f, "OpenRouter")
 	if f._opt_autore.item_count < 2:
 		fail_test("i modelli curati di OpenRouter devono coprire piu' di un autore")
 		return
@@ -92,11 +95,12 @@ func test_cambiare_autore_cambia_i_modelli_offerti():
 ## di Ollama, e il menu si risincronizzava da quello vero, rimasto invariato.
 func test_scegliere_un_modello_resta_scelto_dopo_un_risincronismo():
 	var f := await _apri()
-	_scegli(f, "OpenRouter")
+	await _scegli(f, "OpenRouter")
 	var voluto: String = f._opt_modello.get_item_text(f._opt_modello.item_count - 1)
 	LLMManager.ricorda_modello(voluto)
 	f._sincronizza_modello()
-	assert_eq(f._opt_modello.get_item_text(f._opt_modello.selected), voluto)
+	assert_eq(f._nome_voce(f._opt_modello.selected), voluto,
+		"il nome vero sta nei metadati: il testo puo' portare davanti il verdetto")
 
 ## Ollama e' un provider come gli altri: dev'essere nel menu, e senza chiedere chiavi.
 func test_ollama_si_sceglie_dal_menu_dei_provider():
@@ -105,15 +109,15 @@ func test_ollama_si_sceglie_dal_menu_dei_provider():
 	for i in f._opt_provider.item_count:
 		nomi.append(f._opt_provider.get_item_text(i))
 	assert_has(nomi, "Ollama locale")
-	_scegli(f, "Ollama locale")
+	await _scegli(f, "Ollama locale")
 	assert_gt(f._opt_modello.item_count, 0, "i modelli locali devono essere scegliibili")
 	assert_true(f._chk_gateway.disabled, "davanti a un server in casa la coda non serve")
 
 func test_lo_stato_della_chiave_si_vede_accanto_al_provider():
 	var f := await _apri()
-	_scegli(f, "Ollama locale")
+	await _scegli(f, "Ollama locale")
 	var locale: String = f._stato_chiave.text
-	_scegli(f, "Anthropic")
+	await _scegli(f, "Anthropic")
 	assert_ne(f._stato_chiave.text, locale,
 		"un provider che vuole una chiave non puo' dire la stessa cosa di uno che non la vuole")
 

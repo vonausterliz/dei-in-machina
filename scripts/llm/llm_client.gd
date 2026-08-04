@@ -16,6 +16,9 @@ var timeout_sec: float = 120.0
 # Path dell'endpoint (dopo base_url). Default OpenAI/Ollama/Mistral; Google usa /v1beta/openai/...
 var chat_path: String = "/v1/chat/completions"
 var models_path: String = "/v1/models"
+## Endpoint proprietario che elenca i modelli CON la loro taglia (Ollama: /api/tags).
+## Vuoto = questo provider non ne ha uno, e le taglie restano ignote.
+var tags_path: String = ""
 ## Intestazioni HTTP in piu', dichiarate dal profilo del provider.
 ##
 ## Serve ad Anthropic, l'unico che non parla del tutto la lingua di OpenAI: il suo layer di
@@ -32,6 +35,13 @@ const SEGNAPOSTO_CHIAVE := "$CHIAVE"
 ## Logger opzionale per il debug: se valido, riceve righe di testo con il traffico
 ## (cosa viene mandato / cosa viene ricevuto). La GUI lo collega alla finestra di log.
 var logger: Callable = Callable()
+
+## UNA RICHIESTA ALLA VOLTA. C'e' un solo HTTPRequest, e chiamarne due in parallelo fa
+## sputare a Godot un «Condition "requesting" is true» che non dice niente a nessuno e
+## lascia il chiamante con una risposta mai arrivata. Non e' un caso di scuola: appena
+## Impostazioni ha cominciato a chiedere le taglie dei modelli all'apertura, si e'
+## sovrapposta alle verifiche gia' in volo. Meglio un errore in chiaro e subito.
+var _in_corso := false
 
 var _http: HTTPRequest
 var _hb: Timer          # battito d'attesa: mostra nel log che la richiesta e' viva
@@ -59,6 +69,7 @@ func configura(config: Dictionary, chiave: String = "") -> void:
 	# passando da Google a Mistral il path non resta quello di Google).
 	chat_path = config.get("chat_path", "/v1/chat/completions")
 	models_path = config.get("models_path", "/v1/models")
+	tags_path = config.get("tags_path", "")
 	intestazioni_extra = config.get("intestazioni", {})
 	if _http:
 		_http.timeout = timeout_sec
@@ -82,6 +93,8 @@ func intestazioni() -> PackedStringArray:
 func chat(messaggi: Array, opzioni: Dictionary = {}) -> Dictionary:
 	if _http == null:
 		return _errore("HTTPRequest non pronto (client non nell'albero)")
+	if _in_corso:
+		return _errore("c'e' gia' una richiesta in volo su questo client")
 
 	var corpo := {
 		"model": model,
@@ -102,14 +115,17 @@ func chat(messaggi: Array, opzioni: Dictionary = {}) -> Dictionary:
 	var url := base_url.trim_suffix("/") + chat_path
 	_log("  ⇢ POST %s · model=%s · temp=%s%s" % [url, model, corpo["temperature"], " · json" if opzioni.get("json_mode", false) else ""])
 	_log("    ⇡ invio: %s" % _tronca(_ultimo_utente(messaggi), 240))
+	_in_corso = true
 	var err := _http.request(url, headers, HTTPClient.METHOD_POST, JSON.stringify(corpo))
 	if err != OK:
+		_in_corso = false
 		return _fallita("richiesta HTTP fallita in partenza: %s" % error_string(err))
 
 	_t_inizio = Time.get_ticks_msec()
 	_hb.start()
 	var risultato: Array = await _http.request_completed
 	_hb.stop()
+	_in_corso = false
 	# risultato = [result, response_code, headers, body]
 	var result_code: int = risultato[0]
 	var status: int = risultato[1]
@@ -169,13 +185,18 @@ func _ultimo_utente(messaggi: Array) -> String:
 ## Elenca i modelli disponibili sul provider (formato OpenAI /v1/models, supportato da
 ## Ollama). Ritorna {ok, modelli: Array[String], errore}. Serve alla verifica pre-partita.
 func elenca_modelli() -> Dictionary:
+	if _in_corso:
+		return {"ok": false, "modelli": [], "errore": "c'e' gia' una richiesta in volo su questo client"}
 	if _http == null:
 		return {"ok": false, "modelli": [], "errore": "client non pronto"}
 	var url := base_url.trim_suffix("/") + models_path
+	_in_corso = true
 	var err := _http.request(url, intestazioni(), HTTPClient.METHOD_GET)
 	if err != OK:
+		_in_corso = false
 		return {"ok": false, "modelli": [], "errore": "connessione fallita: %s" % error_string(err)}
 	var r: Array = await _http.request_completed
+	_in_corso = false
 	if int(r[0]) != HTTPRequest.RESULT_SUCCESS:
 		return {"ok": false, "modelli": [], "errore": "server non raggiungibile (result=%d)" % int(r[0])}
 	if int(r[1]) < 200 or int(r[1]) >= 300:
@@ -188,6 +209,46 @@ func elenca_modelli() -> Dictionary:
 			if typeof(m) == TYPE_DICTIONARY and m.has("id"):
 				modelli.append(String(m["id"]))
 	return {"ok": true, "modelli": modelli, "errore": ""}
+
+## I MODELLI CON LA LORO TAGLIA, dove il provider sa dirla.
+##
+## `elenca_modelli()` usa l'endpoint in formato OpenAI, che da' i soli nomi. Ollama ne ha
+## anche uno suo — `/api/tags` — che aggiunge la dimensione sul disco, i parametri e la
+## quantizzazione: e' cio' che serve per dire, accanto a ogni modello, se questa macchina ce
+## la fa a farlo girare. Il percorso lo dichiara il profilo (`tags_path`); chi non lo
+## dichiara non ha nulla di simile, e qui si risponde «non lo so» invece di indovinare.
+## Ritorna {ok, modelli: [{nome, byte, parametri, quantizzazione}], errore}.
+func elenca_dettagli() -> Dictionary:
+	if _in_corso:
+		return {"ok": false, "modelli": [], "errore": "c'e' gia' una richiesta in volo su questo client"}
+	if _http == null or tags_path == "":
+		return {"ok": false, "modelli": [], "errore": "nessun elenco dettagliato per questo provider"}
+	var url := base_url.trim_suffix("/") + tags_path
+	_in_corso = true
+	var err := _http.request(url, intestazioni(), HTTPClient.METHOD_GET)
+	if err != OK:
+		_in_corso = false
+		return {"ok": false, "modelli": [], "errore": "connessione fallita: %s" % error_string(err)}
+	var r: Array = await _http.request_completed
+	_in_corso = false
+	if int(r[0]) != HTTPRequest.RESULT_SUCCESS:
+		return {"ok": false, "modelli": [], "errore": "server non raggiungibile (result=%d)" % int(r[0])}
+	if int(r[1]) < 200 or int(r[1]) >= 300:
+		return {"ok": false, "modelli": [], "errore": "HTTP %d" % int(r[1])}
+	var parsed = JSON.parse_string((r[3] as PackedByteArray).get_string_from_utf8())
+	var out: Array = []
+	if typeof(parsed) == TYPE_DICTIONARY:
+		for m in parsed.get("models", []):
+			if typeof(m) != TYPE_DICTIONARY:
+				continue
+			var det: Dictionary = m.get("details", {})
+			out.append({
+				"nome": String(m.get("name", "")),
+				"byte": int(m.get("size", 0)),
+				"parametri": String(det.get("parameter_size", "")),
+				"quantizzazione": String(det.get("quantization_level", "")),
+			})
+	return {"ok": true, "modelli": out, "errore": ""}
 
 ## Ping leggero: verifica che il provider risponda e che il modello esista.
 func disponibile() -> bool:

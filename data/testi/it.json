@@ -75,6 +75,20 @@
     "non_genera": "Il modello «%s» risulta elencato da %s ma NON risponde: %s\nDi solito vuol dire che il provider l'ha ritirato (continuando a elencarlo). Il menu «Modello» in Settings ora contiene l'elenco che il provider ha appena restituito: scegline un altro da lì e premi «Prova il modello». Il gioco resta in attesa: senza un motore gli dèi non possono rispondere.",
     "serve_un_motore": "Nessun motore attivo: gli dèi non possono rispondere. Apri Settings › Prova il modello e scegline uno che funzioni."
   },
+  "hardware": {
+    "_nota": "Il verdetto accanto a ogni modello di Ollama: ci gira, su questa macchina? Le cifre sono GB. Vedi scripts/data/verdetto_modello.gd per la regola.",
+    "con_vram": "%.0f GB di scheda video, %.0f GB di RAM",
+    "senza_vram": "%.0f GB di RAM (memoria della scheda non rilevabile)",
+    "titolo": "Su questa macchina: %s",
+    "sta_in_vram": "✓ Ci gira bene.\nIl modello occupa %.1f GB; contando il contesto servono circa %.1f GB, e la scheda ne ha %.0f. Sta tutto nella memoria video, quindi va alla velocità della scheda.",
+    "fuori_dalla_vram": "? Ci gira, ma lento.\nIl modello occupa %.1f GB; contando il contesto servono circa %.1f GB, e la scheda ne ha solo %.0f. Ollama lo dividerà fra scheda e processore: parte, risponde, ma può metterci molte volte tanto. Con %.0f GB di RAM non rischi di restare a secco.",
+    "sta_in_ram_vram_ignota": "? Ci sta in memoria, la velocità non si può prevedere.\nIl modello occupa %.1f GB; contando il contesto servono circa %.1f GB, e la RAM è %.0f GB. Non sono riuscito a sapere quanta memoria ha la scheda video, quindi non posso dire se girerà su di essa o sul processore.",
+    "troppo_grosso": "✗ Troppo grosso per questa macchina.\nIl modello occupa %.1f GB; contando il contesto servono circa %.1f GB, e in tutto ce ne sono %.0f. Il sistema andrebbe in swap: non è lentezza, è un blocco.",
+    "provato_e_non_parte": "✗ Provato: non parte.\nNon è una questione di memoria — il provider ha risposto così:\n%s",
+    "da_scaricare": "· Non installato.\nScaricalo con «ollama pull», poi premi «Aggiorna elenco»: solo allora si può dire se questa macchina ce la fa.",
+    "non_giudicabile": "Nessun giudizio: Ollama non ha risposto, quindi non so quali modelli hai né quanto occupano.",
+    "legenda": "✓ gira sulla scheda · ? gira ma lento · ✗ non gira · · non installato — passa sopra un modello per il perché"
+  },
   "finestre": {
     "log_titolo": "Log LLM · traffico verso il modello",
     "olimpo_titolo": "Vista Olimpo · le voci degli dèi",
