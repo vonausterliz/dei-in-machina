@@ -223,3 +223,56 @@ func test_la_geometria_ricorda_dove_non_se():
 		Impostazioni.dimentica("finestre")
 	else:
 		Impostazioni.scrivi("finestre", prima)
+
+# --- Un guaio col motore: una finestra, non una riga in fondo al racconto ---
+
+## LA NARRAZIONE CONTIENE SOLO LA NARRAZIONE. Ogni esito del motore — riuscita compresa —
+## finiva in coda al testo di Omero: «[modalità Mistral: dèi e narratore reali…]» compariva a
+## ogni avvio, cioe' quasi sempre quando non c'era niente da dire, e la prima riga del gioco
+## era un rapporto tecnico dentro il poema.
+func test_la_narrazione_non_annuncia_il_motore():
+	var ui = load("res://scenes/Main.tscn").instantiate()
+	add_child_autofree(ui)
+	await wait_frames(2)
+	var t: String = ui._narrazione.get_parsed_text().to_lower()
+	for parola in ["modalità", "modalita", "narratore reali", "guarda il log"]:
+		assert_false(t.contains(parola),
+			"«%s» e' un rapporto tecnico: non appartiene al racconto" % parola)
+
+## E il messaggio non esiste piu' nemmeno nei testi: finche' la chiave resta, basta che
+## qualcuno torni a usarla.
+## Si chiede a `Testi.ha()`, non a `Testi.s()`: quello ritorna il PERCORSO quando la voce
+## manca, ed e' esattamente l'errore contro cui la sua docstring mette in guardia.
+func test_il_messaggio_di_riuscita_non_esiste_piu():
+	assert_false(Testi.ha("motore/attivo"),
+		"la voce e' stata tolta: un motore che funziona non e' una notizia")
+
+## Il guaio ferma il giocatore con una finestra, e la finestra porta dove si aggiusta.
+func test_un_guaio_apre_un_popup_col_bottone_per_settings():
+	var ui = load("res://scenes/Main.tscn").instantiate()
+	add_child_autofree(ui)
+	await wait_frames(2)
+	ui._guaio_motore("Il provider non risponde.")
+	assert_not_null(ui._dlg_guaio, "dev'esserci una finestra, non una riga di testo")
+	assert_string_contains(ui._dlg_guaio.dialog_text, "Il provider non risponde.")
+	# Il «dove guardare» e' comune a tutti i guai e non si ripete nei singoli messaggi.
+	assert_string_contains(ui._dlg_guaio.dialog_text, "Settings")
+	var etichette: Array = []
+	for b in ui._dlg_guaio.get_ok_button().get_parent().get_children():
+		if b is Button:
+			etichette.append(b.text)
+	assert_true(etichette.has(Testi.s("motore/apri_settings")),
+		"un bottone che APRE Settings, non un consiglio di cercarlo (trovati: %s)" % str(etichette))
+
+## Premere Agisci senza motore e' il momento in cui il guaio si sente: hai scritto, e non
+## succede niente. Li' la finestra serve piu' che mai — e la narrazione resta pulita.
+func test_agire_senza_motore_apre_il_popup_e_non_sporca_la_narrazione():
+	var ui = load("res://scenes/Main.tscn").instantiate()
+	add_child_autofree(ui)
+	await wait_frames(2)
+	var prima: String = ui._narrazione.get_parsed_text()
+	# _simulato_blocca() e' falso in headless (o i test si bloccherebbero da soli): si prova
+	# la strada, non l'interruttore.
+	ui._guaio_motore(Testi.s("motore/serve_un_motore"))
+	assert_true(ui._dlg_guaio.visible, "la finestra si apre")
+	assert_eq(ui._narrazione.get_parsed_text(), prima, "e il racconto non cresce di una riga")

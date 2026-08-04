@@ -62,6 +62,8 @@ var _zoom_utente: float = 1.0
 var _motore_da_ripristinare: int = -1
 var _fin_impostazioni: FinestraImpostazioni
 var _dlg_about: AcceptDialog
+## L'unica finestra che interrompe: un problema col motore. Vedi _guaio_motore().
+var _dlg_guaio: AcceptDialog
 var _btn_log: Button
 var _btn_agisci: Button
 var _chk_reale: CheckButton
@@ -442,6 +444,26 @@ func _on_menu_settings(id: int) -> void:
 		VOCE_IMPOSTAZIONI: _apri_impostazioni()
 		VOCE_ABOUT: _mostra_about()
 
+## I DIALOGHI SONO FINESTRE DI SISTEMA, e nascono col tema grigio di Godot: fondo chiaro,
+## carattere di sistema, testo appiccicato al bordo. In mezzo a una schermata di mare
+## profondo e oro sembrano un errore dell'applicazione, non una sua parte — e il dialogo del
+## guaio e' proprio quello che deve essere creduto. Il fondo lo da' la stessa `_sfondo()` di
+## tutti i riquadri, e i suoi margini interni sono cio' che stacca il testo dal bordo.
+func _veste_dialogo(d: AcceptDialog) -> void:
+	d.add_theme_stylebox_override("panel", _sfondo(18, C_SEA, _line()))
+	var l := d.get_label()
+	l.add_theme_color_override("font_color", C_BONE)
+	l.add_theme_font_override("font", _serif)
+	l.add_theme_font_size_override("font_size", 17)
+	for b in d.get_ok_button().get_parent().get_children():
+		if b is Button:
+			b.add_theme_color_override("font_color", C_BONE)
+			b.add_theme_font_override("font", _serif)
+			b.add_theme_font_size_override("font_size", 16)
+			b.add_theme_stylebox_override("normal", _sfondo(8, C_SEA2, _line()))
+			b.add_theme_stylebox_override("hover", _sfondo(8, C_SEA2, C_GOLD))
+			b.add_theme_stylebox_override("pressed", _sfondo(8, C_GOLD_DEEP, C_GOLD))
+
 func _mostra_about() -> void:
 	if _dlg_about == null:
 		_dlg_about = AcceptDialog.new()
@@ -449,6 +471,7 @@ func _mostra_about() -> void:
 		# Un AcceptDialog e' una Window a se' e NON eredita content_scale_factor dal
 		# genitore: senza questa riga esce minuscolo sugli schermi ad alta densita'.
 		add_child(_dlg_about)
+		_veste_dialogo(_dlg_about)
 	_dlg_about.dialog_text = Testi.s("about/corpo",
 		[Testi.s("app/sottotitolo"), VERSIONE, Engine.get_version_info().get("string", "?")])
 	_dlg_about.content_scale_factor = get_window().content_scale_factor
@@ -820,8 +843,10 @@ func _on_invio(_t: String) -> void:
 func _on_agisci() -> void:
 	if _busy or _finita:
 		return
+	# E' il momento in cui il guaio si fa sentire davvero: hai scritto e premuto Agisci, e non
+	# succede niente. Una riga in fondo al racconto non basta — qui ci vuole la finestra.
 	if _simulato_blocca():
-		_narrazione.append_text("[color=%s]%s[/color]\n" % [C_OXBLOOD.to_html(), Testi.s("motore/serve_un_motore")])
+		_guaio_motore(Testi.s("motore/serve_un_motore"))
 		return
 	var testo := _input.text.strip_edges()
 	if testo == "":
@@ -1065,17 +1090,57 @@ func _on_toggle_reale(premuto: bool) -> void:
 		return
 	if not LLMManager.c_e_un_provider():
 		_chk_reale.set_pressed_no_signal(false)
-		_nota_rossa(Testi.s("motore/nessun_profilo"))
+		_guaio_motore(Testi.s("motore/nessun_profilo"))
 		return
 	if not LLMManager.chiave_presente():
 		_chk_reale.set_pressed_no_signal(false)
-		_nota_rossa(Testi.s("motore/manca_chiave", [LLMManager.nome_profilo_corrente()]))
+		_guaio_motore(Testi.s("motore/manca_chiave", [LLMManager.nome_profilo_corrente()]))
 		return
 	Impostazioni.scrivi("motore", FinestraImpostazioni.MOTORE_REALE)
 	await _attiva_reale()
 
-func _nota_rossa(testo: String) -> void:
-	_narrazione.append_text("[color=%s]%s[/color]\n" % [C_OXBLOOD.to_html(), testo])
+## UN GUAIO COL MOTORE SI DICE IN UN POPUP, NON NELLA NARRAZIONE.
+##
+## Prima ogni esito — riuscita compresa — finiva in fondo al racconto di Omero, in rosso o in
+## verde. Due difetti in uno. Il primo: «[modalità Mistral: dèi e narratore reali…]» compariva
+## a ogni avvio, cioe' quasi sempre quando NON c'era niente da dire, e la prima riga del gioco
+## era un rapporto tecnico dentro il testo del poema. Il secondo, peggiore: un errore VERO
+## aveva lo stesso peso tipografico di una battuta, restava indietro appena la narrazione
+## cresceva, e si poteva giocare per turni senza accorgersi che gli dei non stavano pensando.
+##
+## Ora la narrazione contiene solo la narrazione. Un problema ferma tutto con una finestra che
+## dice cos'e' successo e porta dove si aggiusta — il bottone apre Settings, invece di
+## suggerire di cercarlo.
+func _guaio_motore(motivo: String) -> void:
+	if _dlg_guaio == null:
+		_dlg_guaio = AcceptDialog.new()
+		_dlg_guaio.title = Testi.s("motore/guaio_titolo")
+		_dlg_guaio.dialog_autowrap = true
+		# «OK» davanti a un errore suona come un consenso. Qui non c'e' niente da approvare.
+		_dlg_guaio.ok_button_text = Testi.s("finestre/chiudi")
+		# Il bottone che RISOLVE, non un rimando. «Apri Settings» arriva al posto giusto in un
+		# clic; «vai in Settings» va cercato.
+		_dlg_guaio.add_button(Testi.s("motore/apri_settings"), true, "settings")
+		_dlg_guaio.custom_action.connect(func(azione: StringName):
+			if azione == &"settings":
+				_dlg_guaio.hide()
+				_apri_impostazioni())
+		add_child(_dlg_guaio)
+		_veste_dialogo(_dlg_guaio)   # dopo add_button: veste anche quello
+	# Il testo del provider e' testo che arriva da fuori: le sue parentesi quadre non devono
+	# poter diventare BBCode. `dialog_text` non lo interpreta, ma il giorno in cui questo
+	# diventasse un RichTextLabel il difetto rinascerebbe silenzioso.
+	_dlg_guaio.dialog_text = "%s\n\n%s" % [motivo, Testi.s("motore/guaio_dove_guardare")]
+	# Un AcceptDialog e' una Window a se' e NON eredita content_scale_factor dal genitore, e
+	# la dimensione va moltiplicata di conseguenza o il contenuto scalato non ci sta dentro.
+	#
+	# LA LARGHEZZA VA IMPOSTA. Con `popup_centered()` nudo e `dialog_autowrap` acceso il
+	# dialogo prende la sua minima — misurato: 255 px di larghezza per 1212 di altezza, una
+	# colonna di due parole per riga. Il testo era giusto e il bottone c'era: nessun test
+	# poteva accorgersene, l'ha detto uno scatto (tools/foto_gioco.gd).
+	var scala := get_window().content_scale_factor
+	_dlg_guaio.content_scale_factor = scala
+	_dlg_guaio.popup_centered(Vector2i(int(560 * scala), int(300 * scala)))
 
 ## Attiva il percorso reale sul provider scelto (Ollama locale o API esterna), verifica
 ## e popola il selettore dei modelli. Se non è pronto, torna ai dèi simulati e spiega.
@@ -1100,12 +1165,12 @@ func _attiva_reale() -> void:
 		# Stessa correzione fatta in Impostazioni, sull'altra meta' della strada.
 		var aiuto := Testi.s("motore/aiuto_ollama") if LLMManager.e_locale() \
 			else Testi.s("motore/aiuto_gateway" if LLMManager.usa_gateway else "motore/aiuto_esterno")
-		_narrazione.append_text("[color=%s]%s[/color]\n" % [C_OXBLOOD.to_html(), Testi.s("motore/non_risponde", [dove, _fuori(String(v.get("errore", "?"))), aiuto])])
+		_guaio_motore(Testi.s("motore/non_risponde", [dove, String(v.get("errore", "?")), aiuto]))
 		return
 	if v["modelli"].is_empty():
 		LLMManager.mock_mode = true
 		chk.set_pressed_no_signal(false)
-		_narrazione.append_text("[color=%s]%s[/color]\n" % [C_OXBLOOD.to_html(), Testi.s("motore/niente_modelli", [dove])])
+		_guaio_motore(Testi.s("motore/niente_modelli", [dove]))
 		return
 	# Modello: si TIENE quello richiesto anche se non compare nell'elenco. Sostituirlo
 	# d'ufficio col primo disponibile poteva dirottare su un modello piu' costoso (e fuori
@@ -1117,12 +1182,16 @@ func _attiva_reale() -> void:
 	if not v.get("genera", true):
 		LLMManager.mock_mode = true
 		chk.set_pressed_no_signal(false)
-		_narrazione.append_text("[color=%s]%s[/color]\n" % [C_OXBLOOD.to_html(),
-			Testi.s("motore/non_genera", [scelto, dove, v.get("errore_genera", "?")])])
+		_guaio_motore(Testi.s("motore/non_genera", [scelto, dove, String(v.get("errore_genera", "?"))]))
 		return
+	# ELENCATO NO, MA GENERA: non e' un guaio, e non merita di fermare nessuno con una
+	# finestra. Va nel Log, che e' il posto delle cose da sapere e non da fare. Se poi
+	# smettesse davvero di rispondere, sarebbe il ramo qui sopra a farsi vivo.
 	if not v["modello_presente"]:
-		_narrazione.append_text("[color=%s]%s[/color]\n" % [C_OXBLOOD.to_html(), Testi.s("motore/modello_assente", [scelto])])
-	_narrazione.append_text("[color=%s]%s[/color]\n" % [C_VERDIGRIS.to_html(), Testi.s("motore/attivo", [dove, scelto])])
+		_on_llm_log("[color=%s]%s[/color]" % [
+			C_OXBLOOD.to_html(), Bbcode.neutro(Testi.s("motore/modello_assente", [scelto]))])
+	# NIENTE messaggio di riuscita. Il motore che funziona non e' una notizia: si vede dal
+	# fatto che gli dei rispondono, e il provider in uso sta gia' scritto in Settings.
 	if not _busy and not _finita:
 		await _rigenera_spunti()  # spunti contestuali generati dal modello
 

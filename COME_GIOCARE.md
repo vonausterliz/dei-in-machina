@@ -227,6 +227,74 @@ Console (headless): `:olimpo`, `:stato`, `:salva`, `:carica`, `:tappa <id>`, `:e
 
 ---
 
+## Problemi frequenti
+
+Quando qualcosa non va col modello, il gioco **apre una finestra** che dice cos'è successo e
+ha un bottone *Apri Settings*. Non scrive più nulla nella narrazione: lì c'è solo la storia.
+Ecco cosa vuol dire ciascun messaggio.
+
+### «*Nessun provider configurato*»
+
+La cartella `config/providers/` è vuota o illeggibile. Non dovrebbe succedere in un clone
+integro del progetto: se è capitato, hai spostato o cancellato quei file.
+
+### «*Manca la chiave API per «X»*»
+
+Il gioco non trova la chiave di quel provider. Due posti dove può stare, e il secondo vince:
+
+1. *Settings* → il campo del provider (finisce in `user://impostazioni.json`);
+2. una variabile d'ambiente — `MISTRAL_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`,
+   `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`.
+
+**Se usi il Gateway, il campo di Settings non serve a niente**: le chiamate le fa lui, con le
+*sue* chiavi, lette dal proprio ambiente all'avvio. Vedi la sezione sul Gateway qui sopra.
+
+### «*X non risponde*»
+
+Il server non si è fatto sentire affatto.
+
+| Con | Prova |
+|---|---|
+| **Ollama** | è in esecuzione? `ollama serve`, poi `curl localhost:11434/api/tags` |
+| **Un provider in rete** | rete e chiave: un `401` è la chiave, un timeout è la rete |
+| **Il Gateway** | è acceso? `cd llm_gateway && ./gateway.sh stato` |
+
+### «*X non elenca nessun modello disponibile*»
+
+Il server risponde ma la sua lista è vuota. Con Ollama vuol dire che non hai ancora scaricato
+niente: `ollama pull mistral-small3.2`. Con un provider in rete, quasi sempre è una chiave
+valida ma senza i permessi giusti — o un piano non ancora attivato (Mistral richiede la
+verifica del telefono).
+
+### «*Il modello «X» è elencato da Y ma non risponde*»
+
+Il caso più insidioso, e capita davvero: il provider continua a elencare un modello che ha
+già ritirato. Il menu *Modello* in Settings contiene l'elenco che il provider ha appena
+restituito — scegline un altro e premi **Prova il modello**.
+
+### «*Nessun motore attivo*»
+
+Hai premuto *Agisci* con i dèi simulati. Il gioco si ferma apposta: si sono giocati quattro
+turni credendo che gli dèi pensassero, e non pensavano. Accendi un motore da Settings.
+
+### Il modello risponde, ma male
+
+Nessuna finestra si apre, perché tecnicamente funziona tutto. Guarda il **Log LLM** (menu
+View): la tabella «sintomo → cosa cercare» qui sotto dice dove.
+
+Un caso ha una spiegazione precisa: se gli dèi sembrano fuori parte o Omero nomina una
+divinità, quasi sempre il modello è troppo piccolo. Il gioco è tarato su **Mistral Small 3.2
+(24 B)**, e i prompt sono stati scritti e misurati su quello.
+
+### Il gioco parte muto
+
+Se all'avvio vedi un errore audio nel terminale (su macOS, `AudioOutputUnitStart failed`), il
+driver audio di sistema non è partito e la musica non si sente. Non riguarda il gioco: chiudi
+le altre applicazioni che usano l'audio, controlla l'uscita nelle impostazioni di sistema, e
+rilancia. Tutto il resto funziona lo stesso.
+
+---
+
 ## Il Log LLM: guardare cosa succede davvero
 
 **Menu View → Log LLM.** Si apre in una finestra a sé, che puoi ingrandire o spostare su un

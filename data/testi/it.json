@@ -59,21 +59,23 @@
   "motore": {
     "in_uso": "motore: %s · %s",
     "simulato": "⚠ SIMULATO — gli dèi non pensano · Settings › Prova il modello",
-    "attivo": "[modalità %s: dèi e narratore reali (%s). Guarda il log a destra.]",
-    "non_risponde": "%s non risponde (%s): %s. Il gioco resta in attesa: senza un motore gli dèi non possono rispondere.",
+    "non_risponde": "%s non risponde.\n\n%s\n\nCosa provare: %s.",
     "aiuto_ollama": "avvialo con «ollama serve» (o rilancia ./avvia.sh)",
     "aiuto_esterno": "controlla la chiave API e la rete",
-    "niente_modelli": "%s non elenca modelli disponibili. Il gioco resta in attesa: senza un motore gli dèi non possono rispondere.",
-    "modello_assente": "Attenzione: «%s» non compare tra i modelli offerti dal provider. Lo uso lo stesso; se le chiamate falliscono, scegline un altro da Settings.",
-    "nessun_profilo": "Nessun provider esterno configurato (config/providers/). Il gioco resta in attesa: senza un motore gli dèi non possono rispondere.",
-    "manca_chiave": "Manca la chiave API per «%s»: impostala da Settings. Il gioco resta in attesa: senza un motore gli dèi non possono rispondere.",
+    "niente_modelli": "%s non elenca nessun modello disponibile.",
+    "modello_assente": "Attenzione: «%s» non compare fra i modelli offerti dal provider. Lo uso lo stesso; se le chiamate falliscono, scegline un altro da Settings.",
+    "nessun_profilo": "Nessun provider configurato (config/providers/).",
+    "manca_chiave": "Manca la chiave API per «%s».",
     "nome_ollama": "Ollama",
     "nome_esterno": "API esterna",
     "dei_veri": "Dèi veri",
     "tooltip_dei_veri": "Accende il modello scelto qui accanto: da quel momento gli dèi pensano davvero. Spento, il gioco usa risposte finte (serve solo ai test).",
-    "non_genera": "Il modello «%s» risulta elencato da %s ma NON risponde: %s\nDi solito vuol dire che il provider l'ha ritirato (continuando a elencarlo). Il menu «Modello» in Settings ora contiene l'elenco che il provider ha appena restituito: scegline un altro da lì e premi «Prova il modello». Il gioco resta in attesa: senza un motore gli dèi non possono rispondere.",
-    "serve_un_motore": "Nessun motore attivo: gli dèi non possono rispondere. Apri Settings › Prova il modello e scegline uno che funzioni.",
-    "aiuto_gateway": "le chiavi le tiene il Gateway, non il gioco: esporta la variabile nel suo ambiente PRIMA di llm_gateway/gateway.sh start"
+    "non_genera": "Il modello «%s» è elencato da %s ma non risponde.\n\n%s\n\nDi solito vuol dire che il provider l'ha ritirato continuando a elencarlo. Il menu «Modello» in Settings contiene l'elenco che il provider ha appena restituito: scegline un altro e premi «Prova il modello».",
+    "serve_un_motore": "Nessun motore attivo: gli dèi non possono rispondere.",
+    "aiuto_gateway": "le chiavi le tiene il Gateway, non il gioco: esporta la variabile nel suo ambiente PRIMA di llm_gateway/gateway.sh start",
+    "guaio_titolo": "Problema con il modello",
+    "guaio_dove_guardare": "Gli dèi non possono rispondere finché il motore non funziona.\n\nControlla provider, modello e chiave in Settings › Prova il modello. Se il problema resta: il Log LLM (menu View) mostra l'errore per esteso, e «Problemi frequenti» in COME_GIOCARE.md elenca i casi più comuni.",
+    "apri_settings": "Apri Settings"
   },
   "hardware": {
     "_nota": "Il verdetto accanto a ogni modello di Ollama: ci gira, su questa macchina? Le cifre sono GB. Vedi scripts/data/verdetto_modello.gd per la regola.",
@@ -98,7 +100,8 @@
     "copia": "Copia tutto",
     "pulisci": "Pulisci",
     "testo_piu": "A+",
-    "testo_meno": "A−"
+    "testo_meno": "A−",
+    "chiudi": "Chiudi"
   },
   "impostazioni": {
     "aspetto": "ASPETTO",

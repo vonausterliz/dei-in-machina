@@ -119,6 +119,17 @@ func _scatta() -> void:
 		await process_frame
 	_png("lente_mappa", root)
 	ui._lente.chiudi()
+
+	# LA FINESTRA DEL GUAIO. E' l'unica cosa che interrompe il gioco, e da quando i problemi
+	# del motore non si scrivono piu' in narrazione e' anche l'unico posto in cui si vedono:
+	# se esce storta, il giocatore resta senza spiegazione. Un test puo' dire che il testo e'
+	# quello giusto e che il bottone c'e'; non puo' dire se si legge.
+	ui._guaio_motore(Testi.s("motore/non_risponde", [
+		"Mistral", "HTTP 401 · no api key provided", Testi.s("motore/aiuto_esterno")]))
+	for i in 20:
+		await process_frame
+	_png("guaio_motore", ui._dlg_guaio)
+	ui._dlg_guaio.hide()
 	quit(0)
 
 ## Input scelti per SVEGLIARE qualcuno: una chat degli dei senza dei e' una finestra vuota.
