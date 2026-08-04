@@ -25,6 +25,11 @@ Dentro la cartella del progetto:
   ~140 MB). Serve connessione internet solo quella prima volta.
 - Su macOS il launcher toglie anche la "quarantena" di Gatekeeper dal Godot scaricato.
 - Requisiti: `bash`, `curl`, `unzip` (già presenti sia su Linux sia su macOS).
+- Se il sistema si rifiuta di eseguire il launcher: `chmod +x avvia.sh`.
+- Il Godot in `tools/godot/` è quello del sistema su cui l'hai scaricato, e copiando la
+  cartella sull'altro sistema non serve toccare nulla: i due cercano in posti diversi
+  (`tools/godot/godot4` su Linux, `tools/godot/Godot.app` su macOS), quindi il launcher non
+  trova nulla e scarica il suo. Quello che non gli serve resta lì e non dà fastidio.
 
 Se preferisci fare a mano, vedi in fondo "Avvio manuale".
 
@@ -176,16 +181,6 @@ Una partita intera, da Troia a Itaca, sta intorno a **450 chiamate** e **~1 mili
 token** (di cui appena ~48.000 in uscita: il grosso è il contesto che gli agenti rileggono).
 Sul tier gratuito ci sta comodamente; è il motivo per cui il gioco è costruito per fare
 **meno chiamate**, non per farle più in fretta.
-
----
-
-## Portare il progetto sul MacBook
-
-1. Copia la cartella `dei_in_machina` sul Mac (git clone, AirDrop, USB, rsync…).
-   - Il Godot per Linux in `tools/godot/` **non** viene copiato/usato sul Mac: il launcher
-     scarica da solo quello per macOS al primo `./avvia.sh`.
-2. Apri il Terminale nella cartella e lancia `./avvia.sh`.
-   - Se il Mac blocca lo script: `chmod +x avvia.sh` e riprova.
 
 ---
 

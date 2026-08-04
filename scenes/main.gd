@@ -12,8 +12,9 @@ extends Control
 ## mare profondo, osso, oro, rosso-sangue; serif classico (Cardo) per la voce del poeta.
 ## Schermata giocatore + Vista Olimpo (toggle, debug). Autoload GameManager/LLMManager.
 
-## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
-## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
+## Versione mostrata in Settings › Informazioni: bumpala a ogni cambiamento, così si vede
+## a colpo d'occhio se la copia che sta girando è aggiornata (un'app già avviata NON
+## ricarica i prompt: va rilanciata).
 const VERSIONE := "2.36"
 
 # --- palette (dal mockup) ---
@@ -443,8 +444,8 @@ func _barra_menu() -> Control:
 	menu_set.add_item(Testi.s("menu/impostazioni"), VOCE_IMPOSTAZIONI)
 	menu_set.add_separator()
 	# La versione stava accanto al nome del gioco. E' un'informazione che si cerca due volte
-	# l'anno — quando si sospetta che l'app sul Mac sia vecchia — e occupava un posto in
-	# prima fila. Qui la si trova dove la si cerca.
+	# l'anno — quando si sospetta che la copia in esecuzione sia vecchia — e occupava un
+	# posto in prima fila. Qui la si trova dove la si cerca.
 	menu_set.add_item(Testi.s("menu/about"), VOCE_ABOUT)
 	menu_set.id_pressed.connect(_on_menu_settings)
 	barra.add_child(menu_set)
