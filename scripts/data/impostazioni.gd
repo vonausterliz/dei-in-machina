@@ -73,12 +73,18 @@ static func applica_chiavi_all_ambiente() -> void:
 # --- geometria delle finestre ---
 
 ## Salva posizione e dimensione di una finestra, per ritrovarla dove l'avevi lasciata.
-static func salva_geometria(nome: String, pos: Vector2i, dim: Vector2i, visibile: bool) -> void:
+##
+## DOVE, non SE. Si salvava anche `aperta`, e all'avvio il Log LLM si riapriva da solo:
+## una finestra di diagnosi che tornava davanti alla narrazione a ogni partenza. Ora le
+## viste di servizio nascono chiuse sempre, e questo dato non lo legge piu' nessuno — quindi
+## non si scrive piu'. Nei file di impostazioni gia' esistenti la chiave resta e viene
+## ignorata: non vale un'operazione di pulizia.
+static func salva_geometria(nome: String, pos: Vector2i, dim: Vector2i) -> void:
 	var g: Dictionary = leggi("finestre", {})
-	g[nome] = {"x": pos.x, "y": pos.y, "w": dim.x, "h": dim.y, "aperta": visibile}
+	g[nome] = {"x": pos.x, "y": pos.y, "w": dim.x, "h": dim.y}
 	scrivi("finestre", g)
 
-## Ritorna {pos, dim, aperta} oppure {} se non c'e' nulla di salvato.
+## Ritorna {pos, dim} oppure {} se non c'e' nulla di salvato.
 static func geometria(nome: String) -> Dictionary:
 	var g: Dictionary = leggi("finestre", {})
 	var v: Variant = g.get(nome, null)
@@ -87,5 +93,4 @@ static func geometria(nome: String) -> Dictionary:
 	return {
 		"pos": Vector2i(int(v.get("x", 0)), int(v.get("y", 0))),
 		"dim": Vector2i(int(v.get("w", 0)), int(v.get("h", 0))),
-		"aperta": bool(v.get("aperta", false)),
 	}

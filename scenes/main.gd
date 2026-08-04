@@ -14,7 +14,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "2.35"
+const VERSIONE := "2.36"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -154,7 +154,14 @@ func _ripristina_provider() -> void:
 		LLMManager.imposta_profilo(idx)
 	LLMManager.usa_gateway = bool(Impostazioni.leggi("usa_gateway", false))
 
-## Riapre le viste che erano aperte, dove e come erano; poi riattiva il motore scelto.
+## Rimette le viste di servizio DOVE erano — non le riapre. Poi riattiva il motore scelto.
+##
+## IL LOG PARTE SEMPRE CHIUSO. Prima si riapriva se era aperto all'ultima uscita, ed era la
+## scelta sbagliata per cio' che il Log e': non una vista di gioco, ma uno strumento di
+## diagnosi. Chi l'aveva aperto una volta per capire un errore se lo ritrovava davanti alla
+## narrazione a ogni avvio, e la prima cosa che vedeva del gioco era una finestra di traffico
+## HTTP. Posizione e dimensione si ricordano lo stesso: quando lo riapri e' dove l'avevi
+## lasciato.
 func _ripristina_finestre() -> void:
 	if _senza_schermo():
 		return
@@ -166,9 +173,6 @@ func _ripristina_finestre() -> void:
 		if g["dim"].x > 200 and g["dim"].y > 150:
 			fin.size = g["dim"]
 		fin.position = g["pos"]
-		if g["aperta"]:
-			riga[2].button_pressed = true
-			_spunta_view(int(riga[3]), true)
 	if _motore_da_ripristinare >= 0:
 		var m := _motore_da_ripristinare
 		_motore_da_ripristinare = -1
@@ -184,14 +188,18 @@ func _salva_geometrie() -> void:
 		return
 	for riga in _finestre_servizio():
 		var fin: FinestraTesto = riga[1]
-		Impostazioni.salva_geometria(String(riga[0]), fin.position, fin.size, fin.visible)
+		Impostazioni.salva_geometria(String(riga[0]), fin.position, fin.size)
 
-## L'elenco unico delle finestre di servizio: [chiave, finestra, pulsante, voce di menu].
+## L'elenco unico delle finestre di servizio: [chiave, finestra].
 ## Un elenco solo — quando ne ho aggiunta una a mano in tre punti diversi, la ciurma e'
 ## rimasta fuori da tutti e tre (scala, geometria, ripristino).
+##
+## Portava anche pulsante e voce di menu: servivano solo a RIAPRIRE la finestra all'avvio.
+## Da quando il Log parte sempre chiuso non li legge piu' nessuno, e un elenco che trasporta
+## dati che nessuno usa e' il modo in cui una struttura smette di dire la verita'.
 func _finestre_servizio() -> Array:
 	var out: Array = []
-	for riga in [["log", _fin_log, _btn_log, VOCE_LOG]]:
+	for riga in [["log", _fin_log]]:
 		if riga[1] != null:
 			out.append(riga)
 	return out
@@ -1074,9 +1082,12 @@ func _nota_rossa(testo: String) -> void:
 func _attiva_reale() -> void:
 	var chk := _chk_reale
 	var dove := LLMManager.nome_profilo_corrente()
-	# Apri la finestra del log, cosi' si vede subito la verifica e il traffico.
-	_btn_log.button_pressed = true
-	_spunta_view(VOCE_LOG, true)
+	# IL LOG NON SI APRE DA SOLO. Lo faceva qui, «cosi' si vede subito la verifica»: ma
+	# attivare i dei veri e' cio' che succede a OGNI avvio con il motore reale salvato, e
+	# quindi la finestra compariva sempre, non solo quando serviva. E non serve: ogni modo in
+	# cui la verifica puo' fallire — provider muto, nessun modello, modello ritirato — e' gia'
+	# scritto in rosso nella narrazione, dove il giocatore sta guardando. Il Log si apre da
+	# View quando quelle righe non bastano.
 	_chk_reale.disabled = true
 	LLMManager.abilita_reale()
 	var v: Dictionary = await LLMManager.verifica_provider()

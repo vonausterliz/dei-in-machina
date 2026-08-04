@@ -812,6 +812,20 @@ ogni volta andavano riportate davanti, richiuse, ritrovate al prossimo avvio. Il
 è rimasto una finestra per la ragione opposta: non si guarda mentre si gioca, si apre quando
 qualcosa non torna, e allora lo si vuole grande.
 
+**E nasce chiuso, sempre** (v2.36). Si apriva da solo per due strade: la geometria salvata
+ricordava se era aperto all'ultima uscita, e `_attiva_reale()` lo spalancava «così si vede
+subito la verifica». La seconda era la peggiore, perché attivare i dèi veri è ciò che accade
+a *ogni* avvio con il motore reale in preferenza: la prima cosa che si vedeva del gioco era
+una finestra di traffico HTTP davanti alla narrazione. E non serviva — ogni modo in cui la
+verifica può fallire (provider muto, nessun modello, modello ritirato) è già scritto in rosso
+nella narrazione, dove il giocatore sta guardando.
+
+Con la ragione per leggerlo è caduto anche il dato: `salva_geometria()` non scrive più
+`aperta`, e l'elenco `_finestre_servizio()` non trasporta più pulsante e voce di menu, che
+servivano solo a riaprire. Due test lo tengono fermo — `test_il_log_llm_nasce_chiuso` sulla
+finestra, `test_la_geometria_ricorda_dove_non_se` sul dato, che è il punto dove la
+regressione rinascerebbe per prima.
+
 Il prezzo dell'incastro è lo spazio, e la contropartita è la **lente** (`lente.gd`): un velo
 sopra la schermata con lo stesso contenuto, grande quanto c'è posto. Non è una finestra —
 non si sposta, non si ridimensiona, non va ritrovata: si apre, si guarda, si chiude con Esc.

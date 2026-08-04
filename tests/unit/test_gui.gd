@@ -195,3 +195,31 @@ func test_settings_ha_la_scheda_dei_costi():
 	# Un controllo per ogni limite dichiarato: se un limite si aggiunge ai dati, il pannello
 	# lo mostra da solo — non c'e' un elenco da tenere allineato a mano.
 	assert_gte(f._costi_box.get_child_count(), Costi.descrittori().size())
+
+# --- Il Log LLM: uno strumento di diagnosi, non una vista di gioco ---
+
+## IL LOG NASCE CHIUSO, sempre. Si apriva da solo in due modi: se era aperto all'ultima
+## uscita (geometria salvata) e ogni volta che si attivavano i dei veri — cioe' a ogni avvio
+## con il motore reale in preferenza. La prima cosa che si vedeva del gioco era una finestra
+## di traffico HTTP davanti alla narrazione.
+func test_il_log_llm_nasce_chiuso():
+	var ui = load("res://scenes/Main.tscn").instantiate()
+	add_child_autofree(ui)
+	await wait_frames(2)
+	assert_false(ui._fin_log.visible, "il Log e' uno strumento: si apre quando serve")
+	assert_false(ui._btn_log.button_pressed, "e la spunta di View deve dirlo")
+
+## L'altra meta' della stessa decisione, nel posto dove si puo' verificare senza schermo: la
+## geometria ricorda DOVE era la finestra, non SE era aperta. Finche' quel dato esisteva,
+## bastava che qualcuno tornasse a leggerlo perche' il difetto rinascesse.
+func test_la_geometria_ricorda_dove_non_se():
+	var prima: Variant = Impostazioni.leggi("finestre", null)
+	Impostazioni.salva_geometria("prova_test", Vector2i(11, 22), Vector2i(640, 480))
+	var g := Impostazioni.geometria("prova_test")
+	assert_eq(g["pos"], Vector2i(11, 22), "la posizione si ricorda")
+	assert_eq(g["dim"], Vector2i(640, 480), "e la dimensione")
+	assert_false(g.has("aperta"), "se fosse aperta non e' un dato che qualcuno deve poter leggere")
+	if prima == null:
+		Impostazioni.dimentica("finestre")
+	else:
+		Impostazioni.scrivi("finestre", prima)

@@ -58,12 +58,99 @@ Da console: `./avvia.sh console -- ollama mistral-small3.2:latest`
    continui a elencare un modello che ha già ritirato, e senza questa prova te ne accorgeresti
    solo a metà partita, con Omero muto.
 
-**Gateway** (spunta opzionale): fa passare le chiamate da una coda locale che rispetta i
-limiti del piano gratuito. È un *trasporto*, non un provider: si combina con qualunque
-modello tu abbia scelto, e le chiavi le tiene lui.
+**La chiave di Mistral in due minuti.** Registrati su
+[console.mistral.ai](https://console.mistral.ai), attiva il piano gratuito — chiede la
+**verifica del numero di telefono**, e finché non la fai la chiave esiste ma ogni chiamata
+torna un errore che *sembra* una chiave sbagliata — poi **API Keys → Create new key**. Il
+valore si vede **una volta sola**. Per Google la chiave è su
+[aistudio.google.com](https://aistudio.google.com/apikey). Il passo per passo completo è nel
+[README](README.md#la-chiave-di-mistral-passo-per-passo).
 
 Con i modelli reali un turno è più lento, soprattutto quando gli dèi litigano: una contesa
 piena vale fino a nove chiamate.
+
+**Non tutti i provider sono collaudati.** Ollama, Mistral e Google sì, contro il servizio
+vero. OpenAI, Anthropic e OpenRouter hanno il profilo pronto ma non sono mai stati provati.
+
+---
+
+## Il Gateway LLM: restare dentro il piano gratuito
+
+Sui piani gratuiti il limite che ti ferma non è quanto consumi, è **quante richieste al
+secondo** fai. Un turno pieno ne manda fino a nove quasi insieme: senza un freno, la maggior
+parte torna `429 Too Many Requests` e il turno si sbriciola.
+
+Il Gateway è un processo Python separato (`llm_gateway/`, solo libreria standard) che sta
+**fra il gioco e il provider** e mette ordine. Il gioco non sa nemmeno che c'è: gli parla
+come parlerebbe a OpenAI.
+
+### Come si accende
+
+**1. Esporta le chiavi.** Questo è il passo che si salta, ed è quello che conta:
+
+```bash
+export MISTRAL_API_KEY=...
+export GEMINI_API_KEY=...        # solo se usi Google
+```
+
+> ⚠️ **La chiave scritta in *Impostazioni* al Gateway non arriva.** Il Gateway legge dal
+> **proprio** ambiente, e la finestra Impostazioni scrive nelle preferenze del gioco. Senza
+> `export`, il Gateway parte lo stesso e ogni richiesta torna `401`: nel gioco sembra un
+> guasto del gioco. Nel log lo dice — `CHIAVE MANCANTE` accanto al provider.
+
+**2. Avvialo.**
+
+```bash
+cd llm_gateway
+./gateway.sh start      # in background, log in gateway.log
+./gateway.sh stato      # quote residue e cache
+./gateway.sh fg         # in primo piano, per vedere il log dal vivo
+./gateway.sh stop
+```
+
+Se le chiavi le esporti *dopo* averlo avviato, il Gateway non le vede: `./gateway.sh restart`.
+
+**3. Nel gioco**, *Impostazioni* → spunta **Gateway**. È un *trasporto*, non un provider: si
+combina con il modello che hai già scelto.
+
+### Cosa fa, per ogni richiesta
+
+1. **Cache** — richiesta identica già fatta di recente → risposta immediata, **zero quota**
+   (un'ora di validità, 500 voci).
+2. **Coda** — una fila per provider, servita da un solo lavoratore: mai due richieste in volo
+   verso lo stesso servizio.
+3. **Freno** — tre vincoli insieme: distanza minima fra due richieste (il limite di
+   *velocità*), tetto al minuto, tetto al giorno.
+4. **Ritentativo** — su `429` o `5xx` riprova con attesa che raddoppia (1s, 2s, 4s…),
+   obbedendo all'header `Retry-After` se il provider lo manda.
+
+I limiti stanno in `llm_gateway/limiti.json`, tenuti **sotto** quelli dichiarati dal provider:
+le finestre di conteggio non coincidono mai al millisecondo con le nostre.
+
+| Provider | Distanza minima | Al minuto | Al giorno |
+|---|---|---|---|
+| `mistral` | 1,1 s | 28 | — |
+| `google` | 4,2 s | 14 | 1400 |
+| `openrouter` | 3,1 s | 18 | **50** |
+| `openai` · `ollama` | nessun freno | | |
+
+Se cambi piano e i freni non ti servono più: `./gateway.sh libero`, oppure
+`"throttling_attivo": false` in `limiti.json`. Coda, cache e ritentativi restano.
+
+### Due cose da sapere
+
+**Anthropic non passa dal Gateway.** Non è fra i suoi provider: con il Gateway acceso e
+Anthropic selezionato, le chiamate finiscono al provider predefinito — Mistral. Riceveresti
+risposte plausibili da un modello che non hai scelto. Con Anthropic, per ora, tieni il
+Gateway spento.
+
+**Il tetto di OpenRouter è 50 al giorno**, per account, sui modelli col suffisso `:free`.
+Una partita intera ne chiede ~450: non ci sta. Il Gateway lo scrive nel log all'avvio invece
+di fartelo scoprire a metà viaggio.
+
+Il Gateway ascolta **solo su `127.0.0.1`**, non ha autenticazione e non deve averne: non va
+esposto in rete. Se la porta 8800 è occupata: `PORTA=8801 ./gateway.sh start`. Dettagli in
+[llm_gateway/README.md](llm_gateway/README.md).
 
 ---
 
@@ -114,14 +201,88 @@ Ognuno dei tre ha una **lente** in alto a destra: lo apre grande quanto la scher
 chiude con `Esc` o cliccando fuori.
 
 In fondo alla pagina, su una riga: astuzia, animo, ciurma, tracotanza — e il capitolo in
-corso. Dal menu **View** si apre il **Log LLM**, la traccia tecnica di chi si è destato,
-cosa ha proposto e quanto ci ha messo. Sotto **Settings** ci sono motore, provider,
-modello, chiavi — e le *Informazioni*, con la versione.
+corso. Sotto **Settings** ci sono motore, provider, modello, chiavi — e le *Informazioni*,
+con la versione. Dal menu **View** si apre il **Log LLM**: vedi sotto.
 
 Le viste sono allineate dallo stesso ritmo: il momento del giorno e l'azione che hai appena
 compiuto fanno da intestazione ovunque.
 
 Console (headless): `:olimpo`, `:stato`, `:salva`, `:carica`, `:tappa <id>`, `:esci`.
+
+---
+
+## Il Log LLM: guardare cosa succede davvero
+
+**Menu View → Log LLM.** Si apre in una finestra a sé, che puoi ingrandire o spostare su un
+altro schermo; la si chiude dalla X o togliendo la spunta.
+
+**Parte sempre chiuso**, anche se l'avevi lasciato aperto: non è una vista di gioco, è uno
+strumento di diagnosi, e non deve stare davanti alla narrazione. Dove l'avevi messo e quanto
+era grande, però, se lo ricorda.
+
+### Cosa ci trovi
+
+**Le chiamate, una per riga.** Ogni agente che parte lascia una freccia in uscita e una in
+entrata, con i **millisecondi** che ci ha messo:
+
+```
+→ Interprete: «Grido al ciclope il mio vero nome: sono io, Odisseo!»
+← Interprete: tag ["vanto", "tracotanza"] · in_mondo · 1840 ms
+→ Poseidone medita…
+← Poseidone: castigo «Che il mare gli si chiuda addosso» · 2410 ms
+→ Zeus arbitra (2 proposte)…
+← Zeus: poseidone → castigo · 1120 ms
+→ Omero narra (e propone gli spunti)…
+← Omero + 3 spunti · 3050 ms
+```
+
+Compaiono così anche il **Cronista** (il riassunto rotolante), il **Vaglio** (*questa mossa
+appartiene al mondo dell'Odissea?*), la **Ricognizione** (a chi stai pregando) e i
+**compagni** della ciurma.
+
+**E poi la traccia del turno**, in oro, che è la parte che spiega davvero:
+
+```
+--- Turno 12 ---
+Input:      Grido al ciclope il mio vero nome: sono io, Odisseo!
+Envelope:   plausibilita=in_mondo tipo=azione tag=["vanto", "tracotanza"] tono=sfida intensita=3
+Svegli:     poseidone, atena
+Eventi:     maledizione_di_polifemo
+Deliberazione:  (CONFLITTO)
+  Poseidone:   Che il mare gli si chiuda addosso  [castigo]
+  Atena:       È stato sciocco, non malvagio      [aiuto]
+Verdetto:   poseidone -> castigo
+Delta:      { "ulisse.animo": -4, "poseidone.ira": 4 }
+Omero:      "Il mare si fece nero, e un uomo non tornò…"
+```
+
+L'**Envelope** è il punto in cui si capisce perché un dio si è destato e un altro no.
+Il **Delta** è la conseguenza numerica esatta, quella decisa dalle regole e non dal modello.
+
+**Gli errori, per esteso**: server irraggiungibile, modello elencato ma muto, modello non
+caricato con l'elenco di quelli disponibili. Nel gioco leggi una riga rossa; qui leggi il
+messaggio che ha mandato il provider. Il **valore** di una chiave non compare mai — solo se
+c'è o non c'è.
+
+### Quando aprirlo
+
+Quando qualcosa non torna e la narrazione non basta a spiegarlo:
+
+| Cosa vedi nel gioco | Cosa cercare nel Log |
+|---|---|
+| Gli dèi non reagiscono a quello che scrivi | `Envelope:` — che etichette ha estratto l'Interprete, e `Svegli:` chi si è destato |
+| «Quel gesto non appartiene a questo mondo» | `Vaglio` — è lui che respinge, e dice come ha classificato |
+| Un turno lentissimo | i millisecondi riga per riga: una sola chiamata lenta, o tutte? |
+| «Il provider non risponde» | la riga `✗` con il messaggio vero del provider |
+| I numeri sono cambiati e non capisci perché | `Delta:` — la conseguenza esatta, accanto al `Verdetto:` che l'ha causata |
+| Omero muto o fuori parte | se la riga `← Omero` c'è ma la narrazione no, è scattato un ripiego |
+
+I bottoni in alto: **Copia** mette tutto negli appunti (utile per segnalare un problema),
+**Pulisci** azzera, **A+ / A−** cambiano la dimensione del testo.
+
+Con i **dèi simulati** la traccia del turno c'è lo stesso e non costa niente: è il modo più
+economico di capire come è fatta la macchina. Le chiamate no — quelle esistono solo quando
+un modello vero risponde.
 
 ---
 
