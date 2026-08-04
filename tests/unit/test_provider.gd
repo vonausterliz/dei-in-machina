@@ -218,3 +218,27 @@ func _profili_da_file() -> Array:
 			out.append(d)
 	assert_gt(out.size(), 0, "config/providers/ non deve essere vuota")
 	return out
+
+# --- Il tetto sulla prova ---
+
+## LE DUE STRADE DEVONO AVERE LA STESSA PAZIENZA.
+##
+## `prova_profilo()` è il bottone in Settings; `verifica_provider()` è quello che accende il
+## motore. Fanno la stessa identica domanda — una generazione da un token — ma il tetto
+## l'aveva solo la prima. Visto dal vivo: due minuti di «in attesa di Ollama» all'accensione
+## su un modello lento, con la finestra ferma. Il tetto ora sta in un posto solo.
+func test_la_prova_ha_un_tetto_piu_basso_di_quello_della_partita():
+	var i := LLMManager.indice_profilo("Ollama locale")
+	LLMManager.imposta_profilo(i)
+	var partita: float = float(LLMManager.config_del_profilo().get("timeout_sec", 0))
+	var prova: float = float(LLMManager._config_prova().get("timeout_sec", 0))
+	assert_eq(prova, float(LLMManager.SECONDI_PROVA))
+	assert_lt(prova, partita, "un turno vero può durare di più: è la PROVA che dev'essere breve")
+
+## E il tetto dev'essere lo stesso per ogni provider: è una proprietà della domanda, non
+## del provider a cui la si fa.
+func test_il_tetto_della_prova_vale_per_tutti_i_provider():
+	for n in NOMI_ATTESI:
+		LLMManager.imposta_profilo(LLMManager.indice_profilo(n))
+		assert_eq(float(LLMManager._config_prova().get("timeout_sec", 0)),
+			float(LLMManager.SECONDI_PROVA), "tetto diverso su «%s»" % n)

@@ -57,8 +57,12 @@ func _ready() -> void:
 	add_child(_hb)
 	_hb.timeout.connect(_battito)
 
+## Diceva «in attesa di Ollama» qualunque fosse il provider — copiato da quando ce n'era
+## uno solo. E ora dice anche quanto manca al tetto: un'attesa con un termine si sopporta,
+## una senza sembra un blocco.
 func _battito() -> void:
-	_log("    … in attesa di Ollama (%d s)…" % int((Time.get_ticks_msec() - _t_inizio) / 1000))
+	var passati := int((Time.get_ticks_msec() - _t_inizio) / 1000)
+	_log("    … in attesa (%d s di %d)…" % [passati, int(timeout_sec)])
 
 func configura(config: Dictionary, chiave: String = "") -> void:
 	base_url = config.get("base_url", base_url)

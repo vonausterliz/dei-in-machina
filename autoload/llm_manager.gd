@@ -253,14 +253,28 @@ func modelli_noti() -> Array:
 ## caricarsi» invece di «e' rotto» — e infatti il messaggio dice proprio quello.
 const SECONDI_PROVA := 30
 
+## La configurazione con il tetto della prova al posto di quello della partita.
+##
+## C'ERA IN UN PERCORSO SOLO, ed era il percorso sbagliato per chi gioca. `prova_profilo()`
+## e' il bottone in Settings; ma il motore si accende da `verifica_provider()`, che fa la
+## stessa identica prova — una generazione da un token — e quella era rimasta a 300 secondi.
+## Risultato visto dal vivo: due minuti buoni di «in attesa di Ollama» su un modello lento,
+## con la finestra ferma e nessun modo di sapere se stesse succedendo qualcosa. Le due
+## strade fanno la stessa domanda: devono avere la stessa pazienza.
+func _config_prova() -> Dictionary:
+	var cfg := config_del_profilo()
+	if cfg.is_empty():
+		return cfg
+	var c := cfg.duplicate(true)
+	c["timeout_sec"] = SECONDI_PROVA
+	return c
+
 func prova_profilo() -> Dictionary:
 	if _client == null:
 		_inizializza_reale()
 	var cfg := config_del_profilo()
 	var atteso := String(cfg.get("model", "?"))
-	var cfg_prova := cfg.duplicate(true)
-	cfg_prova["timeout_sec"] = SECONDI_PROVA
-	_client.configura(cfg_prova, _leggi_chiave(cfg))
+	_client.configura(_config_prova(), _leggi_chiave(cfg))
 	var t0 := Time.get_ticks_msec()
 	var elenco: Dictionary = await _client.elenca_modelli()
 	var esito := {
@@ -584,10 +598,16 @@ func verifica_provider() -> Dictionary:
 	if _client == null:
 		_inizializza_reale()
 	var atteso: String = modello_atteso()
-	_reg("→ verifica: server LLM e modello «%s»…" % atteso)
+	# Stesso tetto del bottone «Prova il modello»: qui si fa la stessa domanda, e prima
+	# questa strada aspettava i 300 secondi del profilo.
+	var cfg_prova := _config_prova()
+	if not cfg_prova.is_empty():
+		_client.configura(cfg_prova, _leggi_chiave(cfg_prova))
+	_reg("→ verifica: «%s» su %s (tetto %d s)…" % [atteso, nome_profilo_corrente(), SECONDI_PROVA])
 	var r: Dictionary = await _client.elenca_modelli()
 	if not r["ok"]:
 		_reg("✗ server non raggiungibile: %s" % r["errore"])
+		_riconfigura()
 		return {"ok": false, "attivo": false, "modello_presente": false, "modelli": [], "atteso": atteso, "errore": r["errore"]}
 	var modelli: Array = r["modelli"]
 	var presente := _modello_presente(atteso, modelli)
@@ -603,8 +623,11 @@ func verifica_provider() -> Dictionary:
 	var prova := await _prova_generazione()
 	if not prova["ok"]:
 		_reg("✗ il modello «%s» e' elencato ma NON risponde: %s" % [atteso, prova["errore"]])
+		segna_fallimento(atteso, String(prova["errore"]))
 	else:
 		_reg("✓ modello «%s» funzionante." % atteso)
+		dimentica_fallimento(atteso)
+	_riconfigura()   # rimette il tetto della partita: un turno vero puo' durare di piu'
 	return {
 		"ok": presente and prova["ok"], "attivo": true, "modello_presente": presente,
 		"genera": prova["ok"], "errore_genera": prova["errore"],
