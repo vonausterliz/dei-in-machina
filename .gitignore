@@ -22,3 +22,7 @@ config.local.*
 # Gateway LLM: log e pid locali
 llm_gateway/gateway.log
 llm_gateway/gateway.pid
+
+# I brani della colonna sonora si caricano dal disco a runtime, non dall'importatore:
+# il .import che Godot genera comunque non serve a nessuno (vedi scripts/colonna_sonora.gd).
+music/*.import

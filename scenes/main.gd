@@ -7,7 +7,7 @@ extends Control
 
 ## Versione mostrata nell'header: bumpala a ogni cambiamento, così si vede se l'app sul
 ## Mac è aggiornata (un'app già avviata NON ricarica i prompt: va rilanciata).
-const VERSIONE := "2.33"
+const VERSIONE := "2.34"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -27,6 +27,7 @@ const VOCE_OLIMPO := 0
 const VOCE_LOG := 1
 const VOCE_CIURMA := 2
 const VOCE_IMPOSTAZIONI := 10
+const VOCE_ABOUT := 11
 const VOCE_SALVA := 20
 const VOCE_CARICA := 21
 
@@ -39,22 +40,21 @@ var _spunti_box: VBoxContainer
 var _ultima_narrazione: String = ""
 ## L'ultimo momento del giorno mostrato: il marcatore compare solo quando cambia.
 var _ultimo_momento: String = ""
-var _diario_box: VBoxContainer
-var _diario_scroll: ScrollContainer
 var _mappa: MappaViaggio
 var _input: LineEdit
 var _episodio: Label
-var _fin_olimpo: FinestraTesto   # finestra separata: traccia dell'ultimo turno
-var _fin_log: FinestraTesto      # finestra separata: log delle chiamate LLM
-var _fin_ciurma: FinestraTesto   # chat INTERATTIVA coi compagni
-var _btn_ciurma: Button
+var _fin_log: FinestraTesto      # l'unica rimasta a se': il traffico verso il modello
+## Le due conversazioni, incastrate nella colonna di destra (v2.34).
+var _pan_olimpo: PannelloChat
+var _pan_ciurma: PannelloChat
+## Il velo che mostra grande carta e chat.
+var _lente: Lente
 var _menu_view: PopupMenu
-var _lbl_motore: Label
 var _scala_schermo: float = 1.0
 var _zoom_utente: float = 1.0
 var _motore_da_ripristinare: int = -1
 var _fin_impostazioni: FinestraImpostazioni
-var _btn_olimpo: Button
+var _dlg_about: AcceptDialog
 var _btn_log: Button
 var _btn_agisci: Button
 var _chk_reale: CheckButton
@@ -62,8 +62,8 @@ var _stat_bars := {}
 var _stat_vals := {}
 var _busy := false
 var _finita := false
-## Il dialogo di conferma dei bivi (spunti rischiosi). Creato alla prima occorrenza.
-var _conferma: ConfirmationDialog
+## La musica: un brano per momento del gioco, secondo data/musica.json.
+var _musica: ColonnaSonora
 
 func _line() -> Color:
 	var c := C_GOLD
@@ -74,6 +74,9 @@ func _ready() -> void:
 	_serif = load("res://fonts/Cardo-Regular.ttf")
 	_serif_bold = load("res://fonts/Cardo-Bold.ttf")
 	_serif_italic = load("res://fonts/Cardo-Italic.ttf")
+	# Prima di tutto il resto: l'apertura la vuole gia' pronta, e i capitoli la useranno poi.
+	_musica = ColonnaSonora.new()
+	add_child(_musica)
 	_prepara_finestra()
 	_costruisci_ui()
 	Impostazioni.applica_chiavi_all_ambiente()  # chiavi utente -> ambiente
@@ -91,7 +94,19 @@ func _apri_sipario() -> void:
 	if _senza_schermo():
 		return
 	var s := Splash.new()
+	s.musica = _musica   # una colonna sonora sola: l'apertura e i capitoli non si accavallano
+	# Il capitolo attacca quando il sipario e' calato, non prima: sotto la schermata
+	# d'apertura la partita e' gia' avviata, e senza questo le due musiche si sovrapporrebbero.
+	s.finito.connect(_musica_del_capitolo)
 	add_child(s)   # ultimo figlio: sta davanti a tutto il resto della schermata
+
+## La musica della tappa in cui ci si trova. Il momento e' l'id del capitolo, lo stesso di
+## `data/episodi.json`: chi aggiunge un brano non deve imparare un secondo vocabolario.
+## Se quel capitolo e' muto (oggi lo sono tutti) non succede niente, e va bene cosi'.
+func _musica_del_capitolo() -> void:
+	if _musica == null or _senza_schermo():
+		return
+	_musica.suona(String(GameManager.stato.viaggio.get("corrente", "")))
 
 ## Rimette le scelte dell'ultima sessione: dimensione interfaccia, provider/modello e
 ## motore. Cosi' non si riconfigura tutto a ogni avvio.
@@ -169,9 +184,7 @@ func _salva_geometrie() -> void:
 ## rimasta fuori da tutti e tre (scala, geometria, ripristino).
 func _finestre_servizio() -> Array:
 	var out: Array = []
-	for riga in [["log", _fin_log, _btn_log, VOCE_LOG],
-			["olimpo", _fin_olimpo, _btn_olimpo, VOCE_OLIMPO],
-			["ciurma", _fin_ciurma, _btn_ciurma, VOCE_CIURMA]]:
+	for riga in [["log", _fin_log, _btn_log, VOCE_LOG]]:
 		if riga[1] != null:
 			out.append(riga)
 	return out
@@ -262,36 +275,7 @@ func _costruisci_ui() -> void:
 	root.add_theme_constant_override("separation", 16)
 	margine.add_child(root)
 
-	# Header: titolo oro + tag
-	var header := HBoxContainer.new()
-	root.add_child(header)
-	var titolo := _titolo(Testi.s("app/titolo"), 30, C_GOLD, _serif_bold)
-	header.add_child(titolo)
-	# Numero di versione accanto al nome: per capire a colpo d'occhio se l'app è aggiornata.
-	var ver := _titolo("v%s" % VERSIONE, 13, C_VERDIGRIS, _serif)
-	ver.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-	header.add_child(ver)
-	# Lo stato del motore sta QUI, nell'intestazione, non in una riga discreta in fondo
-	# alla pagina: col motore simulato si sono giocati quattro turni credendo di parlare
-	# con gli dèi veri, perche' l'avviso stava sotto la piega e in colore tenue. Un avviso
-	# che non si vede non e' un avviso.
-	_lbl_motore = _titolo("", 13, C_OXBLOOD, _serif_bold)
-	_lbl_motore.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-	header.add_child(_lbl_motore)
-	# Barra dei menu: le viste di servizio e le impostazioni stanno qui, non sparse
-	# tra i controlli di gioco.
-	var stacco := Control.new()
-	stacco.custom_minimum_size = Vector2(28, 0)
-	header.add_child(stacco)
-	var menu := _barra_menu()
-	menu.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	header.add_child(menu)
-	var spazio := Control.new()
-	spazio.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(spazio)
-	var tag := _titolo(Testi.s("app/sottotitolo"), 13, C_BONE_DIM, _serif_italic)
-	tag.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	header.add_child(tag)
+	root.add_child(_intestazione())
 	root.add_child(_riga_oro())
 
 	# Corpo: colonne
@@ -302,29 +286,86 @@ func _costruisci_ui() -> void:
 
 	colonne.add_child(_colonna_rapsodia())
 	colonne.add_child(_colonna_aside())
+
+	# LA CONDIZIONE IN FONDO, su una riga sola. Era una carta nella colonna di destra, con
+	# quattro barre impilate: prendeva un terzo della colonna per quattro numeri che si
+	# leggono di sfuggita. In fondo alla pagina sta sotto l'occhio senza rubare spazio a
+	# cio' che si legge davvero.
+	root.add_child(_riga_oro())
+	root.add_child(_riga_condizione())
+
 	_crea_finestre_servizio()
+	# La lente sta SOPRA tutto, quindi si aggiunge per ultima e fuori dai margini.
+	_lente = Lente.new()
+	add_child(_lente)
+
+## L'INTESTAZIONE: emblema, nome, sottotitolo — e i comandi tutti all'altro capo.
+##
+## Prima qui stavano anche il numero di versione e lo stato del motore LLM, e i tre menu
+## erano incastrati fra il nome e il sottotitolo. Su richiesta (v2.34) la riga e' stata
+## sfoltita: la versione e' passata sotto Settings › Informazioni, dove si cerca; il nome
+## del modello e' rimasto solo in Settings, che e' il posto in cui lo si sceglie.
+func _intestazione() -> Control:
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 14)
+
+	# L'emblema del gioco, lo stesso della schermata d'apertura e dell'icona: un marchio
+	# solo, disegnato in un posto solo (scenes/marchio.gd).
+	var logo := Control.new()
+	logo.custom_minimum_size = Vector2(42, 42)
+	logo.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	logo.draw.connect(func(): Marchio.disegna(logo, logo.size * 0.5, logo.size.x * 0.40))
+	header.add_child(logo)
+
+	var titolo := _titolo(Testi.s("app/titolo"), 30, C_GOLD, _serif_bold)
+	titolo.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	header.add_child(titolo)
+	# Il sottotitolo SUBITO dopo il nome: e' il seguito della frase, non una didascalia da
+	# mandare all'altro capo della riga.
+	var tag := _titolo(Testi.s("app/sottotitolo"), 13, C_BONE_DIM, _serif_italic)
+	tag.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	header.add_child(tag)
+
+	var spazio := Control.new()
+	spazio.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(spazio)
+
+	var menu := _barra_menu()
+	menu.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	header.add_child(menu)
+	return header
+
+## Astuzia · Animo · Ciurma · Tracotanza, e il capitolo in corso all'altro capo. Una riga.
+func _riga_condizione() -> Control:
+	var r := HBoxContainer.new()
+	r.add_theme_constant_override("separation", 26)
+	for coppia in [[Testi.s("pannelli/astuzia"), "metis"], [Testi.s("pannelli/animo"), "animo"],
+			[Testi.s("pannelli/ciurma"), "ciurma"], [Testi.s("pannelli/tracotanza"), "hybris"]]:
+		r.add_child(_meter(String(coppia[0]), String(coppia[1])))
+	var spazio := Control.new()
+	spazio.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	r.add_child(spazio)
+	_episodio = _titolo("", 13, C_BONE_DIM, _serif_italic)
+	_episodio.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	r.add_child(_episodio)
+	return r
 
 ## Log LLM e Vista Olimpo vivono in finestre NATIVE separate: si aprono solo quando
 ## servono, si spostano su un altro schermo e lasciano tutto lo spazio alla narrazione.
 func _crea_finestre_servizio() -> void:
 	get_tree().root.gui_embed_subwindows = false  # finestre vere del sistema, non incorporate
-	# Due finestre DISTINTE, in posizioni diverse: non devono sembrare la stessa che
-	# cambia contenuto. Le sfalso in base allo schermo.
-	# Dimensioni e posizioni RICAVATE DALLO SCHERMO, non fisse: due riquadri affiancati
-	# che non si coprono mai. (Con misure fisse il window manager riposizionava la seconda
-	# perche' usciva dallo schermo, e finivano una sopra l'altra.)
+	# NE E' RIMASTA UNA. Olimpo e ciurma stavano qui, in due finestre native che nascevano
+	# affiancate e andavano ritrovate a ogni avvio; ora sono nella pagina (v2.34). Il Log
+	# resta a se' per la ragione opposta a quella per cui le altre due ne sono uscite: non
+	# si guarda mentre si gioca, si apre quando qualcosa non torna — e allora lo si vuole
+	# grande, magari su un altro schermo.
 	var schermo := DisplayServer.screen_get_size()
 	var margine := 24
 	var larg: int = clampi(int((schermo.x - margine * 3) / 2.0), 420, 900)
 	var alt: int = clampi(schermo.y - 160, 360, 900)
-	var y := 70
-	var alto := Vector2i(schermo.x - larg * 2 - margine * 2, y)
-	var basso := Vector2i(schermo.x - larg - margine, y)
-	if schermo.x < 1400:  # schermo stretto: impilate, ognuna di mezza altezza
-		alt = clampi(int((schermo.y - 200) / 2.0), 260, 520)
-		alto = Vector2i(maxi(margine, schermo.x - larg - margine), y)
-		basso = Vector2i(alto.x, y + alt + 46)
-	_fin_log = FinestraTesto.new(Testi.s("finestre/log_titolo"), true, Vector2i(larg, alt), alto)
+	_fin_log = FinestraTesto.new(Testi.s("finestre/log_titolo"), true, Vector2i(larg, alt),
+		Vector2i(maxi(margine, schermo.x - larg - margine), 70))
 	_fin_log.chiusa.connect(func():
 		_btn_log.button_pressed = false
 		_spunta_view(VOCE_LOG, false))
@@ -333,22 +374,6 @@ func _crea_finestre_servizio() -> void:
 	_fin_impostazioni.motore_scelto.connect(_on_motore_scelto)
 	_fin_impostazioni.zoom_scelto.connect(imposta_zoom)
 	add_child(_fin_impostazioni)
-	_fin_olimpo = FinestraTesto.new(Testi.s("finestre/olimpo_titolo"), false, Vector2i(larg, alt), basso)
-	_fin_olimpo.chiusa.connect(func():
-		_btn_olimpo.button_pressed = false
-		_spunta_view(VOCE_OLIMPO, false))
-	add_child(_fin_olimpo)
-
-	# La ciurma: stessa finestra, ma con la barra d'invio. E' l'unica vista in cui Ulisse
-	# scrive davvero a qualcuno. La sfalso di poco, cosi' non nasce sopra le altre due.
-	_fin_ciurma = FinestraTesto.new(Testi.s("ciurma/titolo"), false, Vector2i(larg, alt),
-		basso + Vector2i(-36, 36))
-	_fin_ciurma.interattiva = true
-	_fin_ciurma.inviato.connect(_on_ciurma_invio)
-	_fin_ciurma.chiusa.connect(func():
-		_btn_ciurma.button_pressed = false
-		_spunta_view(VOCE_CIURMA, false))
-	add_child(_fin_ciurma)
 	_applica_scala()  # le sub-window non ereditano la scala: gliela do io
 
 ## Barra dei menu (View, Settings). Le voci di View sono spuntabili: riflettono se la
@@ -368,10 +393,10 @@ func _barra_menu() -> Control:
 	barra.add_theme_stylebox_override("hover", _sfondo(7, C_SEA2, C_GOLD))
 	barra.add_theme_stylebox_override("pressed", _sfondo(7, C_GOLD_DEEP, C_GOLD))
 
+	# Olimpo e Ciurma non sono piu' qui: sono nella pagina, sempre visibili. Restava il Log,
+	# che e' l'unica vista di servizio vera — la si apre quando qualcosa non torna.
 	_menu_view = PopupMenu.new()
 	_menu_view.name = Testi.s("menu/view")
-	_menu_view.add_check_item(Testi.s("menu/vista_olimpo"), VOCE_OLIMPO)
-	_menu_view.add_check_item(Testi.s("menu/ciurma"), VOCE_CIURMA)
 	_menu_view.add_check_item(Testi.s("menu/log_llm"), VOCE_LOG)
 	_menu_view.id_pressed.connect(_on_menu_view)
 	barra.add_child(_menu_view)
@@ -388,9 +413,31 @@ func _barra_menu() -> Control:
 	var menu_set := PopupMenu.new()
 	menu_set.name = Testi.s("menu/settings")
 	menu_set.add_item(Testi.s("menu/impostazioni"), VOCE_IMPOSTAZIONI)
-	menu_set.id_pressed.connect(func(id): if id == VOCE_IMPOSTAZIONI: _apri_impostazioni())
+	menu_set.add_separator()
+	# La versione stava accanto al nome del gioco. E' un'informazione che si cerca due volte
+	# l'anno — quando si sospetta che l'app sul Mac sia vecchia — e occupava un posto in
+	# prima fila. Qui la si trova dove la si cerca.
+	menu_set.add_item(Testi.s("menu/about"), VOCE_ABOUT)
+	menu_set.id_pressed.connect(_on_menu_settings)
 	barra.add_child(menu_set)
 	return barra
+
+func _on_menu_settings(id: int) -> void:
+	match id:
+		VOCE_IMPOSTAZIONI: _apri_impostazioni()
+		VOCE_ABOUT: _mostra_about()
+
+func _mostra_about() -> void:
+	if _dlg_about == null:
+		_dlg_about = AcceptDialog.new()
+		_dlg_about.title = Testi.s("about/titolo")
+		# Un AcceptDialog e' una Window a se' e NON eredita content_scale_factor dal
+		# genitore: senza questa riga esce minuscolo sugli schermi ad alta densita'.
+		add_child(_dlg_about)
+	_dlg_about.dialog_text = Testi.s("about/corpo",
+		[Testi.s("app/sottotitolo"), VERSIONE, Engine.get_version_info().get("string", "?")])
+	_dlg_about.content_scale_factor = get_window().content_scale_factor
+	_dlg_about.popup_centered()
 
 ## Salva / riprendi. Durante un turno non si tocca niente: lo stato e' a meta' strada.
 func _on_menu_partita(id: int) -> void:
@@ -417,7 +464,6 @@ func _riapri_partita_ripresa() -> void:
 		C_GOLD.to_html(), _nome_tappa(), Testi.s("gioco/omero"), _ultima_narrazione])
 	_nota(Testi.s("gioco/ripresa"))
 	_episodio.text = _nome_tappa()
-	_ridisegna_diario()
 	_aggiorna_stats()
 	_aggiorna_mappa()
 	_aggiorna_olimpo()
@@ -457,23 +503,22 @@ static func blocca_simulato(simulato: bool, con_schermo: bool) -> bool:
 func _simulato_blocca() -> bool:
 	return blocca_simulato(LLMManager.mock_mode, not _senza_schermo())
 
-## Riga discreta sotto l'input: quale motore sta dando voce agli dèi.
+## Col motore simulato non si gioca: si spegne il campo e si dice perche'.
+##
+## LA SCRITTA COL NOME DEL MODELLO NON C'E' PIU'. Stava nell'intestazione dopo che si erano
+## giocati quattro turni col simulato credendo di parlare con gli dei veri — l'avviso di
+## allora era in fondo alla pagina e in colore tenue. Su richiesta esplicita (v2.34) e'
+## stata tolta dall'interfaccia: il motore si vede e si sceglie in Settings. Il presidio
+## VERO contro quel guaio pero' resta, ed e' piu' forte di un'etichetta: col simulato il
+## campo d'azione e' disabilitato e il segnaposto dice cosa fare. Non e' un avviso da
+## leggere, e' una porta chiusa.
 func _aggiorna_indicatore_motore() -> void:
-	if _lbl_motore == null:
-		return
 	var bloccato := _simulato_blocca()
 	if _input:
 		_input.editable = not bloccato
 		_input.placeholder_text = Testi.s("motore/serve_un_motore") if bloccato else Testi.s("gioco/placeholder")
 	if _btn_agisci:
 		_btn_agisci.disabled = bloccato
-	if LLMManager.mock_mode:
-		_lbl_motore.text = Testi.s("motore/simulato")
-		_lbl_motore.add_theme_color_override("font_color", C_OXBLOOD)
-	else:
-		_lbl_motore.text = Testi.s("motore/in_uso",
-			[LLMManager.nome_profilo_corrente(), LLMManager.modello_atteso()])
-		_lbl_motore.add_theme_color_override("font_color", C_VERDIGRIS)
 
 func _apri_impostazioni() -> void:
 	_fin_impostazioni.popup_centered()
@@ -482,10 +527,7 @@ func _on_menu_view(id: int) -> void:
 	var i := _menu_view.get_item_index(id)
 	var acceso := not _menu_view.is_item_checked(i)
 	_menu_view.set_item_checked(i, acceso)
-	match id:
-		VOCE_OLIMPO: _btn_olimpo.button_pressed = acceso
-		VOCE_CIURMA: _btn_ciurma.button_pressed = acceso
-		_: _btn_log.button_pressed = acceso
+	_btn_log.button_pressed = acceso
 
 ## Tiene la spunta del menu allineata allo stato reale della finestra.
 func _spunta_view(id: int, acceso: bool) -> void:
@@ -571,16 +613,7 @@ func _colonna_rapsodia() -> Control:
 	opz.add_theme_constant_override("separation", 14)
 	opz.visible = false
 	v.add_child(opz)
-	_btn_olimpo = Button.new()
-	_btn_olimpo.text = Testi.s("menu/vista_olimpo")
-	_btn_olimpo.toggle_mode = true
-	_btn_olimpo.add_theme_color_override("font_color", C_BONE_DIM)
-	_btn_olimpo.add_theme_stylebox_override("normal", _sfondo(8, C_SEA2, _line()))
-	_btn_olimpo.add_theme_stylebox_override("hover", _sfondo(8, C_SEA2, C_GOLD))
-	_btn_olimpo.add_theme_stylebox_override("pressed", _sfondo(8, C_GOLD_DEEP, C_GOLD))
-	_btn_olimpo.toggled.connect(_on_toggle_olimpo)
-	opz.add_child(_btn_olimpo)  # nel contenitore invisibile: comandato dal menu View
-	# Log LLM: finestra separata col traffico verso il modello.
+	# Log LLM: l'unica vista rimasta in una finestra a se'.
 	_btn_log = Button.new()
 	_btn_log.text = Testi.s("menu/log_llm")
 	_btn_log.toggle_mode = true
@@ -588,11 +621,6 @@ func _colonna_rapsodia() -> Control:
 	_btn_log.add_theme_stylebox_override("normal", _sfondo(8, C_SEA2, _line()))
 	_btn_log.add_theme_stylebox_override("hover", _sfondo(8, C_SEA2, C_GOLD))
 	_btn_log.add_theme_stylebox_override("pressed", _sfondo(8, C_GOLD_DEEP, C_GOLD))
-	_btn_ciurma = Button.new()
-	_btn_ciurma.toggle_mode = true
-	_btn_ciurma.visible = false
-	_btn_ciurma.toggled.connect(_on_toggle_ciurma)
-	opz.add_child(_btn_ciurma)
 	_btn_log.toggled.connect(_on_toggle_log)
 	opz.add_child(_btn_log)     # idem: comandato dal menu View
 	# Un interruttore solo: dei finti o dei veri. Quale provider lo dice il menu accanto.
@@ -611,71 +639,100 @@ func _colonna_rapsodia() -> Control:
 	# forma peggiore di codice morto.
 	return pan
 
+## LA COLONNA DI DESTRA: la carta, e sotto le due conversazioni.
+##
+## Olimpo e ciurma stavano in due finestre native separate, aperte dal menu View. In teoria
+## era la scelta giusta — si spostano su un altro schermo e lasciano tutta la pagina alla
+## narrazione. Alla prova del gioco no: sono due cose che si guardano di CONTINUO mentre si
+## gioca, e ogni volta bisognava ritrovarle, riportarle davanti, richiuderle. Incastrate qui
+## si leggono senza cambiare finestra; per quando lo spazio non basta c'e' la lente.
+##
+## Il diario di bordo, che stava in mezzo, e' stato tolto: raccontava in una riga per turno
+## cio' che la narrazione racconta per esteso due colonne piu' in la'. I dati restano
+## (`stato.diario`: li usa il salvataggio, e Omero per ricordare), a sparire e' il riquadro.
 func _colonna_aside() -> Control:
 	var v := VBoxContainer.new()
-	v.custom_minimum_size = Vector2(320, 0)
+	v.custom_minimum_size = Vector2(340, 0)
 	v.size_flags_horizontal = Control.SIZE_FILL
-	v.add_theme_constant_override("separation", 22)
+	v.add_theme_constant_override("separation", 16)
 
-	# Carta del viaggio (dove si trova Ulisse)
+	# Carta del viaggio (dove si trova Ulisse). Non si tocca: va bene com'e', le si e'
+	# aggiunta solo la lente.
 	var carta_m := _pannello(Color(1, 1, 1, 0.012), _line())
 	v.add_child(carta_m)
 	var vm := VBoxContainer.new()
 	vm.add_theme_constant_override("separation", 10)
 	carta_m.add_child(vm)
-	vm.add_child(_titolo(Testi.s("pannelli/carta_viaggio"), 13, C_GOLD, _serif_bold))
+	var testa := HBoxContainer.new()
+	var tm := _titolo(Testi.s("pannelli/carta_viaggio"), 13, C_GOLD, _serif_bold)
+	tm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	testa.add_child(tm)
+	testa.add_child(Lente.bottone(_ingrandisci_mappa, Testi.s("pannelli/carta_viaggio")))
+	vm.add_child(testa)
 	_mappa = MappaViaggio.new()
-	_mappa.custom_minimum_size = Vector2(0, 200)
+	# 120, non di piu': la colonna destra somma tre riquadri, e la somma dei loro MINIMI
+	# decide se la riga della condizione entra nella finestra o finisce sotto il bordo.
+	# Misurato: con 170 la pagina chiedeva 744 punti su 689 disponibili. Il dettaglio della
+	# carta si guarda con la lente, che e' esattamente perche' esiste.
+	_mappa.custom_minimum_size = Vector2(0, 120)
 	vm.add_child(_mappa)
 
-	# Carta Diario di bordo (scorrevole: cresce di una voce a turno e non deve gonfiare il
-	# layout, altrimenti spinge l'input fuori schermo). Si espande per riempire lo spazio.
-	var carta_d := _pannello(Color(1, 1, 1, 0.012), _line())
-	carta_d.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	v.add_child(carta_d)
-	var vd := VBoxContainer.new()
-	vd.add_theme_constant_override("separation", 12)
-	carta_d.add_child(vd)
-	vd.add_child(_titolo(Testi.s("pannelli/diario"), 13, C_GOLD, _serif_bold))
-	_diario_scroll = ScrollContainer.new()
-	_diario_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_diario_scroll.custom_minimum_size = Vector2(0, 140)
-	_diario_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	vd.add_child(_diario_scroll)
-	_diario_box = VBoxContainer.new()
-	_diario_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_diario_box.add_theme_constant_override("separation", 8)
-	_diario_scroll.add_child(_diario_box)
-	_episodio = _titolo("", 13, C_BONE_DIM, _serif_italic)
-	vd.add_child(_episodio)
+	_pan_olimpo = PannelloChat.new(Testi.s("pannelli/olimpo"))
+	_pan_olimpo.lente_premuta.connect(_ingrandisci_olimpo)
+	v.add_child(_pan_olimpo)
 
-	# Carta La tua condizione
-	var carta_c := _pannello(Color(1, 1, 1, 0.012), _line())
-	v.add_child(carta_c)
-	var vc := VBoxContainer.new()
-	vc.add_theme_constant_override("separation", 14)
-	carta_c.add_child(vc)
-	vc.add_child(_titolo(Testi.s("pannelli/condizione"), 13, C_GOLD, _serif_bold))
-	vc.add_child(_meter(Testi.s("pannelli/astuzia"), "metis"))
-	vc.add_child(_meter(Testi.s("pannelli/animo"), "animo"))
-	vc.add_child(_meter(Testi.s("pannelli/ciurma"), "ciurma"))
-	vc.add_child(_meter(Testi.s("pannelli/tracotanza"), "hybris"))
-	var absent := _titolo(Testi.s("pannelli/nota_dei_nascosti"), 12, C_BONE_DIM, _serif_italic)
-	absent.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	absent.custom_minimum_size = Vector2(290, 0)
-	vc.add_child(absent)
+	_pan_ciurma = PannelloChat.new(Testi.s("pannelli/ciurma_titolo"), true,
+		Testi.s("ciurma/placeholder"))
+	_pan_ciurma.inviato.connect(_on_ciurma_invio)
+	_pan_ciurma.lente_premuta.connect(_ingrandisci_ciurma)
+	v.add_child(_pan_ciurma)
 
 	return v
 
+# --- la lente ---
+
+func _ingrandisci_mappa() -> void:
+	# Una MappaViaggio NUOVA, non quella della pagina: spostare il nodo vivo vorrebbe dire
+	# rimetterlo a posto alla chiusura, e basta un'eccezione per lasciare un buco nel layout.
+	_lente.mostra(Testi.s("pannelli/carta_viaggio"), func():
+		var m := MappaViaggio.new()
+		m.custom_minimum_size = Vector2(700, 460)
+		m.ready.connect(_popola_mappa.bind(m), CONNECT_ONE_SHOT)
+		return m)
+
+func _ingrandisci_olimpo() -> void:
+	_lente.mostra(Testi.s("pannelli/olimpo"),
+		_grande.bind(GameManager.agora.trascrizione(Agora.VISTA_OLIMPO)))
+
+func _ingrandisci_ciurma() -> void:
+	_lente.mostra(Testi.s("pannelli/ciurma_titolo"),
+		_grande.bind(GameManager.agora.trascrizione(Agora.VISTA_CIURMA)))
+
+## La stessa trascrizione, in corpo grande. Non e' il pannello spostato: e' una copia, e la
+## conversazione e' la stessa perche' la fonte e' una sola (Agora).
+func _grande(contenuto: String) -> Control:
+	var r := RichTextLabel.new()
+	r.bbcode_enabled = true
+	r.selection_enabled = true
+	r.context_menu_enabled = true
+	r.add_theme_font_override("normal_font", _serif)
+	r.add_theme_font_override("bold_font", _serif_bold)
+	r.add_theme_font_override("italics_font", _serif_italic)
+	r.add_theme_font_size_override("normal_font_size", 19)
+	r.add_theme_color_override("default_color", C_BONE)
+	r.text = contenuto
+	return r
+
+## Un contatore su una riga: «Astuzia 60 ▁▁▁▁». La barra e' sottile e corta — nella riga in
+## fondo alla pagina serve a dare l'ordine di grandezza a colpo d'occhio, non a essere letta.
 func _meter(etichetta: String, chiave: String) -> Control:
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 5)
 	var riga := HBoxContainer.new()
-	box.add_child(riga)
-	var k := _titolo(etichetta, 14, C_BONE_DIM, _serif_italic)
-	k.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	riga.add_theme_constant_override("separation", 7)
+	var k := _titolo(etichetta, 13, C_BONE_DIM, _serif_italic)
+	k.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	riga.add_child(k)
-	var val := _titolo("—", 15, C_BONE, _serif)
+	var val := _titolo("—", 14, C_BONE, _serif)
+	val.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	riga.add_child(val)
 	_stat_vals[chiave] = val
 
@@ -683,7 +740,8 @@ func _meter(etichetta: String, chiave: String) -> Control:
 	bar.min_value = 0
 	bar.max_value = 100
 	bar.show_percentage = false
-	bar.custom_minimum_size = Vector2(0, 6)
+	bar.custom_minimum_size = Vector2(56, 5)
+	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var bg := StyleBoxFlat.new()
 	bg.bg_color = Color(1, 1, 1, 0.06)
 	bg.set_corner_radius_all(3)
@@ -693,8 +751,8 @@ func _meter(etichetta: String, chiave: String) -> Control:
 	bar.add_theme_stylebox_override("background", bg)
 	bar.add_theme_stylebox_override("fill", fill)
 	_stat_bars[chiave] = bar
-	box.add_child(bar)
-	return box
+	riga.add_child(bar)
+	return riga
 
 func _on_llm_log(riga: String) -> void:
 	if _fin_log:
@@ -708,27 +766,36 @@ func _apri_scena() -> void:
 	_narrazione.append_text("[i]" + Testi.s("gioco/omero") + "[/i] %s\n\n" % _ultima_narrazione)
 	_aggiorna_stats()
 	_aggiorna_mappa()
+	# Anche l'Olimpo, non solo la ciurma: finche' era una finestra che si apriva a mano si
+	# riempiva all'apertura, ora e' sempre a schermo e dev'essere sempre giusto.
+	_aggiorna_olimpo()
 	_aggiorna_ciurma()
 	_aggiorna_indicatore_motore()
 	_input.grab_focus()
 	await _rigenera_spunti()
 
 func _aggiorna_mappa() -> void:
-	if _mappa == null:
+	_popola_mappa(_mappa)
+
+## Riempie UNA carta (quella della colonna o quella grande della lente) con le tappe, dove
+## si trova Ulisse e cosa ha gia' passato. Una funzione sola: le due carte devono dire la
+## stessa cosa, e due copie dello stesso calcolo divergono al primo cambiamento.
+func _popola_mappa(m: MappaViaggio) -> void:
+	if m == null:
 		return
 	var punti: Array = []
 	for id in GameManager.episodi.ordine():
 		var ep := GameManager.episodi.get_episodio(id)
 		if ep:
 			punti.append({"id": id, "nome": ep.nome, "pos": ep.mappa})
-	_mappa.imposta(punti, GameManager.stato.viaggio["corrente"], GameManager.stato.viaggio.get("completati", []))
+	m.imposta(punti, GameManager.stato.viaggio["corrente"], GameManager.stato.viaggio.get("completati", []))
 
 func _on_invio(_t: String) -> void:
 	_on_agisci()
 
 ## Un turno di gioco pieno: il mondo gira e gli dei deliberano. Le parole scambiate coi
 ## compagni passano invece da _on_ciurma_invio, che costa una chiamata sola.
-func _on_agisci(rischio: bool = false) -> void:
+func _on_agisci() -> void:
 	if _busy or _finita:
 		return
 	if _simulato_blocca():
@@ -754,7 +821,7 @@ func _on_agisci(rischio: bool = false) -> void:
 
 	# Mentre il turno gira, gli spunti vecchi non valgono piu': li svuoto.
 	_pulisci_spunti()
-	var esito: Dictionary = await GameManager.esegui_turno(testo, [], rischio)
+	var esito: Dictionary = await GameManager.esegui_turno(testo)
 
 	_ultima_narrazione = String(esito["voce"].get("narrazione_omero", ""))
 	if _ultima_narrazione != "":
@@ -763,10 +830,8 @@ func _on_agisci(rischio: bool = false) -> void:
 	var ammon := String(esito["voce"].get("ammonizione", ""))
 	if ammon != "":
 		_narrazione.append_text(_avviso(ammon))
-	_aggiungi_diario()
 	_aggiorna_stats()
-	if _fin_olimpo.visible:
-		_aggiorna_olimpo()
+	_aggiorna_olimpo()
 	_aggiorna_ciurma()
 	# La traccia del turno va nel Log: e' lo strumento di ispezione, non una voce di chat.
 	# Sempre, anche col motore simulato — serve proprio quando l'LLM non parla.
@@ -784,10 +849,15 @@ func _on_agisci(rischio: bool = false) -> void:
 		_episodio.text = "· %s ·" % _nome_tappa()
 		_ultima_narrazione = String(esito.get("intro", ""))
 		_narrazione.append_text("[color=%s]— %s —[/color]\n[i]Omero:[/i] %s\n\n" % [C_GOLD.to_html(), _nome_tappa(), _ultima_narrazione])
+		_musica_del_capitolo()   # nuovo capitolo, nuovo brano (se ne ha uno)
 	_aggiorna_mappa()
 
 	if esito["esito"] != "continua":
 		_finita = true
+		# Il finale ha una musica sua: e' l'ultima cosa che si ascolta, e non puo' essere
+		# il capitolo di prima che continua come se niente fosse.
+		if _musica:
+			_musica.suona("fine_%s" % String(esito["esito"]))
 		_input.editable = false
 		if esito["esito"] == "itaca":
 			_narrazione.append_text("\n[b][color=%s]%s[/color][/b]\n" % [C_VERDIGRIS.to_html(), Testi.s("gioco/vittoria")])
@@ -833,11 +903,9 @@ func _mostra_spunti(spunti: Array) -> void:
 	# ogni strada, quindi qui si registra. NB: _pulisci_spunti() svuota solo i BOTTONI e non
 	# deve toccare la memoria — durante un turno i bottoni si tolgono subito, e se sparisse
 	# anche il ricordo lo spunto appena cliccato tornerebbe rifiutabile.
-	var buoni := GameManager.filtra_spunti(spunti)
-	if buoni.is_empty():
-		# Solo gli appigli della TAPPA: gli spunti generici sono stati tolti, perche' tre
-		# frasi buone per ogni occasione non erano buone per nessuna.
-		buoni = GameManager.filtra_spunti(GameManager.spunti_di_riserva())
+	# Filtro, scarto dei bivi e rammendo con gli appigli della tappa stanno tutti in
+	# GameManager.spunti_da_mostrare: qui si disegna soltanto.
+	var buoni := GameManager.spunti_da_mostrare(spunti)
 	GameManager.ricorda_spunti(buoni)
 	_pulisci_spunti()
 	if buoni.is_empty():
@@ -845,14 +913,18 @@ func _mostra_spunti(spunti: Array) -> void:
 		_spunti_box.add_child(_titolo(Testi.s("gioco/nessuno_spunto"), 13, C_BONE_DIM, _serif_italic))
 		return
 	for sp in buoni:
-		_spunti_box.add_child(_cue(String(sp.get("testo", "")), bool(sp.get("rischio", false))))
+		_spunti_box.add_child(_cue(String(sp.get("testo", ""))))
 
 func _pulisci_spunti() -> void:
 	for c in _spunti_box.get_children():
 		c.queue_free()
 
-func _cue(testo: String, rischio: bool) -> Button:
-	var accento := C_OXBLOOD if rischio else C_GOLD
+## UN APPIGLIO, tutti uguali. Prima ce n'era una specie a parte — il bivio, segnato «‡» e
+## in rosso — e non reggeva la lettura: fra tre frasi omeriche ne compariva una con un
+## simbolo strano che apriva una finestrella di conferma. I bivi non arrivano piu' fin qui
+## (GameManager.spunti_da_mostrare li scarta), quindi non c'e' piu' niente da distinguere.
+func _cue(testo: String) -> Button:
+	var accento := C_GOLD
 	var b := Button.new()
 	b.text = "›  " + testo
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -864,42 +936,15 @@ func _cue(testo: String, rischio: bool) -> Button:
 	b.add_theme_stylebox_override("normal", _sfondo(11, Color(1, 1, 1, 0.015), _line()))
 	b.add_theme_stylebox_override("hover", _sfondo(11, Color(accento, 0.09), Color(accento, 0.5)))
 	b.add_theme_stylebox_override("pressed", _sfondo(11, Color(accento, 0.16), accento))
-	# I bivi si riconoscono a vista: il segno oltre al colore, perche' il colore da solo non
-	# basta a dire «questa e' una scelta da cui non si torna».
-	b.text = ("‡  " if rischio else "›  ") + testo
-	b.pressed.connect(_scegli_spunto.bind(testo, rischio))
+	b.pressed.connect(_scegli_spunto.bind(testo))
 	return b
 
-## Un appiglio normale finisce nel campo: si puo' correggere, o ignorare. Un appiglio
-## RISCHIOSO no — e' un bivio: si conferma e si agisce, senza poterlo ritoccare. E' la
-## differenza fra un suggerimento e una scelta (design sez. 4).
-func _scegli_spunto(testo: String, rischio: bool = false) -> void:
+## Un appiglio finisce nel campo e parte: si puo' anche solo leggerlo e scrivere altro.
+func _scegli_spunto(testo: String) -> void:
 	if _busy or _finita:
-		return
-	if rischio:
-		_chiedi_conferma(testo)
 		return
 	_input.text = testo
 	_on_agisci()
-
-func _chiedi_conferma(testo: String) -> void:
-	if _conferma == null:
-		_conferma = ConfirmationDialog.new()
-		_conferma.title = Testi.s("gioco/bivio_titolo")
-		_conferma.ok_button_text = Testi.s("gioco/bivio_procedi")
-		_conferma.cancel_button_text = Testi.s("gioco/bivio_indietro")
-		add_child(_conferma)
-	_conferma.dialog_text = "%s\n\n«%s»" % [Testi.s("gioco/bivio_avviso"), testo]
-	# Si riconnette a ogni apertura: il testo del bivio cambia, e un vecchio binding
-	# farebbe partire la scelta sbagliata.
-	for c in _conferma.confirmed.get_connections():
-		_conferma.confirmed.disconnect(c["callable"])
-	_conferma.confirmed.connect(_impegnati.bind(testo))
-	_conferma.popup_centered()
-
-func _impegnati(testo: String) -> void:
-	_input.text = testo
-	_on_agisci(true)
 
 ## Avviso per l'azione fuori-mondo. Colore CHIARO e testo dritto in grassetto: il
 ## rosso-sangue scuro in corsivo, su fondo notte, era illeggibile.
@@ -954,59 +999,13 @@ func _imposta_stat(chiave: String, valore: float, _massimo: int, testo: String) 
 	if _stat_vals.has(chiave):
 		_stat_vals[chiave].text = testo
 
-func _aggiungi_diario() -> void:
-	var ultime: Array = GameManager.stato.diario
-	if ultime.is_empty():
-		return
-	_riga_diario(ultime[-1])
-
-## Ricostruisce il diario per intero: serve quando si RIPRENDE una partita salvata, dove
-## non c'e' un'ultima voce da appendere ma venti da rimettere.
-func _ridisegna_diario() -> void:
-	if _diario_box == null:
-		return
-	# remove_child PRIMA di queue_free: la liberazione e' differita a fine frame, e senza
-	# toglierli subito le vecchie voci convivrebbero con quelle appena rimesse.
-	for c in _diario_box.get_children():
-		_diario_box.remove_child(c)
-		c.queue_free()
-	for d in GameManager.stato.diario:
-		_riga_diario(d)
-
-func _riga_diario(d: Dictionary) -> void:
-	var col: Color = {"ill": C_OXBLOOD, "fair": C_VERDIGRIS, "neutro": C_BONE_DIM}.get(d.get("esito", "neutro"), C_BONE_DIM)
-	var riga := HBoxContainer.new()
-	riga.add_theme_constant_override("separation", 10)
-	var punto := ColorRect.new()
-	punto.color = col
-	punto.custom_minimum_size = Vector2(7, 7)
-	punto.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	riga.add_child(punto)
-	var testo := RichTextLabel.new()
-	testo.text = d.get("voce", "")
-	testo.fit_content = true
-	testo.scroll_active = false
-	testo.selection_enabled = true       # anche il diario è copiabile
-	testo.context_menu_enabled = true
-	testo.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	testo.add_theme_font_override("normal_font", _serif)
-	testo.add_theme_font_size_override("normal_font_size", 15)
-	testo.add_theme_color_override("default_color", C_BONE)
-	testo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	testo.custom_minimum_size = Vector2(240, 0)
-	riga.add_child(testo)
-	_diario_box.add_child(riga)
-	# scorri all'ultima voce (dopo che il layout ha calcolato l'altezza)
-	if _diario_scroll:
-		_diario_scroll.set_deferred("scroll_vertical", 1_000_000)
-
 ## La Vista Olimpo e' una CHAT in sola lettura, e SOLO quello: gli dei si parlano e il
 ## giocatore assiste. La traccia tecnica del turno (envelope, risvegli, delta) non e' una
 ## voce e non sta qui: va nel Log LLM, dove si guardano i numeri.
 func _aggiorna_olimpo() -> void:
-	if _fin_olimpo == null or GameManager.agora == null:
+	if _pan_olimpo == null or GameManager.agora == null:
 		return
-	_fin_olimpo.imposta(GameManager.agora.trascrizione(Agora.VISTA_OLIMPO))
+	_pan_olimpo.imposta(GameManager.agora.trascrizione(Agora.VISTA_OLIMPO))
 
 func _nome_tappa() -> String:
 	var ep := GameManager.episodi.get_episodio(GameManager.stato.viaggio["corrente"])
@@ -1014,27 +1013,10 @@ func _nome_tappa() -> String:
 
 # --- toggle ---
 
-func _on_toggle_olimpo(premuto: bool) -> void:
-	# NIENTE move_to_center: sovrascriverebbe la posizione scelta e le due finestre
-	# finirebbero una sopra l'altra (era proprio il difetto segnalato).
-	if premuto:
-		_fin_olimpo.mostra()
-		_aggiorna_olimpo()
-	else:
-		_fin_olimpo.hide()
-
-## La chat della ciurma: si apre come le altre, ma qui si puo' scrivere.
-func _on_toggle_ciurma(premuto: bool) -> void:
-	if premuto:
-		_fin_ciurma.mostra()
-		_aggiorna_ciurma()
-	else:
-		_fin_ciurma.hide()
-
 func _aggiorna_ciurma() -> void:
-	if _fin_ciurma == null or GameManager.agora == null:
+	if _pan_ciurma == null or GameManager.agora == null:
 		return
-	_fin_ciurma.imposta(GameManager.agora.trascrizione(Agora.VISTA_CIURMA))
+	_pan_ciurma.imposta(GameManager.agora.trascrizione(Agora.VISTA_CIURMA))
 
 ## Ulisse parla ai compagni: e' un BEAT, non un turno. Costa una chiamata sola invece di
 ## nove — gli dei non convocano l'assemblea per ogni frase detta a bordo. Le parole non

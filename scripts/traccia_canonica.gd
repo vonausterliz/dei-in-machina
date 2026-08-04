@@ -99,7 +99,12 @@ static func _stato(stato) -> Dictionary:
 	var st: Dictionary = stato.ulisse["stat"]
 	return {
 		"turno": int(stato.turno),
-		"tappa": String(stato.viaggio.get("tappa_corrente", "")),
+		# La chiave e' "corrente" (Viaggio.vai_a). Qui c'era scritto "tappa_corrente", che non
+		# esiste in nessuna parte dello stato: il campo e' stato vuoto per tutta la vita della
+		# traccia, e un avanzamento di tappa sbagliato sarebbe passato inosservato. Il golden
+		# trace vede le assenze altrui, non le proprie — questa l'ha trovata la musica, che
+		# doveva leggere la stessa chiave per sapere quale capitolo suonare.
+		"tappa": String(stato.viaggio.get("corrente", "")),
 		"animo": int(st["animo"]),
 		"metis": int(st["metis"]),
 		"hybris": int(stato.ulisse["hybris"]),

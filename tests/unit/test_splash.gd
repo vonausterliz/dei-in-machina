@@ -8,6 +8,9 @@ extends GutTest
 ##
 ## In headless non c'è audio (e non c'è nessuno a guardare): lì vale il tempo fisso, ed è
 ## importante che valga, o i test resterebbero appesi ad aspettare una musica che non parte.
+##
+## Il brano non lo nomina più questo file: lo splash chiede il momento "splash" alla
+## ColonnaSonora, e quale sia il file lo dice data/musica.json (vedi test_musica.gd).
 
 func _splash() -> Splash:
 	var s := Splash.new()
@@ -15,32 +18,31 @@ func _splash() -> Splash:
 	await wait_frames(2)
 	return s
 
-func test_il_file_della_musica_c_e_ed_e_lungo_quanto_serve():
-	assert_true(ResourceLoader.exists(Splash.MUSICA),
-		"%s deve esistere: si rigenera con ./avvia.sh musica" % Splash.MUSICA)
-	var flusso: AudioStream = load(Splash.MUSICA)
-	assert_not_null(flusso)
-	assert_almost_eq(flusso.get_length(), 30.0, 1.0, "circa trenta secondi, come chiesto")
+## Il momento dello splash deve esistere nella tabella della musica, o l'apertura resta
+## muta senza che nulla lo dica.
+func test_il_momento_dello_splash_ha_un_brano():
+	var cs := ColonnaSonora.new()
+	add_child_autofree(cs)
+	assert_ne(String(cs.brano(Splash.MOMENTO)["file"]), "",
+		"il momento «%s» non ha un brano in data/musica.json" % Splash.MOMENTO)
 
 ## Senza audio la schermata non può restare in attesa di un `finished` che non arriverà mai.
 func test_senza_musica_vale_il_tempo_fisso():
 	var s := await _splash()
-	assert_null(s._suono, "in headless non si suona niente")
+	assert_false(s._in_onda, "in headless non si suona niente")
 	assert_almost_eq(s._quando_congedarsi(0.0), Splash.DURATA, 0.01)
 
 ## Mentre la musica suona non c'è nessun traguardo: la schermata aspetta.
 func test_con_la_musica_in_corso_non_ci_si_congeda():
 	var s := await _splash()
-	s._suono = AudioStreamPlayer.new()   # basta che ci sia: qui non deve suonare
-	s.add_child(s._suono)
+	s._in_onda = true   # basta far finta: qui non deve suonare niente
 	s._muto_da = -1.0
 	assert_eq(s._quando_congedarsi(0.0), INF, "finché suona, si resta")
 
 ## Finita la musica parte il conto alla rovescia dei tre secondi.
 func test_finita_la_musica_si_aspettano_tre_secondi():
 	var s := await _splash()
-	s._suono = AudioStreamPlayer.new()
-	s.add_child(s._suono)
+	s._in_onda = true
 	s._t = 30.0
 	s._muto_da = 0.0
 	assert_almost_eq(s._quando_congedarsi(0.0), 30.0 + Splash.ATTESA_DOPO_MUSICA, 0.01)

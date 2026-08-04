@@ -618,6 +618,40 @@ func _vaglia_plausibilita(envelope: Dictionary, input_testo: String) -> void:
 func filtra_spunti(spunti: Array) -> Array:
 	return viaggio.filtra_spunti(spunti) if viaggio else []
 
+## Quanti appigli si offrono. Tre e' il numero con cui il gioco e' stato scritto: due sono
+## un aut-aut, quattro sono un menu.
+const QUANTI_SPUNTI := 3
+
+## CIO' CHE ARRIVA A SCHERMO, deciso in un posto solo.
+##
+## Oltre al filtro (la promessa: cio' che offro, lo accetto) qui cade una seconda scure:
+## NIENTE BIVI FRA GLI APPIGLI. Il campo `rischio` era nato per marcarli — segno «‡»,
+## conferma obbligatoria, reazione degli dei amplificata — e all'atto pratico spezzava la
+## lettura: fra tre frasi omeriche ne compariva una con un simbolo strano che apriva una
+## finestrella. Ora `rischio: true` vuol dire una cosa sola, e piu' semplice: *questo non si
+## propone*. Rischiare resta possibile — si scrive nel campo libero, che e' il posto giusto
+## per una cosa che nessuno ti ha suggerito.
+##
+## Scartare senza rimpiazzare darebbe due appigli nei turni in cui il modello ne marca uno,
+## e il giocatore vedrebbe l'interfaccia assottigliarsi senza capire perche'. Il vuoto si
+## ricuce con gli appigli della tappa, che sanno dove ti trovi.
+func spunti_da_mostrare(spunti: Array) -> Array:
+	var out: Array = []
+	var visti := {}
+	for fonte in [spunti, spunti_di_riserva()]:
+		for s in filtra_spunti(fonte):
+			if out.size() >= QUANTI_SPUNTI:
+				break
+			if bool(s.get("rischio", false)):
+				continue
+			var t := String(s.get("testo", "")).strip_edges()
+			var chiave := t.to_lower()
+			if t == "" or visti.has(chiave):
+				continue
+			visti[chiave] = true
+			out.append(s)
+	return out
+
 ## Gli appigli quando quelli generati non reggono: SOLO quelli della tappa, che sanno dove
 ## ti trovi e cosa sta succedendo li'. Gli appigli generici sono stati tolti — tre frasi
 ## buone per ogni occasione non erano buone per nessuna: «piega ai remi e prosegui la

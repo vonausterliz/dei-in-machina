@@ -1,6 +1,6 @@
 # Architettura di dettaglio — Dei in machina
 
-*Aggiornato a v2.27 · 269 test verdi*
+*Aggiornato a v2.34 · 425 test verdi (43 script)*
 
 Questo documento descrive **come funziona davvero il gioco che gira**: quali componenti
 esistono, chi chiama chi, come gli dèi e i compagni vengono attivati, e come si forma la
@@ -46,13 +46,15 @@ il gioco che rifiutava i propri suggerimenti (→ `gia_proposto`).
 ```mermaid
 flowchart TD
     subgraph UI["Interfaccia — Godot (scenes/)"]
-        MAIN["main.gd<br/>schermata giocatore · spunti · diario<br/>stat · carta del viaggio"]
-        FOL["FinestraTesto «Olimpo»<br/>chat in sola lettura"]
-        FCI["FinestraTesto «Ciurma»<br/>chat INTERATTIVA"]
-        FLOG["FinestraTesto «Log LLM»<br/>traccia tecnica"]
+        MAIN["main.gd<br/>schermata giocatore · spunti<br/>condizione in fondo · intestazione"]
+        FOL["PannelloChat «Olimpo»<br/>nella pagina, sola lettura"]
+        FCI["PannelloChat «Ciurma»<br/>nella pagina, INTERATTIVA"]
+        LEN["lente.gd<br/>carta e chat, grandi"]
+        FLOG["FinestraTesto «Log LLM»<br/>l'unica finestra a se'"]
         FSET["FinestraImpostazioni<br/>motore · provider · modello · gateway"]
         MAP["mappa_viaggio.gd<br/>carta del Mediterraneo"]
-        SPL["splash.gd<br/>marchio d'apertura"]
+        SPL["splash.gd + marchio.gd<br/>emblema d'apertura"]
+        MUS["colonna_sonora.gd<br/>un brano per momento"]
     end
 
     subgraph CORE["Nucleo — Autoload"]
@@ -107,6 +109,8 @@ flowchart TD
     PR --> AGENTI
     CFG --> LM
     GM --> MAP
+    MAIN --> LEN & MUS
+    SPL --> MUS
 ```
 
 ### Inventario, con i file
@@ -123,6 +127,11 @@ flowchart TD
 | `Delta` | `scripts/delta.gd` | Come cambia il mondo: i numeri, mai l'LLM |
 | `Agora` | `scripts/data/agora.gd` | Le conversazioni: canali, viste, intestazioni, distintivi |
 | `Ciurma` | `scripts/data/ciurma.gd` | I compagni: chi è vivo, chi è caduto, a chi parla Ulisse |
+| `PannelloChat` | `scenes/pannello_chat.gd` | Una chat incastrata nella pagina; con o senza barra d'invio |
+| `Lente` | `scenes/lente.gd` | Il velo che mostra carta e chat grandi quanto la schermata |
+| `Marchio` | `scenes/marchio.gd` | L'emblema (Anticitera) disegnato in codice: splash, icona, logo |
+| `ColonnaSonora` | `scripts/colonna_sonora.gd` | Un brano per momento del gioco, da `data/musica.json` |
+| `Gesto` | `scripts/data/gesto.gd` | Cio' che un dio FA quando la sua volonta' passa |
 | `Episodi` / `Episodio` | `scripts/data/episodi.gd`, `episodio.gd` | Le tappe: scena, eventi, tetti, spunti di riserva |
 | Agenti | `scripts/llm/*.gd` | Un file per agente: prompt, messaggi, parsing difensivo, fallback |
 | `LLMClient` | `scripts/llm/llm_client.gd` | HTTP verso qualunque endpoint chat-completions |
@@ -777,6 +786,60 @@ modello genera? — e la seconda è una generazione vera da un token.
 **Il simulato non è più uno stato in cui si possa giocare.** `LLMMock` resta, e resta
 essenziale: è ciò che rende deterministici tutti i 269 test. Ma come *motore di partita* è
 stato tolto dal menu, dopo che si è giocato per quattro turni senza accorgersene.
+
+---
+
+## 10-ter. L'interfaccia: cosa sta nella pagina e cosa no (v2.34)
+
+Tre riquadri nella colonna di destra — la **carta**, la **Vista Olimpo**, la **Ciurma** — e
+in fondo alla pagina una riga sola con la condizione di Ulisse e il capitolo in corso.
+
+Olimpo e ciurma erano due **finestre native** aperte dal menu View. Sulla carta era la
+scelta giusta: si spostano su un altro schermo e lasciano tutta la pagina alla narrazione.
+Alla prova del gioco no — sono due cose che si guardano di *continuo* mentre si gioca, e
+ogni volta andavano riportate davanti, richiuse, ritrovate al prossimo avvio. Il **Log LLM**
+è rimasto una finestra per la ragione opposta: non si guarda mentre si gioca, si apre quando
+qualcosa non torna, e allora lo si vuole grande.
+
+Il prezzo dell'incastro è lo spazio, e la contropartita è la **lente** (`lente.gd`): un velo
+sopra la schermata con lo stesso contenuto, grande quanto c'è posto. Non è una finestra —
+non si sposta, non si ridimensiona, non va ritrovata: si apre, si guarda, si chiude con Esc.
+Reintrodurre una finestra dalla porta di servizio sarebbe stato tornare al problema.
+
+Il contenuto **non si sposta** dentro la lente: si passa un costruttore (`Callable` che
+ritorna un Control nuovo), la lente ne fabbrica una copia e chiudendola la butta. Un
+riparenting da annullare alla chiusura lascerebbe un buco nel layout alla prima eccezione.
+
+**La somma dei minimi è un vincolo reale.** I tre riquadri della colonna destra hanno
+ciascuno un'altezza minima; se la somma supera la finestra, l'ultima riga della pagina
+finisce sotto il bordo — ed è successo (744 punti richiesti su 689 disponibili, su uno
+schermo scalato 1,5×). Non lo vede nessun test: lo vede `tools/foto_gioco.gd`, che ora
+stampa anche minimo e altezza disponibile.
+
+**Il diario di bordo non è più a schermo.** Raccontava in una riga per turno ciò che la
+narrazione racconta per esteso due colonne più in là. I *dati* restano (`stato.diario`): li
+usa il salvataggio e li usa Omero per ricordare.
+
+---
+
+## 10-quater. La colonna sonora
+
+`data/musica.json` associa un brano a ogni **momento**: lo splash, i quindici capitoli
+(l'id è quello di `episodi.json`), la traversata, i tre finali. `ColonnaSonora` è un nodo
+solo, creato da Main e prestato allo splash — così l'apertura può sfumare dentro il primo
+capitolo invece di accavallarsi.
+
+**I file non passano dall'importatore di Godot.** Un `.mp3` messo in un progetto Godot non
+esiste finché l'editor non lo importa e non genera il suo `.import`: chi aggiungesse un
+brano si troverebbe il silenzio, senza un errore che glielo dica. Si carica dal disco a
+runtime (`AudioStreamMP3.load_from_file`), così `music/` è davvero una cartella e non un
+pezzo di progetto.
+
+Un momento senza file è **silenzio**, e non è un errore: la musica è un ornamento, e il
+gioco non deve dipendere da un asset per esistere. `test_musica.gd` sorveglia però la
+corrispondenza fra tabella ed episodi **nei due sensi** — un id sbagliato non suonerebbe
+mai, un capitolo nuovo senza riga resterebbe muto per sempre, e nessuna delle due mancanze
+fa rumore.
 
 ---
 

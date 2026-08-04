@@ -71,8 +71,10 @@ ordine esatto, senza andare a capo in mezzo:
 ---SPUNTI---
 e sotto TRE righe soltanto, una per spunto: cosa Ulisse potrebbe fare ADESSO, nella scena
 che hai appena narrato. Sono appigli per chi gioca, non ordini.
-- una riga ciascuno, che comincia con "-" oppure con "!"; usa "!" per il solo spunto
-  apertamente rischioso (tracotanza, empietà, sfida) — al massimo uno dei tre;
+- una riga ciascuno, che comincia con "-";
+- NIENTE BIVI: non proporre l'azione apertamente rischiosa (tracotanza, empietà, sfida).
+  Chi vuole rischiare lo scrive da sé; i tre appigli devono essere tutti scegliibili senza
+  che il gioco debba avvertire di nulla;
 - breve frase d'azione, max ~12 parole, in carattere;
 - varia l'indole: uno prudente, uno d'astuzia o di preghiera, uno d'audacia;
 - RESTANO NELLA SCENA: solo azioni plausibili qui e ora, riferite a ciò e a CHI è presente.

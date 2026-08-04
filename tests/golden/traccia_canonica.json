@@ -30,7 +30,7 @@
       "ciurma_vivi": 45,
       "hybris": 8,
       "metis": 53,
-      "tappa": "",
+      "tappa": "ciconi",
       "turno": 6
     },
     "stato_partita": "in_corso",
@@ -87,7 +87,7 @@
         "ciurma_vivi": 45,
         "hybris": 8,
         "metis": 50,
-        "tappa": "",
+        "tappa": "troia",
         "turno": 1
       },
       "svegliati": [],
@@ -152,7 +152,7 @@
         "ciurma_vivi": 45,
         "hybris": 8,
         "metis": 52,
-        "tappa": "",
+        "tappa": "troia",
         "turno": 2
       },
       "svegliati": [
@@ -209,7 +209,7 @@
         "ciurma_vivi": 45,
         "hybris": 8,
         "metis": 52,
-        "tappa": "",
+        "tappa": "troia",
         "turno": 3
       },
       "svegliati": [],
@@ -261,7 +261,7 @@
         "ciurma_vivi": 45,
         "hybris": 8,
         "metis": 52,
-        "tappa": "",
+        "tappa": "troia",
         "turno": 4
       },
       "svegliati": [],
@@ -322,7 +322,7 @@
         "ciurma_vivi": 45,
         "hybris": 8,
         "metis": 53,
-        "tappa": "",
+        "tappa": "ciconi",
         "turno": 5
       },
       "svegliati": [
@@ -376,7 +376,7 @@
         "ciurma_vivi": 45,
         "hybris": 8,
         "metis": 53,
-        "tappa": "",
+        "tappa": "ciconi",
         "turno": 6
       },
       "svegliati": [],

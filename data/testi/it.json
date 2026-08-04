@@ -16,7 +16,8 @@
     "impostazioni": "Modelli e chiavi API…",
     "ciurma": "Ciurma",
     "salva": "Salva la partita",
-    "carica": "Riprendi l'ultima partita"
+    "carica": "Riprendi l'ultima partita",
+    "about": "Informazioni su Dei in machina"
   },
   "gioco": {
     "domanda": "Cosa fai, Ulisse?",
@@ -31,10 +32,6 @@
     "epitaffio_morte": "Così finì Odisseo, figlio di Laerte, che a Troia aveva veduto troppo. Dieci anni di guerra gli avevano portato via la misura, e il mare non gliela rese. Non lo uccise un mostro, né la lancia di un nemico: lo uccise ciò che si era portato dentro dalle mura bruciate, e che nessuna rotta poteva lasciarsi alle spalle. Cadde lontano da Itaca, con il nome di casa ancora in bocca, e nessuno dei suoi seppe dire dove. Piangetelo: fu uomo di molte astuzie, e nessuna gli valse contro sé stesso.",
     "epitaffio_prigionia_eterna": "E così Odisseo non tornò. Restò sull'isola dove il tempo non passa, e a poco a poco smise di contare i giorni, poi di guardare il mare, poi di ricordare perché lo guardasse. A Itaca lo attesero, e l'attesa divenne memoria, e la memoria divenne un nome che i giovani udivano senza sapere di chi fosse. Ebbe ciò che ogni uomo chiede — non morire — e lo pagò con l'unica cosa che lo faceva Odisseo: il ritorno. Di lui non si cantò più.",
     "nessuno_spunto": "Nessun appiglio, qui. Scrivi tu cosa fa Ulisse.",
-    "bivio_titolo": "Un bivio",
-    "bivio_avviso": "Questa è una scelta, non un suggerimento: non potrai correggerla, e ciò che ne segue peserà il doppio — in bene o in male.",
-    "bivio_procedi": "Lo faccio",
-    "bivio_indietro": "Ci ripenso",
     "salvata": "⟡ Partita salvata.",
     "salvataggio_fallito": "⟡ Non sono riuscito a salvare la partita.",
     "ripresa": "⟡ Partita ripresa: si riparte da dove l'avevi lasciata.",
@@ -49,7 +46,9 @@
     "ciurma": "Ciurma",
     "tracotanza": "Tracotanza",
     "ciurma_conteggio": "%d di %d",
-    "nota_dei_nascosti": "Degli dèi non vedrai nulla: né volti, né favori, né la misura della loro ira. Solo il mare, e ciò che ne segue."
+    "nota_dei_nascosti": "Degli dèi non vedrai nulla: né volti, né favori, né la misura della loro ira. Solo il mare, e ciò che ne segue.",
+    "olimpo": "VISTA OLIMPO",
+    "ciurma_titolo": "LA CIURMA"
   },
   "avvisi": {
     "richiamo": "⟡ Quel gesto non appartiene a questo mondo: Ulisse non può compierlo. Riprova con qualcosa che l'Odissea conosca.",
@@ -202,5 +201,13 @@
         "3": "prepara la rovina e la chiama fortuna."
       }
     }
+  },
+  "lente": {
+    "chiudi": "Chiudi",
+    "tooltip": "Ingrandisci: %s"
+  },
+  "about": {
+    "titolo": "Dei in machina",
+    "corpo": "%s\n\nversione %s · Godot %s\n\nUn gioco narrativo sull'Odissea: tu sei Ulisse, e gli dèi sono agenti che non vedrai mai."
   }
 }

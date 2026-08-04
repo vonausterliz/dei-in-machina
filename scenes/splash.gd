@@ -29,9 +29,9 @@ const DURATA := 3.4
 const ATTESA_DOPO_MUSICA := 3.0
 const DISSOLVENZA := 0.7     # durata della sfumatura d'uscita
 
-## Il proemio: circa trenta secondi di lira e bordone, generati da
-## tools/musica/genera_proemio.py (che e' anche la partitura: si legge e si riesegue).
-const MUSICA := "res://assets/audio/proemio.ogg"
+## Il momento della colonna sonora a cui questa schermata corrisponde. Quale brano ci sia
+## davvero lo dice `data/musica.json`: qui non si nomina nessun file.
+const MOMENTO := "splash"
 
 const C_SEA_DEEP := Color("131020")
 const C_SEA := Color("1a1630")
@@ -49,9 +49,15 @@ const DEI := 7
 ## dell'applicazione dallo stesso disegno. Un marchio solo, un posto solo.
 var solo_marchio := false
 
+## La colonna sonora del gioco, prestata da Main: e' la stessa che suonera' i capitoli, e
+## averne una sola vuol dire che l'apertura puo' sfumare dentro la musica del primo
+## capitolo invece di accavallarsi. Se non c'e' (i test, il generatore d'icona), la
+## schermata si regge sul tempo — un'apertura non deve dipendere da un asset per esistere.
+var musica: ColonnaSonora
+
 var _t := 0.0
 var _uscita := -1.0
-var _suono: AudioStreamPlayer
+var _in_onda := false
 ## Da quando la musica e' finita, o -1 se sta ancora suonando (o se non c'e' musica).
 var _muto_da := -1.0
 var _tela: Control          # dove si disegna, e cio' che sfuma all'uscita
@@ -106,22 +112,15 @@ func _ready() -> void:
 	_avvia_musica()
 	set_process(true)
 
-## La musica, se c'e'. Se il file manca il gioco parte lo stesso e la schermata torna a
+## La musica, se c'e'. Se manca il brano il gioco parte lo stesso e la schermata torna a
 ## reggersi sul tempo: un'apertura non deve dipendere da un asset per esistere.
 func _avvia_musica() -> void:
-	if solo_marchio or DisplayServer.get_name() == "headless":
+	if solo_marchio or musica == null or DisplayServer.get_name() == "headless":
 		return
-	if not ResourceLoader.exists(MUSICA):
+	if not musica.suona(MOMENTO):
 		return
-	var flusso: AudioStream = load(MUSICA)
-	if flusso == null:
-		return
-	_suono = AudioStreamPlayer.new()
-	_suono.stream = flusso
-	_suono.bus = "Master"
-	add_child(_suono)
-	_suono.finished.connect(func(): _muto_da = 0.0)
-	_suono.play()
+	_in_onda = true
+	musica.brano_finito.connect(func(quale): if quale == MOMENTO: _muto_da = 0.0)
 
 func _riga(testo: String, dim: int, col: Color, font: FontFile) -> Label:
 	var l := Label.new()
@@ -142,10 +141,6 @@ func _process(delta: float) -> void:
 	if _uscita >= 0.0:
 		_uscita += delta
 		_tela.modulate.a = maxf(0.0, 1.0 - _uscita / DISSOLVENZA)
-		# La musica se ne va con l'immagine: un suono che continua su una schermata sparita
-		# e' un pezzo di apertura rimasto indietro.
-		if _suono and _suono.playing:
-			_suono.volume_db = linear_to_db(maxf(0.0001, 1.0 - _uscita / DISSOLVENZA))
 		if _uscita >= DISSOLVENZA:
 			set_process(false)
 			finito.emit()
@@ -157,7 +152,7 @@ func _process(delta: float) -> void:
 ## che finisca, e poi ancora tre secondi. Ritorna un traguardo per `_t`, cosi' il confronto
 ## nel processo resta uno solo.
 func _quando_congedarsi(delta: float) -> float:
-	if _suono == null:
+	if not _in_onda:
 		return DURATA
 	if _muto_da < 0.0:
 		return INF        # sta ancora suonando: non c'e' nessun traguardo
@@ -191,10 +186,14 @@ func _input(evento: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		congeda()
 
-## Avvia la sfumatura d'uscita (idempotente).
+## Avvia la sfumatura d'uscita (idempotente). La musica se ne va con l'immagine: un suono
+## che continua su una schermata sparita e' un pezzo d'apertura rimasto indietro.
 func congeda() -> void:
-	if _uscita < 0.0:
-		_uscita = 0.0
+	if _uscita >= 0.0:
+		return
+	_uscita = 0.0
+	if _in_onda and musica != null:
+		musica.ferma(DISSOLVENZA)
 
 # --- il marchio ---
 
@@ -211,10 +210,9 @@ func _disegna() -> void:
 	# Le presenze attorno: a dimensione d'icona sarebbero puntini sporchi, non figure.
 	if not solo_marchio:
 		_dei_attorno(centro, r)
-	_corona_dentata(centro, r)
-	_quadrante(centro, r)
-	_ruota_interna(centro, r)
-	_mare_e_nave(centro, r)
+	# Il disegno vero sta in Marchio: lo condividono l'icona dell'app e il logo
+	# nell'intestazione, e un emblema in tre posti dev'essere una funzione sola.
+	Marchio.disegna(_tela, centro, r, _t, _rampa(_t, 0.0, 1.0))
 
 ## Notte e un alone: il mare profondo del resto dell'interfaccia.
 func _fondo(tutto: Vector2, centro: Vector2, r: float) -> void:
@@ -236,65 +234,3 @@ func _dei_attorno(centro: Vector2, r: float) -> void:
 		_tela.draw_line(centro + dir * (r * 1.25), p,
 			Color(C_GOLD.r, C_GOLD.g, C_GOLD.b, alpha * 0.35), 1.0, true)
 		_tela.draw_circle(p, 2.6, Color(C_BONE.r, C_BONE.g, C_BONE.b, alpha))
-
-## La corona di denti: gira lenta, in senso orario.
-func _corona_dentata(centro: Vector2, r: float) -> void:
-	var alpha := _rampa(_t, 0.0, 1.0)
-	var col := Color(C_GOLD_DEEP.r, C_GOLD_DEEP.g, C_GOLD_DEEP.b, 0.85 * alpha)
-	var denti := 24
-	for i in denti:
-		var a := _t * 0.18 + TAU * float(i) / float(denti)
-		var dir := Vector2(cos(a), sin(a))
-		_tela.draw_line(centro + dir * (r * 1.06), centro + dir * (r * 1.15), col, 3.0, true)
-	_tela.draw_arc(centro, r * 1.06, 0, TAU, 128, col, 2.0, true)
-
-## Il quadrante inciso: tacche fitte, una lunga ogni cinque (i gradi del cielo).
-func _quadrante(centro: Vector2, r: float) -> void:
-	var alpha := _rampa(_t, 0.15, 1.0)
-	_tela.draw_arc(centro, r, 0, TAU, 128, Color(C_GOLD.r, C_GOLD.g, C_GOLD.b, 0.95 * alpha), 2.0, true)
-	for i in 60:
-		var a := TAU * float(i) / 60.0 - PI * 0.5
-		var dir := Vector2(cos(a), sin(a))
-		var lunga := i % 5 == 0
-		_tela.draw_line(centro + dir * (r * (0.90 if lunga else 0.945)), centro + dir * (r * 0.995),
-			Color(C_GOLD.r, C_GOLD.g, C_GOLD.b, (0.85 if lunga else 0.45) * alpha),
-			1.6 if lunga else 1.0, true)
-
-## La ruota dentro, che gira al contrario: due ingranaggi che si parlano.
-func _ruota_interna(centro: Vector2, r: float) -> void:
-	var alpha := _rampa(_t, 0.3, 1.0)
-	var rr := r * 0.60
-	_tela.draw_arc(centro, rr, 0, TAU, 96, Color(C_VERDIGRIS.r, C_VERDIGRIS.g, C_VERDIGRIS.b, 0.55 * alpha), 1.5, true)
-	for i in 8:
-		var a := -_t * 0.31 + TAU * float(i) / 8.0
-		var dir := Vector2(cos(a), sin(a))
-		_tela.draw_line(centro + dir * (rr * 0.22), centro + dir * rr,
-			Color(C_VERDIGRIS.r, C_VERDIGRIS.g, C_VERDIGRIS.b, 0.28 * alpha), 1.0, true)
-	_tela.draw_circle(centro, rr * 0.10, Color(C_GOLD.r, C_GOLD.g, C_GOLD.b, 0.7 * alpha))
-
-## Dentro il meccanismo: il mare, e una nave che non sa di essere calcolata.
-func _mare_e_nave(centro: Vector2, r: float) -> void:
-	var alpha := _rampa(_t, 0.45, 1.2)
-	var larg := r * 0.80
-	for onda in 2:
-		var y := centro.y + r * (0.30 + 0.17 * float(onda))
-		var punti := PackedVector2Array()
-		for i in 33:
-			var f := float(i) / 32.0
-			punti.append(Vector2(centro.x - larg + larg * 2.0 * f,
-				y + sin(f * TAU * 1.6 + _t * 1.1 + float(onda)) * r * 0.035))
-		_tela.draw_polyline(punti,
-			Color(C_VERDIGRIS.r, C_VERDIGRIS.g, C_VERDIGRIS.b, (0.5 - 0.18 * float(onda)) * alpha), 1.5, true)
-
-	# La nave, sull'onda alta: scafo, albero, vela.
-	var b := Vector2(centro.x, centro.y + r * 0.30 + sin(_t * 1.1) * r * 0.035)
-	var s := r * 0.17
-	var col := Color(C_BONE.r, C_BONE.g, C_BONE.b, 0.95 * alpha)
-	_tela.draw_polyline(PackedVector2Array([
-		b + Vector2(-s * 1.5, 0), b + Vector2(-s * 1.05, s * 0.55),
-		b + Vector2(s * 1.05, s * 0.55), b + Vector2(s * 1.5, 0),
-	]), col, 1.8, true)
-	_tela.draw_line(b + Vector2(0, s * 0.5), b + Vector2(0, -s * 1.9), col, 1.6, true)
-	_tela.draw_colored_polygon(PackedVector2Array([
-		b + Vector2(0.12 * s, -s * 1.8), b + Vector2(s * 1.2, -s * 0.2), b + Vector2(0.12 * s, -s * 0.2),
-	]), Color(C_GOLD.r, C_GOLD.g, C_GOLD.b, 0.85 * alpha))

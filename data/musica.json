@@ -1,0 +1,38 @@
+{
+  "_meta": "COLONNA SONORA — quale brano suona in quale momento del gioco. Per aggiungere una musica: metti il file .mp3 (o .ogg/.wav) nella cartella indicata da 'cartella' e scrivine il NOME accanto al momento. Un momento con file vuoto resta in silenzio, e il gioco non se ne lamenta: la musica e' un ornamento, non un requisito. I file NON passano dall'importatore di Godot — si caricano a runtime dal disco — proprio perche' tu possa aggiungerne senza toccare il progetto ne' riaprire l'editor. I momenti sono di tre specie: 'splash' (la schermata d'apertura), i quindici CAPITOLI (l'id e' quello di data/episodi.json, e la musica parte quando ci si arriva), 'traversata' (il tragitto fra un capitolo e l'altro) e i FINALI. Le chiavi di 'momenti' non si inventano: un test le confronta con episodi.json e fallisce se qualcuna non corrisponde a nulla.",
+
+  "cartella": "res://music",
+  "volume_db": -6.0,
+  "dissolvenza": 1.5,
+
+  "momenti": {
+    "splash": {
+      "file": "Intro.mp3",
+      "ciclo": false,
+      "volume_db": 0.0,
+      "_nota": "Non cicla: la schermata d'apertura si congeda tre secondi dopo l'ultima nota, quindi un brano che ricomincia la terrebbe li' per sempre."
+    },
+
+    "troia":       { "file": "", "_titolo": "La partenza da Troia" },
+    "ciconi":      { "file": "", "_titolo": "I Ciconi di Ismaro" },
+    "lotofagi":    { "file": "", "_titolo": "La terra dei Lotofagi" },
+    "ciclope":     { "file": "", "_titolo": "L'antro del Ciclope" },
+    "eolo":        { "file": "", "_titolo": "L'isola di Eolo" },
+    "laestrigoni": { "file": "", "_titolo": "Il porto dei Lestrigoni" },
+    "circe":       { "file": "", "_titolo": "Il palazzo di Circe" },
+    "ade":         { "file": "", "_titolo": "La soglia dell'Ade" },
+    "sirene":      { "file": "", "_titolo": "Il canto delle Sirene" },
+    "scilla":      { "file": "", "_titolo": "Lo stretto di Scilla e Cariddi" },
+    "trinacia":    { "file": "", "_titolo": "L'isola del Sole" },
+    "ogigia":      { "file": "", "_titolo": "L'isola di Calipso" },
+    "naufragio":   { "file": "", "_titolo": "La tempesta" },
+    "scheria":     { "file": "", "_titolo": "La terra dei Feaci" },
+    "itaca":       { "file": "", "_titolo": "Itaca" },
+
+    "traversata":  { "file": "", "ciclo": false, "_titolo": "Fra un capitolo e l'altro" },
+
+    "fine_morte":             { "file": "", "ciclo": false, "_titolo": "Finale: la morte di Odisseo" },
+    "fine_prigionia_eterna":  { "file": "", "ciclo": false, "_titolo": "Finale: l'isola dove il tempo non passa" },
+    "fine_itaca":             { "file": "", "ciclo": false, "_titolo": "Finale: il ritorno" }
+  }
+}

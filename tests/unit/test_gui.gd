@@ -26,34 +26,57 @@ func test_gui_gioca_un_turno():
 	assert_true(ui._stat_vals.has("animo"))
 	assert_ne(ui._stat_vals["animo"].text, "—", "il valore dell'animo e' stato popolato")
 
-## Regressione: la finestra della ciurma era dichiarata, aveva il pulsante, la voce di
-## menu e le funzioni di aggiornamento — ma non veniva MAI creata. I test headless non se
-## ne accorgevano perche' nessuno guardava le finestre di servizio. Ora le guardano.
-func test_le_tre_finestre_di_servizio_esistono():
+## Regressione storica: la finestra della ciurma era dichiarata, aveva il pulsante, la voce
+## di menu e le funzioni di aggiornamento — ma non veniva MAI creata, e nessun test
+## headless guardava le viste. Ora le due chat sono PANNELLI nella pagina (v2.34): la
+## guardia vale uguale, e anzi di piu' — se non si costruiscono, mezza colonna e' vuota.
+func test_le_viste_esistono():
 	var ui = load("res://scenes/Main.tscn").instantiate()
 	add_child_autofree(ui)
 	await wait_frames(2)
-	for nome in ["_fin_log", "_fin_olimpo", "_fin_ciurma"]:
-		assert_not_null(ui.get(nome), "%s deve essere costruita, non solo dichiarata" % nome)
+	for nome in ["_fin_log", "_pan_olimpo", "_pan_ciurma", "_lente", "_mappa"]:
+		assert_not_null(ui.get(nome), "%s deve essere costruito, non solo dichiarato" % nome)
 
-func test_la_finestra_della_ciurma_e_interattiva_e_collegata():
+## Le chat sono INCASTRATE, non finestre: devono stare dentro l'albero della pagina.
+## Il difetto che si vuole impedire e' il ritorno silenzioso a una finestra separata.
+func test_le_chat_sono_dentro_la_pagina():
 	var ui = load("res://scenes/Main.tscn").instantiate()
 	add_child_autofree(ui)
 	await wait_frames(2)
-	assert_true(ui._fin_ciurma.interattiva, "dalla ciurma Ulisse deve poter scrivere")
-	assert_not_null(ui._fin_ciurma.campo, "la barra d'invio dev'essere costruita")
-	assert_true(ui._fin_ciurma.inviato.is_connected(ui._on_ciurma_invio),
+	for p in [ui._pan_olimpo, ui._pan_ciurma]:
+		assert_false(p is Window, "una chat incastrata non e' una finestra")
+		assert_true(ui.is_ancestor_of(p), "deve stare nella pagina")
+		assert_true(p.visible, "e vedersi senza doverla aprire")
+
+func test_la_chat_della_ciurma_e_interattiva_e_collegata():
+	var ui = load("res://scenes/Main.tscn").instantiate()
+	add_child_autofree(ui)
+	await wait_frames(2)
+	assert_true(ui._pan_ciurma.interattiva, "dalla ciurma Ulisse deve poter scrivere")
+	assert_not_null(ui._pan_ciurma.campo, "la barra d'invio dev'essere costruita")
+	assert_true(ui._pan_ciurma.inviato.is_connected(ui._on_ciurma_invio),
 		"cio' che Ulisse scrive ai compagni deve arrivare al gioco")
 
-## Aprire una vista non deve mai fallire: erano chiamate su un riferimento nullo.
-func test_le_viste_si_aprono_senza_errori():
+## L'Olimpo e' in SOLA LETTURA: il giocatore assiste, non parla con gli dei. Una barra
+## d'invio li' dentro romperebbe il patto su cui regge tutto il gioco.
+func test_la_chat_dell_olimpo_non_si_puo_scrivere():
 	var ui = load("res://scenes/Main.tscn").instantiate()
 	add_child_autofree(ui)
 	await wait_frames(2)
-	for f in [ui._on_toggle_ciurma, ui._on_toggle_olimpo, ui._on_toggle_log]:
-		f.call(true)
-		f.call(false)
-	pass_test("le tre viste si aprono e si chiudono")
+	assert_false(ui._pan_olimpo.interattiva)
+	assert_null(ui._pan_olimpo.campo, "agli dei non si scrive")
+
+## La lente apre e chiude senza errori, su tutti e tre i riquadri che ce l'hanno.
+func test_la_lente_si_apre_e_si_chiude():
+	var ui = load("res://scenes/Main.tscn").instantiate()
+	add_child_autofree(ui)
+	await wait_frames(2)
+	for apri in [ui._ingrandisci_mappa, ui._ingrandisci_olimpo, ui._ingrandisci_ciurma]:
+		apri.call()
+		await wait_frames(1)
+		assert_true(ui._lente.visible, "la lente deve aprirsi")
+		ui._lente.chiudi()
+		assert_false(ui._lente.visible, "e chiudersi")
 
 ## La Vista Olimpo e' una CHAT: niente traccia tecnica, niente voci della ciurma.
 func test_la_vista_olimpo_resta_una_chat():
@@ -62,10 +85,9 @@ func test_la_vista_olimpo_resta_una_chat():
 	await wait_frames(2)
 	ui._input.text = "Sono io, Odisseo, che t'ho accecato!"
 	await ui._on_agisci()
-	ui._on_toggle_olimpo(true)
-	var t: String = ui._fin_olimpo.testo.get_parsed_text()
+	var t: String = ui._pan_olimpo.testo.get_parsed_text()
 	assert_false(t.contains("Envelope:"), "la traccia tecnica appartiene al Log LLM")
-	assert_false(t.contains("# Ciurma"), "la ciurma ha la sua finestra")
+	assert_false(t.contains("# Ciurma"), "la ciurma ha il suo riquadro")
 
 ## Il bottone per provare il modello dev'essere costruito e collegato: e' l'unico modo
 ## per sapere se una configurazione funziona SENZA cominciare una partita.
@@ -90,19 +112,23 @@ func test_la_prova_guarda_il_profilo_scelto_non_quello_attivo():
 	assert_ne(String(cfg["base_url"]), String(LLMManager.profili[locale]["base_url"]),
 		"non deve cadere sul provider locale")
 
-## L'avviso del motore simulato dev'essere nell'INTESTAZIONE e in rosso: quando stava in
-## fondo alla pagina, in colore tenue, si sono giocati quattro turni credendo di parlare
-## con gli dèi veri. Un avviso che non si vede non e' un avviso.
-func test_l_avviso_del_motore_simulato_si_vede():
+## L'AVVISO SCRITTO NON C'E' PIU', il presidio si'.
+##
+## Nell'intestazione c'era «⚠ SIMULATO — gli dèi non pensano», messo li' dopo che si erano
+## giocati quattro turni con dei finti credendo fossero veri. Su richiesta esplicita
+## (v2.34) l'indicazione del motore e' uscita dall'interfaccia. Il guaio pero' non lo
+## impediva l'etichetta: lo impedisce il BLOCCO — col simulato il campo e' spento e il
+## bottone disabilitato. Quella e' la cosa da sorvegliare, e vale piu' di una scritta.
+func test_col_simulato_non_si_puo_agire():
 	LLMManager.mock_mode = true
 	var ui = load("res://scenes/Main.tscn").instantiate()
 	add_child_autofree(ui)
 	await wait_frames(2)
-	assert_string_contains(ui._lbl_motore.text.to_lower(), "simulato")
-	assert_eq(ui._lbl_motore.get_theme_color("font_color"), ui.C_OXBLOOD, "in rosso")
-	# Nell'intestazione, cioe' fra i primi nodi della pagina — non in fondo.
-	var testata: Control = ui._lbl_motore.get_parent()
-	assert_lt(testata.get_index(), 3, "dev'essere in cima, non sotto la piega")
+	# In headless il blocco non scatta (o i test si bloccherebbero da soli): si prova la
+	# regola, che e' il punto unico in cui la decisione vive.
+	assert_true(Main.blocca_simulato(true, true), "motore finto + schermo = non si gioca")
+	assert_false(ui._narrazione.get_parsed_text().to_lower().contains("simulato"),
+		"l'avviso scritto e' stato tolto dall'interfaccia")
 
 # --- Il simulato non e' uno stato in cui si possa GIOCARE ---
 
@@ -148,8 +174,10 @@ func test_la_partita_si_salva_e_si_riprende_dalla_gui():
 	await ui._on_menu_partita(Main.VOCE_CARICA)   # …e si riprende
 	assert_eq(GameManager.stato.turno, turno, "si riparte da dove si era")
 	assert_string_contains(ui._narrazione.get_parsed_text(), "ripresa")
-	# Il diario non si appende: si RIDISEGNA per intero, o riprendere darebbe pagine bianche.
-	assert_eq(ui._diario_box.get_child_count(), GameManager.stato.diario.size())
+	# Il diario di bordo non e' piu' a schermo (v2.34), ma i DATI restano: li usa il
+	# salvataggio, e Omero per ricordare cos'e' successo. Sparire dall'interfaccia non
+	# vuol dire sparire dallo stato.
+	assert_gt(GameManager.stato.diario.size(), 0, "il diario resta nello stato salvato")
 
 ## La scheda dei COSTI in Settings. I limiti nati per risparmiare chiamate ora si vedono e
 ## si scelgono: prima erano costanti sparse nel codice, e chi giocava con un piano a
