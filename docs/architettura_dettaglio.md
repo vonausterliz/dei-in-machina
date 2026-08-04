@@ -43,75 +43,85 @@ il gioco che rifiutava i propri suggerimenti (→ `gia_proposto`).
 
 ## 1. Mappa dei componenti
 
+Quattro diagrammi, uno per domanda. Trentatré componenti in una figura sola non si leggono:
+qualunque visualizzatore la rimpicciolisce per farla stare nella larghezza della pagina, e
+un diagramma che ha bisogno dello zoom ha già fallito. I nomi per esteso, con i file, stanno
+nella tabella subito sotto.
+
+### 1.1 · Gli strati, e in che verso si guardano
+
 ```mermaid
-flowchart TD
-    subgraph UI["Interfaccia — Godot (scenes/)"]
-        MAIN["main.gd<br/>schermata giocatore · spunti<br/>condizione in fondo · intestazione"]
-        FOL["PannelloChat «Olimpo»<br/>nella pagina, sola lettura"]
-        FCI["PannelloChat «Ciurma»<br/>nella pagina, INTERATTIVA"]
-        LEN["lente.gd<br/>carta e chat, grandi"]
-        FLOG["FinestraTesto «Log LLM»<br/>l'unica finestra a se'"]
-        FSET["FinestraImpostazioni<br/>motore · provider · modello · gateway"]
-        MAP["mappa_viaggio.gd<br/>carta del Mediterraneo"]
-        SPL["splash.gd + marchio.gd<br/>emblema d'apertura"]
-        MUS["colonna_sonora.gd<br/>un brano per momento"]
-    end
-
-    subgraph CORE["Nucleo — Autoload"]
-        GM["GameManager<br/>FSM del turno · beat · memoria<br/>spunti · avanzamento tappe"]
-        PM["PantheonManager<br/>eleggibilità · RISVEGLIO<br/>risoluzione invocazioni"]
-        LM["LLMManager<br/>instradamento agenti<br/>mock ↔ reale · provider · gateway"]
-    end
-
-    subgraph REGOLE["Regole estratte (scripts/)"]
-        VAL["Validazione<br/>vaglio + ammonizione"]
-        POL["PoliticaDivina<br/>coalizioni · piani · scavalcamenti · resa dei conti"]
-        DEL["Delta<br/>i NUMERI del mondo"]
-        AG["Agora<br/>canali · viste · intestazioni"]
-        CIU["Ciurma<br/>compagni vivi e caduti"]
-    end
-
-    subgraph AGENTI["Agenti LLM (scripts/llm/)"]
-        INT["Interprete"]
-        DIO["DioAgente"]
-        ARB["Arbitro (Zeus)"]
-        NAR["Narratore (Omero)"]
-        SUG["Suggeritore"]
-        CRO["Cronista"]
-        COM["Compagno"]
-        CLI["LLMClient<br/>HTTP chat-completions"]
-        MOCK["LLMMock<br/>deterministico, senza rete"]
-    end
-
-    subgraph DATI["Dati (data/, prompts/, config/)"]
-        PJ["pantheon.json"]
-        EJ["episodi.json"]
-        CJ["ciurma.json"]
-        BJ["bilanciamento.json"]
-        TJ["testi/ · lingua/"]
-        PR["prompts/*.txt"]
-        CFG["config/providers/*.json"]
-    end
-
-    MAIN --> GM
-    FCI -->|beat| GM
-    GM --> PM
-    GM --> LM
-    GM --> VAL & POL & DEL & AG & CIU
-    LM --> INT & DIO & ARB & NAR & SUG & CRO & COM
-    LM --> MOCK
-    INT & DIO & ARB & NAR & SUG & CRO & COM --> CLI
-    AG --> FOL & FCI
-    LM -.llm_log.-> FLOG
-    FSET --> LM
-    PJ --> PM
-    EJ & CJ & BJ & TJ --> GM
-    PR --> AGENTI
-    CFG --> LM
-    GM --> MAP
-    MAIN --> LEN & MUS
-    SPL --> MUS
+flowchart LR
+    UI["INTERFACCIA<br/>scenes/"] --> CORE["NUCLEO<br/>3 autoload"]
+    CORE --> REG["REGOLE<br/>scripts/"]
+    CORE --> AG["AGENTI LLM<br/>scripts/llm/"]
+    DATI[("DATI<br/>data/ · prompts/ · config/")] --> CORE
+    DATI --> AG
 ```
+
+Una direzione sola: l'interfaccia chiede al nucleo, il nucleo applica le regole e interroga
+gli agenti, i dati alimentano entrambi. **Le regole non chiamano mai gli agenti** e gli
+agenti non toccano mai lo stato: è la separazione della sezione 0, disegnata.
+
+### 1.2 · Il nucleo: chi orchestra e chi decide
+
+```mermaid
+flowchart LR
+    GM["GameManager<br/><i>la macchina del turno</i>"]
+    GM --> PM["PantheonManager<br/><i>chi si sveglia</i>"]
+    GM --> LM["LLMManager<br/><i>chi parla ai modelli</i>"]
+    GM --> VAL["Validazione<br/><i>plausibile? ammonizione</i>"]
+    GM --> POL["PoliticaDivina<br/><i>coalizioni, scavalcamenti</i>"]
+    GM --> DEL["Delta<br/><i>i numeri del mondo</i>"]
+    GM --> AGO["Agora<br/><i>le conversazioni</i>"]
+    GM --> CIU["Ciurma<br/><i>chi è vivo, chi tace</i>"]
+    PJ[("pantheon.json")] --> PM
+    EJ[("episodi.json · ciurma.json<br/>bilanciamento.json · testi/")] --> GM
+```
+
+`GameManager` non contiene le regole: le **chiama**. Ogni riquadro a destra è un file che si
+può leggere e provare da solo — ed è il motivo per cui il turno resta una sequenza di fasi
+invece di un muro di codice.
+
+### 1.3 · Come si arriva a un modello
+
+```mermaid
+flowchart LR
+    LM["LLMManager"] --> A["gli 8 agenti<br/>Interprete · DioAgente · Arbitro<br/>Narratore · Suggeritore · Cronista<br/>Compagno · Ricognitore"]
+    A --> CLI["LLMClient<br/><i>HTTP chat-completions</i>"]
+    LM -. "modo simulato" .-> MOCK["LLMMock<br/><i>senza rete, ripetibile</i>"]
+    CLI --> OLL["Ollama<br/><i>locale</i>"]
+    CLI --> GW["Gateway<br/><i>coda e limiti</i>"]
+    CLI --> API["Mistral · Google · OpenAI<br/>Anthropic · OpenRouter"]
+    GW --> API
+    PR[("prompts/*.txt")] --> A
+    CFG[("config/providers/*.json")] --> LM
+```
+
+Un punto d'ingresso solo (`LLMManager`) e un punto d'uscita solo (`LLMClient`): è quello che
+permette di scambiare il motore vero col simulato senza che nessun agente se ne accorga.
+
+### 1.4 · L'interfaccia
+
+```mermaid
+flowchart LR
+    MAIN["main.gd<br/><i>narrazione · appigli · condizione</i>"]
+    MAIN --> POL2["PannelloChat «Olimpo»<br/><i>sola lettura</i>"]
+    MAIN --> PCI["PannelloChat «Ciurma»<br/><i>qui si scrive</i>"]
+    MAIN --> MAP["MappaViaggio"]
+    MAIN --> LEN["Lente<br/><i>ingrandisce i tre</i>"]
+    MAIN --> MUS["ColonnaSonora"]
+    MAIN --> SPL["Splash + Marchio"]
+    MAIN -.-> FLOG["FinestraTesto «Log LLM»<br/><i>l'unica finestra a sé</i>"]
+    MAIN -.-> FSET["FinestraImpostazioni"]
+    AGO[("Agora")] --> POL2
+    AGO --> PCI
+    PCI -- "beat" --> GM(["GameManager"])
+    MAIN -- "turno" --> GM
+```
+
+Le due chat non parlano col gioco: leggono `Agora`, che è la fonte unica delle conversazioni.
+L'unica che scrive è la ciurma, e quello che scrive è un **beat**, non un turno.
 
 ### Inventario, con i file
 
@@ -365,13 +375,14 @@ flowchart TD
     P --> C["Si scartano i 'silenzio'"]
     C --> Q{"quante voci<br/>restano in campo?"}
     Q -->|0| V0["Nessun verdetto"]
-    Q -->|1| ARB1["Verdetto deterministico<br/>+ riga di servizio in chat"]
+    Q -->|1| ARB1["Verdetto deterministico<br/>la proposta più intensa"]
     Q -->|2 o più| R["Round 2 — REPLICHE<br/>ognuno rilegge gli altri e ribatte<br/>(al massimo MAX_REPLICHE = 2)"]
     R --> K{"conflitto?<br/>chi punisce E chi aiuta"}
     K -->|no| ARB1
     K -->|sì| ZEUS["ARBITRO — Zeus<br/>chiude con parole SUE"]
     ARB1 --> MOD
     ZEUS --> MOD["PoliticaDivina.prepara_per_arbitrato<br/>piano · hybris · peso di coalizione"]
+    MOD --> GES["Chi la spunta AGISCE<br/>il gesto in chat, non un annuncio"]
 ```
 
 ### Si ribatte appena c'è qualcuno a cui ribattere
