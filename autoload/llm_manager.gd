@@ -224,9 +224,23 @@ func chiave_presente() -> bool:
 		return true
 	return _leggi_chiave(cfg) != ""
 
-## Il modello del provider SELEZIONATO (col prefisso se si passa dal gateway).
+## Il modello del provider SELEZIONATO come partira' davvero, cioe' col prefisso
+## d'instradamento se si passa dal gateway. Serve ai messaggi della prova, che devono
+## nominare cio' che e' stato mandato.
 func modello_del_profilo() -> String:
 	return String(_config_attiva().get("model", "?"))
+
+## Il modello SCELTO, nudo: quello scritto nel profilo, senza le decorazioni del trasporto.
+##
+## E' cio' che va mostrato e confrontato nei menu. Col gateway acceso l'altro diventa
+## «mistral/mistral-small-latest», e quella barra e' instradamento — ma il menu la leggeva
+## come se separasse un autore dal modello, e davanti a Mistral compariva una riga «Autore:
+## mistral» che non vuol dire niente. La barra significa cose diverse a seconda del
+## provider, e l'unico che lo sa e' il profilo: e' la stessa lezione di `nome_nudo`.
+func modello_scelto() -> String:
+	if profilo_idx < 0 or profilo_idx >= profili.size():
+		return ""
+	return String(profili[profilo_idx].get("model", ""))
 
 ## La configurazione del provider SELEZIONATO, col trasporto applicato.
 func config_del_profilo() -> Dictionary:

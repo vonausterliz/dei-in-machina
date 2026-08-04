@@ -212,10 +212,23 @@ func _ultimo_utente(messaggi: Array) -> String:
 
 ## Elenca i modelli disponibili sul provider (formato OpenAI /v1/models, supportato da
 ## Ollama). Ritorna {ok, modelli: Array[String], errore}. Serve alla verifica pre-partita.
+##
+## Passando dal Gateway il percorso porta «?provider=…», per dire di CHI vogliamo l'elenco.
+## Un gateway avviato prima di quella modifica confronta il percorso intero e non lo
+## riconosce: risponde 404 «non trovato», e l'utente si vede accusare l'indirizzo. Avevo
+## scritto che sarebbe stato retrocompatibile: non lo era. Qui si riprova una volta senza la
+## query — che e' esattamente il comportamento di prima, cioe' il provider predefinito.
 func elenca_modelli() -> Dictionary:
+	var r := await _elenca(models_path)
+	if not bool(r["ok"]) and String(r["errore"]).begins_with("HTTP 404") and models_path.contains("?"):
+		_log("    ↻ 404 con la query: gateway non aggiornato? riprovo senza")
+		return await _elenca(models_path.get_slice("?", 0))
+	return r
+
+func _elenca(percorso: String) -> Dictionary:
 	if not is_inside_tree():
 		return {"ok": false, "modelli": [], "errore": "client non nell'albero della scena"}
-	var url := base_url.trim_suffix("/") + models_path
+	var url := base_url.trim_suffix("/") + percorso
 	var h := _apri()
 	var err := h.request(url, intestazioni(), HTTPClient.METHOD_GET)
 	if err != OK:

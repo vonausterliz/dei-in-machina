@@ -215,3 +215,39 @@ func test_il_dialogo_del_nuovo_profilo_ha_i_bottoni_in_italiano():
 	assert_eq(f._dlg_nome.ok_button_text, Testi.s("finestre/crea"))
 	assert_gt(f._dlg_nome.size.y, 180, "ci devono stare la spiegazione, il campo e i bottoni")
 	f._dlg_nome.hide()
+
+# --- La cascata vale solo per OpenRouter ---
+
+## IL CASO DELLO SCREENSHOT. Col Gateway acceso e Mistral scelto compariva «Chi lo produce:
+## mistral», e il modello si leggeva «mistral/mistral-small-latest». Quella barra non è un
+## produttore: è il prefisso d'instradamento del Gateway. Il menu la leggeva come
+## separatore, cioè lo stesso errore di lettura che produsse il 404 di OpenRouter — la barra
+## significa cose diverse a seconda del provider, e l'unico che lo sa è il profilo.
+func test_col_gateway_acceso_mistral_non_ha_una_casa_produttrice():
+	var f := await _apri()
+	LLMManager.usa_gateway = true
+	await _scegli(f, "Mistral")
+	assert_false(f._riga_autore.visible,
+		"la barra del gateway è instradamento, non un produttore")
+	for i in f._opt_modello.item_count:
+		assert_false(f._nome_voce(i).contains("/"),
+			"nel menu i nomi vanno nudi: «%s»" % f._nome_voce(i))
+	LLMManager.usa_gateway = false
+
+## E per OpenRouter la cascata deve restare anche col gateway acceso: lì la barra è del nome.
+func test_col_gateway_acceso_openrouter_tiene_la_sua_cascata():
+	var f := await _apri()
+	LLMManager.usa_gateway = true
+	await _scegli(f, "OpenRouter")
+	assert_true(f._riga_autore.visible, "OpenRouter serve i modelli di case diverse")
+	assert_gt(f._opt_autore.item_count, 1)
+	LLMManager.usa_gateway = false
+
+## Nessuno degli altri provider deve mostrarla, a prescindere dal trasporto.
+func test_solo_openrouter_ha_la_riga_della_casa():
+	var f := await _apri()
+	for nome in ["Ollama locale", "Mistral", "Google", "OpenAI", "Anthropic"]:
+		await _scegli(f, nome)
+		assert_false(f._riga_autore.visible, "«%s» non ha case diverse: ha i suoi modelli" % nome)
+	await _scegli(f, "OpenRouter")
+	assert_true(f._riga_autore.visible)

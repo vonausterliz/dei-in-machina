@@ -522,7 +522,7 @@ func _on_provider(idx: int) -> void:
 	_sincronizza_modello()
 
 func _on_autore(_i: int) -> void:
-	_riempi_modelli(_autore_scelto(), LLMManager.modello_del_profilo())
+	_riempi_modelli(_autore_scelto(), LLMManager.modello_scelto())
 	# Cambiare autore cambia il modello mostrato: se non lo si registra, il gioco resta
 	# su quello di prima mentre il menu ne mostra un altro.
 	if _opt_modello.item_count > 0:
@@ -557,7 +557,7 @@ func _sincronizza() -> void:
 ## nel suo file, piu' quello scelto se non fosse gia' fra loro.
 func _sincronizza_modello() -> void:
 	var elenco: Array = LLMManager.modelli_noti().duplicate()
-	var attuale := LLMManager.modello_del_profilo()
+	var attuale := LLMManager.modello_scelto()
 	if attuale != "" and attuale != "?" and not elenco.has(attuale):
 		elenco.append(attuale)
 	_usa_elenco(elenco, attuale)
@@ -584,7 +584,13 @@ func _aggiorna_stato_chiave() -> void:
 func _usa_elenco(modelli: Array, selezionato: String) -> void:
 	_modelli = LLMManager.solo_modelli_testuali(
 		modelli, LLMManager.filtro_modelli(), LLMManager.nome_pieno())
-	var elenco_autori := LLMManager.autori(_modelli)
+	# LA CASCATA VALE SOLO DOVE I NOMI SONO «chi-lo-produce/modello», e a dirlo e' il
+	# PROFILO (`nome_pieno`), non la presenza di una barra. Prima bastava una barra: col
+	# Gateway acceso il modello di Mistral diventa «mistral/mistral-small-latest» — dove la
+	# barra e' instradamento, non un produttore — e davanti a Mistral compariva una riga
+	# «Chi lo produce: mistral» che non vuol dire niente. Oggi solo OpenRouter e' cosi':
+	# un endpoint per i modelli di case diverse, quindi prima si sceglie la casa.
+	var elenco_autori: Array = LLMManager.autori(_modelli) if LLMManager.nome_pieno() else []
 	_riga_autore.visible = not elenco_autori.is_empty()
 	_opt_autore.clear()
 	if elenco_autori.is_empty():
@@ -710,7 +716,7 @@ func _aggiorna_modelli() -> void:
 	if modelli.is_empty():
 		_esito(Testi.s("impostazioni/elenco_vuoto", [LLMManager.nome_profilo_corrente()]), false)
 		return
-	_usa_elenco(modelli, LLMManager.modello_del_profilo())
+	_usa_elenco(modelli, LLMManager.modello_scelto())
 	_esito(Testi.s("impostazioni/modelli_trovati",
 		[_modelli.size(), LLMManager.nome_profilo_corrente(), modelli.size()]), true)
 
@@ -719,7 +725,7 @@ func _aggiorna_modelli() -> void:
 ## proverebbe Ollama. Verdetto in chiaro, coi colori: verde funziona, rosso no.
 func _prova_modello() -> void:
 	_btn_prova.disabled = true
-	_stato.text = Testi.s("impostazioni/provo", [LLMManager.modello_del_profilo()])
+	_stato.text = Testi.s("impostazioni/provo", [LLMManager.modello_scelto()])
 	_stato.add_theme_color_override("font_color", C_BONE_DIM)
 	var v: Dictionary = await LLMManager.prova_profilo()
 	_btn_prova.disabled = false
@@ -727,10 +733,13 @@ func _prova_modello() -> void:
 	# L'elenco appena arrivato dal provider: se qualcosa non va, le alternative sono li'.
 	# E il verdetto di QUESTO modello e' appena cambiato — segnato rosso perche' non genera,
 	# o sbiancato perche' invece genera: il menu va ridisegnato, o mostra quello di prima.
+	# `atteso` e' il nome DECORATO — cio' che e' stato mandato davvero, prefisso del gateway
+	# compreso — e va bene nei messaggi. Nel menu no: li' i nomi sono nudi, e non
+	# combacerebbe con nessuno.
 	if not v["modelli"].is_empty():
-		_usa_elenco(v["modelli"], String(v["atteso"]))
+		_usa_elenco(v["modelli"], LLMManager.modello_scelto())
 	else:
-		_riempi_modelli(_autore_scelto(), LLMManager.modello_del_profilo())
+		_riempi_modelli(_autore_scelto(), LLMManager.modello_scelto())
 
 	if not v["raggiungibile"]:
 		_esito(Testi.s("impostazioni/prova_irraggiungibile", [v["dove"], v["errore"]]), false)
