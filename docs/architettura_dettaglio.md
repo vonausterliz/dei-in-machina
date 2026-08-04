@@ -704,10 +704,46 @@ flowchart LR
     MK -->|sì| MOCK["LLMMock<br/>deterministico, zero rete"]
     MK -->|no| CL["LLMClient<br/>chat-completions"]
     CL --> GW{"usa_gateway?"}
-    GW -->|no| PRV["Provider diretto<br/>Ollama · Mistral · Google…"]
+    GW -->|no| PRV["Provider diretto<br/>Ollama locale · Mistral · Google<br/>OpenAI · Anthropic · OpenRouter"]
     GW -->|sì| GATE["localhost:8800<br/>coda che rispetta i limiti<br/>modello ← provider/modello"]
     GATE --> PRV
 ```
+
+**Ollama è un provider come gli altri.** Fino alla v2.31 no: stava in `config/llm_config.json`,
+fuori dall'elenco, e si sceglieva con un interruttore suo — «chi dà voce agli dèi: Ollama /
+provider esterno». Ma «con quale modello parlo» è una domanda sola, e averla in due posti
+aveva una conseguenza precisa: col motore su Ollama il menu «Modello» mostrava il modello di
+un *altro* provider, e i modelli installati in casa non erano raggiungibili da nessuna parte.
+Ora ha il suo file come tutti (`config/providers/1_ollama.json`) e dichiara `locale: true` —
+l'unica differenza che gli resta: non vuole chiavi, e davanti a lui il gateway si tira
+indietro da solo (non c'è nessun piano gratuito da rispettare). Il selettore del motore è
+sparito: resta un interruttore solo, dèi finti o dèi veri.
+
+**Chiedere l'elenco e provare il modello sono due domande diverse, e vanno allo stesso
+posto.** «Aggiorna elenco» chiamava `verifica_provider()`, che interroga il **motore acceso**;
+«Prova il modello» chiama `prova_profilo()`, che interroga il **profilo selezionato**. Con
+Ollama in esecuzione e OpenRouter scelto nel menu, il primo chiedeva la lista a Ollama e la
+mostrava come se fosse di OpenRouter: nessun errore, nessuna spia — la risposta di un altro.
+Ora c'è `elenca_modelli_del_profilo()`, che va dove deve e si ferma lì: aggiornare un menu
+non deve costare un token.
+
+**I nomi dei modelli vengono dai dati, e qualcuno li verifica.** Ogni profilo porta i suoi
+`modelli_noti`, così il menu non è mai vuoto e non serve la rete per sapere cosa si può
+scegliere. Non è una cache: una cache invecchia in silenzio, ed è esattamente da lì che
+viene il difetto peggiore di questa serie — il modello predefinito di OpenRouter,
+`mistralai/mistral-small-3.2-24b-instruct:free`, **non esisteva**. L'avevo dedotto dal fatto
+che OpenRouter ha modelli col suffisso `:free`, senza mai verificarlo. 404 a ogni chiamata, e
+nessun test poteva accorgersene: tutti guardavano la *forma* del nome, nessuno la sua
+esistenza. Offline non si può fare di meglio, quindi il rimedio è duplice — un test pretende
+che il predefinito sia fra i curati, e `tools/verifica_modelli/` chiede a ogni provider il
+catalogo vero e confronta.
+
+**Anthropic è l'unico che non parla del tutto la lingua di OpenAI.** Il suo layer di
+compatibilità accetta il `Authorization: Bearer` su `/chat/completions`, ma `/models`
+pretende `x-api-key` e il Bearer lo rifiuta con un 401. Invece di un ramo «se il provider è
+anthropic» dentro `LLMClient`, il profilo dichiara le `intestazioni` che gli servono, con un
+segnaposto `$CHIAVE` che il client sostituisce: resta un dato, non diventa codice — e il
+prossimo provider con le sue manie si aggiunge senza toccare il client.
 
 **Il gateway è un trasporto, non un provider.** Prima era una voce nell'elenco dei provider:
 sceglierlo significava *non* scegliere Gemini. Ma «con quale modello parlo» e «passo dalla
@@ -727,6 +763,49 @@ modello genera? — e la seconda è una generazione vera da un token.
 **Il simulato non è più uno stato in cui si possa giocare.** `LLMMock` resta, e resta
 essenziale: è ciò che rende deterministici tutti i 269 test. Ma come *motore di partita* è
 stato tolto dal menu, dopo che si è giocato per quattro turni senza accorgersene.
+
+---
+
+## 11-bis. Il golden trace: vedere le assenze
+
+I guasti pericolosi di questo progetto sono stati quasi tutti **silenziosi**. Non codice che
+sbagliava — codice che **mancava**. Due finali dichiarati e irraggiungibili, perché la riga
+che li produceva non esisteva. Il caricamento che ometteva un modulo e lasciava lo stato
+vecchio a puntare al nuovo. La terraferma non disegnata, perché `triangulate_polygon`
+restituiva un array vuoto senza lamentarsi. Un controllo su una voce di testo mancante che
+non poteva scattare. Nessuno di questi faceva fallire un test — e non per distrazione: un
+test verifica ciò che qualcuno ha *pensato* di verificare, e nessuno pensa a verificare che
+una cosa che c'è continui a esserci.
+
+Il golden trace sì. `scripts/traccia_canonica.gd` esegue sei turni canonici col mock e un
+seed fisso, e registra tutto ciò che ne esce: tag e plausibilità, ammonizione, dèi svegliati,
+proposte, verdetto, delta, stato di Ulisse, registro divino, voci di ciurma, la narrazione
+per intero. Il confronto è **per percorso** — `turni/3/svegliati` dice subito dove — e
+distingue tre casi che un `!=` fra dizionari confonderebbe in uno: cambiato, **COMPARSO**,
+**SPARITO**.
+
+Due modi di usarlo, una sola logica dietro:
+
+| | |
+|---|---|
+| `tools/golden_trace/golden_trace.gd` | per **leggere** la differenza; con `-- aggiorna` la ri-registra |
+| `tests/unit/test_golden_trace.gd` | per non poterla **ignorare** |
+
+Perché sia deterministico: mock, seed fisso, profilo di costo forzato al Frugale (con un
+altro profilo cambiano quanti compagni parlano), nessun orologio nella traccia, e ogni
+insieme ordinato prima di scriverlo — un dizionario iterato a caso darebbe differenze finte
+a ogni esecuzione.
+
+**Un golden trace che non tocca niente resta verde per sempre**, ed è così che muore senza
+che nessuno se ne accorga. Per questo un secondo test pretende che la traccia registrata
+eserciti ancora risveglio, narrazione, ammonizione, avanzamento di tappa, delta applicato e
+voci di ciurma. Un terzo rilegge il testo registrato e verifica lì l'invariante più
+importante: Omero non nomina mai un dio.
+
+Alla prima registrazione ha già trovato qualcosa — non nel codice, in un commento. Il copione
+diceva «vanto → Poseidone»; ma Poseidone ha `dorme_finche: maledizione_di_polifemo` e a Troia
+dorme per progetto. Il codice aveva ragione, il commento no, ed era sbagliato dal giorno in
+cui era stato scritto.
 
 ---
 
@@ -762,14 +841,16 @@ cade solo il registro.
 | Aggiungere un agente | `scripts/llm/`, + metodo su `LLMManager`, + guardrail (il test lo pretende) |
 | Rigenerare le coste | `python3 tools/coste/converti_coste.py` |
 | Guardare cosa ha fatto il sistema | `./avvia.sh test` · `tools/trace_dumper/` · `tools/validator/` · la finestra Log LLM |
+| Sapere se ho cambiato qualcosa **senza volerlo** | `tools/golden_trace/` — confronta sei turni canonici con la traccia registrata |
+| Sapere se i modelli dichiarati **esistono ancora** | `tools/verifica_modelli/` — lo chiede ai provider |
+| Guardare l'**impaginazione** di Impostazioni | `tools/foto_settings.gd` — ne fa il ritratto (serve un DISPLAY) |
 | Sapere quanto costa una modifica ai prompt | `tools/stima_costo/stima_costo.gd` |
 
 ### Cosa resta aperto
 
-- **Estrarre il Viaggio** (episodi/avanzamento) da `GameManager`, e **dividere `main.gd`**
-  (~1000 righe: la costruzione UI andrebbe separata dalla logica).
-- **Golden trace / snapshot** di un turno canonico: previsto dal mandato di auto-verifica,
-  non ancora fatto.
+- **Dividere `main.gd`** (~1170 righe: la costruzione UI andrebbe separata dalla logica).
+  Il Viaggio e il Taccuino sono già fuori da `GameManager`; ora c'è anche il golden trace a
+  fare da rete durante lo spostamento.
 - **Streaming** della narrazione (oggi il turno arriva tutto insieme).
 - **Parallelizzazione** delle proposte divine dietro un flag di Impostazioni: utile fuori dal
   tier gratuito, dove il pavimento non è più requests/second.
