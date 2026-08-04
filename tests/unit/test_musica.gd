@@ -53,10 +53,82 @@ func test_lo_splash_ha_un_brano_esistente():
 func test_lo_splash_non_cicla():
 	assert_false(bool(_cs.brano("splash")["ciclo"]))
 
-## Un momento muto (oggi: tutti i capitoli) non e' un errore. Deve dare "" senza lamentarsi.
-func test_un_momento_muto_da_stringa_vuota():
-	assert_eq(String(_cs.brano("troia")["file"]), "")
-	assert_false(_cs.suona("troia"), "un momento muto non suona, e lo dice")
+## Un momento senza brano non e' un errore: deve dare "" senza lamentarsi.
+##
+## NON si nomina un capitolo preciso. La cartella `music/` e' di chi gioca e col tempo si
+## riempira': un test scritto su «troia e' muto» diventerebbe rosso il giorno in cui qualcuno
+## posa troia.mp3, e sarebbe il test a sbagliare, non lui. Si cerca un momento che sia muto
+## adesso, qualunque esso sia.
+func test_un_momento_senza_brano_da_stringa_vuota():
+	var muto := ""
+	for m in _cs.momenti():
+		if String(_cs.brano(m)["file"]) == "":
+			muto = m
+			break
+	if muto == "":
+		pass_test("tutti i momenti hanno un brano: non c'e' niente da verificare qui")
+		return
+	assert_eq(String(_cs.brano(muto)["file"]), "")
+	assert_false(_cs.suona(muto), "un momento muto non suona, e lo dice")
+
+# --- La convenzione: il file che si chiama come il momento ---
+
+## LA DOMANDA NATURALE di chi aggiunge una musica e' «basta metterla nella cartella?», e la
+## risposta dev'essere si'. Un file chiamato come il momento si trova senza scrivere niente
+## nella tabella. Il file di prova si crea e si cancella qui: la cartella `music/` e' di chi
+## gioca, e un test non deve lasciarci dentro roba sua.
+func test_un_file_chiamato_come_il_momento_si_trova():
+	var dove := _cartella_music()
+	var finto := dove.path_join("ciconi.mp3")
+	_deposita(finto)
+	var cs2 := ColonnaSonora.new()   # rilegge la cartella
+	add_child_autofree(cs2)
+	assert_eq(cs2.brano("ciconi")["file"], finto,
+		"un file chiamato come il momento deve bastare")
+	DirAccess.remove_absolute(finto)
+
+## Su macOS il disco non distingue le maiuscole, su Linux si'. Un brano che suona su una
+## macchina e tace sull'altra e' il genere di differenza che fa perdere un pomeriggio.
+func test_la_convenzione_ignora_le_maiuscole():
+	var dove := _cartella_music()
+	var finto := dove.path_join("Lotofagi.MP3")
+	_deposita(finto)
+	var cs2 := ColonnaSonora.new()
+	add_child_autofree(cs2)
+	assert_eq(cs2.brano("lotofagi")["file"], finto)
+	DirAccess.remove_absolute(finto)
+
+## La tabella VINCE: lo splash ha un file suo (Intro.mp3) e non deve farsi scavalcare da un
+## `splash.mp3` posato li' per caso.
+func test_la_tabella_vince_sulla_convenzione():
+	var dove := _cartella_music()
+	var finto := dove.path_join("splash.mp3")
+	_deposita(finto)
+	var cs2 := ColonnaSonora.new()
+	add_child_autofree(cs2)
+	assert_ne(cs2.brano("splash")["file"], finto, "il nome scritto nella tabella comanda")
+	assert_true(String(cs2.brano("splash")["file"]).ends_with("Intro.mp3"))
+	DirAccess.remove_absolute(finto)
+
+## La convenzione vale solo per i momenti DICHIARATI: la tabella resta l'elenco di cosa
+## esiste, altrimenti un file con un nome sbagliato sembrerebbe funzionare.
+func test_la_convenzione_non_inventa_momenti():
+	var dove := _cartella_music()
+	var finto := dove.path_join("momento_inventato.mp3")
+	_deposita(finto)
+	var cs2 := ColonnaSonora.new()
+	add_child_autofree(cs2)
+	assert_eq(String(cs2.brano("momento_inventato")["file"]), "")
+	DirAccess.remove_absolute(finto)
+
+func _cartella_music() -> String:
+	return ProjectSettings.globalize_path("res://music")
+
+## Un file minimo: al controllo serve che ESISTA, non che sia un brano vero.
+func _deposita(percorso: String) -> void:
+	var f := FileAccess.open(percorso, FileAccess.WRITE)
+	f.store_string("non e' musica")
+	f.close()
 
 ## Un momento inventato non deve far esplodere niente: la musica e' un ornamento.
 func test_un_momento_inesistente_e_muto():

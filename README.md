@@ -86,6 +86,10 @@ narrazione continua a non nominare nessuno. Puoi anche tenerla chiusa e giocare 
 
 ![La carta del viaggio](docs/immagini/carta.png)
 
+Ogni capitolo può avere la **sua musica**: basta posare un file in `music/` col nome del
+capitolo — `ciclope.mp3` — e suonerà quando ci arrivi. Nessuna importazione, nessuna
+configurazione.
+
 Le coste sono vere (dati Natural Earth, ridisegnati); la rotta è quella del poema. I
 compagni hanno un nome e un carattere, e **si può parlare con loro** — costa poco e non fa
 girare il mondo, ma quello che dici a bordo lo sentono anche gli dèi, al turno dopo. Chi

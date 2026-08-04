@@ -66,13 +66,20 @@ func momenti() -> Array:
 
 ## Cosa suona a un momento: {file, ciclo, volume_db}. `file` e' un percorso ASSOLUTO gia'
 ## risolto, oppure "" se quel momento e' muto o non esiste.
+##
+## DUE MODI DI DIRE QUALE BRANO. Il primo e' scriverne il nome nella tabella. Il secondo e'
+## non scrivere niente e chiamare il file come il momento — `troia.mp3` per il capitolo
+## `troia` — perche' la domanda naturale di chi aggiunge una musica e' «basta metterla
+## nella cartella?», e la risposta giusta a quella domanda e' si'. La tabella resta, e
+## vince: serve quando il file ha un nome suo (l'apertura e' `Intro.mp3`) o quando si
+## vogliono cambiare ciclo e volume.
 func brano(momento: String) -> Dictionary:
 	var voce: Variant = _dati.get("momenti", {}).get(momento, null)
 	if typeof(voce) != TYPE_DICTIONARY:
 		return {"file": "", "ciclo": false, "volume_db": 0.0}
 	var nome := String(voce.get("file", "")).strip_edges()
 	return {
-		"file": _percorso(nome),
+		"file": _percorso(nome) if nome != "" else _per_convenzione(momento),
 		"ciclo": bool(voce.get("ciclo", true)),
 		# Il volume del momento si SOMMA a quello generale: la manopola grossa resta una.
 		"volume_db": float(voce.get("volume_db", 0.0)) + float(_dati.get("volume_db", 0.0)),
@@ -88,6 +95,26 @@ func _percorso(nome: String) -> String:
 		p = "%s/%s" % [String(_dati.get("cartella", "res://music")), nome]
 	var vero := ProjectSettings.globalize_path(p) if p.begins_with("res://") else p
 	return vero if FileAccess.file_exists(vero) else ""
+
+## Il file che si chiama come il momento, se c'e'. Si scandaglia la cartella invece di
+## provare i percorsi a uno a uno perche' il confronto dev'essere INSENSIBILE ALLE
+## MAIUSCOLE: su macOS `Troia.mp3` risponde a `troia.mp3`, su Linux no, e un brano che
+## suona su una macchina e tace sull'altra e' il genere di differenza che fa perdere un
+## pomeriggio.
+func _per_convenzione(momento: String) -> String:
+	var cartella := String(_dati.get("cartella", "res://music"))
+	var vera := ProjectSettings.globalize_path(cartella) if cartella.begins_with("res://") else cartella
+	var dir := DirAccess.open(vera)
+	if dir == null:
+		return ""
+	var cercato := momento.to_lower()
+	# Ordine di preferenza fisso: con `troia.mp3` e `troia.ogg` nella stessa cartella la
+	# scelta non puo' dipendere da come il sistema elenca i file.
+	for est in ["mp3", "ogg", "wav"]:
+		for nome in dir.get_files():
+			if nome.to_lower() == "%s.%s" % [cercato, est]:
+				return vera.path_join(nome)
+	return ""
 
 func dissolvenza() -> float:
 	return float(_dati.get("dissolvenza", 1.5))

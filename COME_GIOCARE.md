@@ -125,6 +125,46 @@ Console (headless): `:olimpo`, `:stato`, `:salva`, `:carica`, `:tappa <id>`, `:e
 
 ---
 
+## Aggiungere la musica
+
+Il gioco ha un brano per **momento**: la schermata d'apertura, ognuno dei quindici
+capitoli, la traversata fra un capitolo e l'altro, e i tre finali. Ne arriva già uno,
+sull'apertura; gli altri sono in silenzio finché non li riempi tu.
+
+**Basta mettere il file nella cartella `music/` e chiamarlo come il momento.** Nient'altro.
+
+```
+music/troia.mp3        → suona alla partenza da Troia
+music/ciclope.ogg      → suona nell'antro del Ciclope
+music/fine_itaca.mp3   → suona quando torni a casa
+```
+
+Valgono `.mp3`, `.ogg` e `.wav`; maiuscole e minuscole non contano. **Non serve reimportare
+niente né riaprire l'editor**: i brani si leggono dal disco quando servono.
+
+Gli identificatori dei momenti sono questi:
+
+| Capitolo | Nome del file | | Capitolo | Nome del file |
+|---|---|---|---|---|
+| La partenza da Troia | `troia` | | Il canto delle Sirene | `sirene` |
+| I Ciconi di Ismaro | `ciconi` | | Scilla e Cariddi | `scilla` |
+| La terra dei Lotofagi | `lotofagi` | | L'isola del Sole | `trinacia` |
+| L'antro del Ciclope | `ciclope` | | L'isola di Calipso | `ogigia` |
+| L'isola di Eolo | `eolo` | | La tempesta | `naufragio` |
+| Il porto dei Lestrigoni | `laestrigoni` | | La terra dei Feaci | `scheria` |
+| Il palazzo di Circe | `circe` | | Itaca | `itaca` |
+| La soglia dell'Ade | `ade` | | | |
+
+E i momenti che non sono capitoli: `splash` (l'apertura), `traversata` (fra una tappa e
+l'altra), `fine_morte`, `fine_prigionia_eterna`, `fine_itaca`.
+
+**Se ti serve di più**, in `data/musica.json` puoi scrivere il nome del file per esteso
+(utile quando ha un nome suo, come `Intro.mp3`) e regolare due cose per ogni momento:
+`ciclo` — se il brano ricomincia da capo quando finisce, e `volume_db` — quanto forte,
+rispetto al volume generale. Quello che è scritto lì vince sempre sul nome del file.
+
+---
+
 ## Avvio manuale (senza launcher)
 
 Se hai già Godot 4.7.x installato:
