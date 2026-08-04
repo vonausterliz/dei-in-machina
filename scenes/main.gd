@@ -57,8 +57,7 @@ var _fin_impostazioni: FinestraImpostazioni
 var _btn_olimpo: Button
 var _btn_log: Button
 var _btn_agisci: Button
-var _chk_ollama: CheckButton
-var _chk_esterno: CheckButton
+var _chk_reale: CheckButton
 var _opt_provider: OptionButton
 var _opt_modello: OptionButton
 var _stat_bars := {}
@@ -109,7 +108,7 @@ func _ripristina_preferenze() -> void:
 	# rete; il motore vero si accende subito dopo. Il valore predefinito e' il PROVIDER
 	# ESTERNO, non il simulato: quello non e' una modalita' di gioco.
 	LLMManager.mock_mode = true
-	_motore_da_ripristinare = int(Impostazioni.leggi("motore", FinestraImpostazioni.MOTORE_ESTERNO))
+	_motore_da_ripristinare = FinestraImpostazioni.motore_salvato()
 
 ## Rimette il provider scelto e se passare o no dal gateway. Due preferenze distinte,
 ## perché sono due scelte distinte.
@@ -125,14 +124,14 @@ func _ripristina_provider() -> void:
 		var vecchio := int(Impostazioni.leggi("provider_idx", 0))
 		if vecchio == 0:
 			Impostazioni.scrivi("usa_gateway", true)   # "0" era il gateway
-		var nomi: Array = LLMManager.nomi_profili_esterni()
+		var nomi: Array = LLMManager.nomi_profili()
 		var nuovo := clampi(vecchio - 1, 0, maxi(0, nomi.size() - 1))
 		nome = String(nomi[nuovo]) if not nomi.is_empty() else ""
 		Impostazioni.scrivi("provider_nome", nome)
 		Impostazioni.dimentica("provider_idx")         # la vecchia chiave non vale più
 	var idx := LLMManager.indice_profilo(nome)
 	if idx >= 0:
-		LLMManager.imposta_profilo_esterno(idx)
+		LLMManager.imposta_profilo(idx)
 	LLMManager.usa_gateway = bool(Impostazioni.leggi("usa_gateway", false))
 
 ## Riapre le viste che erano aperte, dove e come erano; poi riattiva il motore scelto.
@@ -153,7 +152,7 @@ func _ripristina_finestre() -> void:
 	if _motore_da_ripristinare >= 0:
 		var m := _motore_da_ripristinare
 		_motore_da_ripristinare = -1
-		await _on_motore_scelto(m)
+		await _on_motore_scelto(m == FinestraImpostazioni.MOTORE_REALE)
 
 ## Alla chiusura salvo dove sono finite le finestre, per ritrovarle uguali.
 func _notification(che: int) -> void:
@@ -432,18 +431,17 @@ func _riapri_partita_ripresa() -> void:
 func _nota(testo: String) -> void:
 	_narrazione.append_text("[color=%s]%s[/color]\n\n" % [C_VERDIGRIS.to_html(), testo])
 
-## Scelta del motore dal menu Settings: Ollama locale o provider esterno.
+## Accendi i dei veri sul provider selezionato. Erano due interruttori — «Ollama» e «LLM
+## esterno», mutuamente esclusivi — perche' Ollama era un motore a parte invece che un
+## provider: due comandi per dire «quale provider», e nessuno per dire «acceso o spento».
 ## Il simulato NON e' fra le scelte: non e' una modalita' di gioco (vedi blocca_simulato).
-func _on_motore_scelto(modo: int) -> void:
-	match modo:
-		FinestraImpostazioni.MOTORE_OLLAMA:
-			_chk_esterno.set_pressed_no_signal(false)
-			_chk_ollama.set_pressed_no_signal(true)
-			await _attiva_reale(false)
-		FinestraImpostazioni.MOTORE_ESTERNO:
-			_chk_ollama.set_pressed_no_signal(false)
-			_chk_esterno.set_pressed_no_signal(true)
-			await _attiva_reale(true)
+func _on_motore_scelto(reale: bool) -> void:
+	if reale:
+		_chk_reale.set_pressed_no_signal(true)
+		await _attiva_reale()
+	else:
+		LLMManager.mock_mode = true
+		_chk_reale.set_pressed_no_signal(false)
 	_aggiorna_indicatore_motore()
 
 ## IL SIMULATO NON E' UNA MODALITA' DI GIOCO.
@@ -475,8 +473,8 @@ func _aggiorna_indicatore_motore() -> void:
 		_lbl_motore.text = Testi.s("motore/simulato")
 		_lbl_motore.add_theme_color_override("font_color", C_OXBLOOD)
 	else:
-		var dove := Testi.s("motore/nome_esterno") if LLMManager.provider_esterno else Testi.s("motore/nome_ollama")
-		_lbl_motore.text = Testi.s("motore/in_uso", [dove, LLMManager.modello_atteso()])
+		_lbl_motore.text = Testi.s("motore/in_uso",
+			[LLMManager.nome_profilo_corrente(), LLMManager.modello_atteso()])
 		_lbl_motore.add_theme_color_override("font_color", C_VERDIGRIS)
 
 func _apri_impostazioni() -> void:
@@ -599,26 +597,20 @@ func _colonna_rapsodia() -> Control:
 	opz.add_child(_btn_ciurma)
 	_btn_log.toggled.connect(_on_toggle_log)
 	opz.add_child(_btn_log)     # idem: comandato dal menu View
-	_chk_ollama = CheckButton.new()
-	_chk_ollama.text = "Ollama (locale)"
-	_chk_ollama.add_theme_color_override("font_color", C_BONE_DIM)
-	_chk_ollama.toggled.connect(_on_toggle_ollama)
-	opz.add_child(_chk_ollama)
+	# Un interruttore solo: dei finti o dei veri. Quale provider lo dice il menu accanto.
+	_chk_reale = CheckButton.new()
+	_chk_reale.text = Testi.s("motore/dei_veri")
+	_chk_reale.add_theme_color_override("font_color", C_BONE_DIM)
+	_chk_reale.tooltip_text = Testi.s("motore/tooltip_dei_veri")
+	_chk_reale.toggled.connect(_on_toggle_reale)
+	opz.add_child(_chk_reale)
 
-	# Flag: usa un LLM esterno (API cloud) invece di Ollama locale.
-	_chk_esterno = CheckButton.new()
-	_chk_esterno.text = "LLM esterno (API)"
-	_chk_esterno.add_theme_color_override("font_color", C_BONE_DIM)
-	_chk_esterno.tooltip_text = Testi.s("impostazioni/tooltip_esterno")
-	_chk_esterno.toggled.connect(_on_toggle_esterno)
-	opz.add_child(_chk_esterno)
-
-	# Quale provider esterno (Mistral / Gemini / OpenAI …).
+	# Quale provider (Ollama locale / Mistral / Google / OpenAI / Anthropic / OpenRouter).
 	_opt_provider = OptionButton.new()
 	_opt_provider.add_theme_color_override("font_color", C_BONE)
 	_opt_provider.add_theme_font_size_override("font_size", 13)
 	_opt_provider.tooltip_text = Testi.s("impostazioni/tooltip_provider")
-	for nome in LLMManager.nomi_profili_esterni():
+	for nome in LLMManager.nomi_profili():
 		_opt_provider.add_item(String(nome))
 	_opt_provider.disabled = _opt_provider.item_count == 0
 	_opt_provider.item_selected.connect(_on_provider_scelto)
@@ -1077,55 +1069,50 @@ func _on_toggle_log(premuto: bool) -> void:
 	else:
 		_fin_log.hide()
 
-func _on_toggle_ollama(premuto: bool) -> void:
+func _on_toggle_reale(premuto: bool) -> void:
 	if not premuto:
-		if not _chk_esterno.button_pressed:
-			LLMManager.mock_mode = true
+		LLMManager.mock_mode = true
+		Impostazioni.scrivi("motore", FinestraImpostazioni.MOTORE_SIMULATO)
+		_aggiorna_indicatore_motore()
 		return
-	_chk_esterno.set_pressed_no_signal(false)  # mutuamente esclusivi
-	await _attiva_reale(false)
+	if not LLMManager.c_e_un_provider():
+		_chk_reale.set_pressed_no_signal(false)
+		_nota_rossa(Testi.s("motore/nessun_profilo"))
+		return
+	LLMManager.imposta_profilo(_opt_provider.selected)
+	if not LLMManager.chiave_presente():
+		_chk_reale.set_pressed_no_signal(false)
+		_nota_rossa(Testi.s("motore/manca_chiave", [LLMManager.nome_profilo_corrente()]))
+		return
+	Impostazioni.scrivi("motore", FinestraImpostazioni.MOTORE_REALE)
+	await _attiva_reale()
 
-func _on_toggle_esterno(premuto: bool) -> void:
-	if not premuto:
-		if not _chk_ollama.button_pressed:
-			LLMManager.mock_mode = true
-		return
-	if not LLMManager.provider_esterno_disponibile():
-		_chk_esterno.set_pressed_no_signal(false)
-		_narrazione.append_text("[color=%s]Nessun provider esterno configurato (config/llm_config.esterno.json). Resto sui dèi simulati (mock).[/color]\n" % C_OXBLOOD.to_html())
-		return
-	LLMManager.imposta_profilo_esterno(_opt_provider.selected)
-	if not LLMManager.chiave_esterno_presente():
-		_chk_esterno.set_pressed_no_signal(false)
-		_narrazione.append_text("[color=%s]Manca la chiave API per «%s»: esporta la variabile d'ambiente e rilancia. Resto sui dèi simulati (mock).[/color]\n" % [C_OXBLOOD.to_html(), _opt_provider.get_item_text(_opt_provider.selected)])
-		return
-	_chk_ollama.set_pressed_no_signal(false)  # mutuamente esclusivi
-	await _attiva_reale(true)
+func _nota_rossa(testo: String) -> void:
+	_narrazione.append_text("[color=%s]%s[/color]\n" % [C_OXBLOOD.to_html(), testo])
 
-## Cambio provider esterno dal menù: se il percorso esterno è già attivo, ri-verifica.
+## Cambio provider dal menù: se i dèi veri sono già accesi, ri-verifica sul nuovo.
 func _on_provider_scelto(idx: int) -> void:
-	LLMManager.imposta_profilo_esterno(idx)
-	if _chk_esterno.button_pressed and not _busy and not _finita:
-		await _attiva_reale(true)
+	LLMManager.imposta_profilo(idx)
+	Impostazioni.scrivi("provider_nome", LLMManager.nome_profilo_corrente())
+	if _chk_reale.button_pressed and not _busy and not _finita:
+		await _attiva_reale()
 
 ## Attiva il percorso reale sul provider scelto (Ollama locale o API esterna), verifica
 ## e popola il selettore dei modelli. Se non è pronto, torna ai dèi simulati e spiega.
-func _attiva_reale(esterno: bool) -> void:
-	var chk := _chk_esterno if esterno else _chk_ollama
-	var dove := Testi.s("motore/nome_esterno") if esterno else Testi.s("motore/nome_ollama")
+func _attiva_reale() -> void:
+	var chk := _chk_reale
+	var dove := LLMManager.nome_profilo_corrente()
 	# Apri la finestra del log, cosi' si vede subito la verifica e il traffico.
 	_btn_log.button_pressed = true
 	_spunta_view(VOCE_LOG, true)
-	_chk_ollama.disabled = true
-	_chk_esterno.disabled = true
-	LLMManager.abilita_reale(esterno)
-	var v: Dictionary = await LLMManager.verifica_ollama()
-	_chk_ollama.disabled = false
-	_chk_esterno.disabled = false
+	_chk_reale.disabled = true
+	LLMManager.abilita_reale()
+	var v: Dictionary = await LLMManager.verifica_provider()
+	_chk_reale.disabled = false
 	if not v["attivo"]:
 		LLMManager.mock_mode = true
 		chk.set_pressed_no_signal(false)
-		var aiuto := Testi.s("motore/aiuto_esterno") if esterno else Testi.s("motore/aiuto_ollama")
+		var aiuto := Testi.s("motore/aiuto_ollama") if LLMManager.e_locale() else Testi.s("motore/aiuto_esterno")
 		_narrazione.append_text("[color=%s]%s[/color]\n" % [C_OXBLOOD.to_html(), Testi.s("motore/non_risponde", [dove, v.get("errore", "?"), aiuto])])
 		return
 	if v["modelli"].is_empty():

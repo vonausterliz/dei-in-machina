@@ -1,7 +1,9 @@
 class_name FinestraImpostazioni
 extends Window
 
-## Impostazioni (menu Settings): provider, modello, chiavi API e uso del Gateway.
+## Impostazioni (menu Settings). Due schede, due domande diverse:
+##  - «Modelli»: CHI da' voce agli dei — provider, modello, chiavi API, Gateway.
+##  - «Costi»:   QUANTO lo si fa parlare — i limiti nati per risparmiare chiamate.
 ##
 ## Le chiavi NON stanno nel repo: si salvano in user://impostazioni.json (cartella dati
 ## dell'utente, fuori dal progetto). Restano valide le variabili d'ambiente: se una chiave
@@ -15,37 +17,55 @@ const C_VERDIGRIS := Color("4e9a8e")
 const C_OXBLOOD := Color("b04a34")
 
 signal applicate
-## Il motore scelto: chi dà voce agli dèi. La GUI principale reagisce attivando il
-## percorso giusto (mock / Ollama / API esterna) e mostrandone l'esito.
-signal motore_scelto(modo: int)
+## Accendi (o spegni) i dèi veri sul provider selezionato. La GUI principale reagisce
+## attivando il percorso reale e mostrandone l'esito.
+signal motore_scelto(reale: bool)
 ## Dimensione dell'interfaccia scelta dall'utente (moltiplicatore sulla scala schermo).
 signal zoom_scelto(fattore: float)
 
 ## Dimensione "logica" del contenuto. La finestra va poi moltiplicata per la scala:
 ## con content_scale_factor 2 (Retina) il contenuto occupa il doppio dei pixel.
-const DIM_BASE := Vector2i(860, 760)
+const DIM_BASE := Vector2i(900, 780)
 
-## Il simulato NON e' una scelta di gioco: esiste solo come stato tecnico di partenza e
-## per i test/console headless. Non compare nel menu e nessuno puo' selezionarlo.
-const MOTORE_MOCK := 0
-const MOTORE_OLLAMA := 1
-const MOTORE_ESTERNO := 2
+## IL MOTORE ORA HA DUE STATI, NON TRE.
+##
+## Prima erano «simulato / Ollama / provider esterno», e le ultime due erano in realta' la
+## stessa cosa detta due volte: quale provider usare. Da quando Ollama e' un provider come
+## gli altri resta la sola domanda vera — dei finti o dei veri.
+const MOTORE_SIMULATO := 0
+const MOTORE_REALE := 1
+
+## Il valore salvato, tradotto dai tre stati vecchi ai due nuovi: 1 era «Ollama» e 2 era
+## «esterno», e in entrambi i casi si voleva un motore vero.
+static func motore_salvato() -> int:
+	var v := int(Impostazioni.leggi("motore", MOTORE_REALE))
+	return MOTORE_SIMULATO if v == MOTORE_SIMULATO else MOTORE_REALE
 
 var _campi_chiave: Dictionary = {}   # nome_variabile_env -> LineEdit
-var _opt_motore: OptionButton
 var _opt_provider: OptionButton
+var _opt_autore: OptionButton
+var _riga_autore: HBoxContainer
 var _opt_modello: OptionButton
 var _chk_gateway: CheckBox
 var _btn_prova: Button
+var _btn_aggiorna: Button
 var _stato: Label
+var _stato_chiave: Label
 var _costi_box: VBoxContainer
-var _dlg_nome: AcceptDialog
+var _dlg_nome: ConfirmationDialog
 var _campo_nome: LineEdit
+var _dlg_aiuto: AcceptDialog
+var _testo_aiuto: Label
+var _scala := 1.0
+
+## L'elenco dei modelli attualmente in mano: all'inizio quelli curati nel file del provider,
+## dopo «Aggiorna» quelli che il provider ha appena elencato.
+var _modelli: Array = []
 
 func _init() -> void:
 	title = Testi.s("finestre/impostazioni_titolo")
 	size = DIM_BASE
-	min_size = Vector2i(640, 460)
+	min_size = Vector2i(680, 500)
 	visible = false
 
 func _ready() -> void:
@@ -60,13 +80,17 @@ func _ready() -> void:
 	for lato in ["left", "top", "right", "bottom"]:
 		margine.add_theme_constant_override("margin_" + lato, 18)
 	add_child(margine)
-	# Due schede: i modelli (chi parla) e i costi (quanto lo si fa parlare). Sono due
-	# domande diverse, e mescolarle in un'unica colonna le rendeva entrambe piu' confuse.
 	var schede := TabContainer.new()
 	schede.set_anchors_preset(Control.PRESET_FULL_RECT)
 	margine.add_child(schede)
+	_scheda_modelli(schede)
+	_scheda_costi(schede)
+	_sincronizza()
 
-	# Scorrevole: cosi' il contenuto resta raggiungibile anche a finestra piccola.
+# --- Scheda «Modelli» ---
+
+func _scheda_modelli(schede: TabContainer) -> void:
+	# Scorrevole: così il contenuto resta raggiungibile anche a finestra piccola.
 	var scorri := ScrollContainer.new()
 	scorri.name = Testi.s("impostazioni/tab_modelli")
 	scorri.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -93,51 +117,57 @@ func _ready() -> void:
 	riga_zoom.add_child(_etichetta(Testi.s("impostazioni/dimensione_nota"), 12, C_BONE_DIM))
 
 	v.add_child(_separatore())
-	v.add_child(_etichetta(Testi.s("impostazioni/motore"), 14, C_GOLD))
-	var riga_motore := HBoxContainer.new()
-	riga_motore.add_theme_constant_override("separation", 10)
-	v.add_child(riga_motore)
-	riga_motore.add_child(_etichetta(Testi.s("impostazioni/chi_parla"), 13, C_BONE_DIM))
-	_opt_motore = OptionButton.new()
-	# Il simulato (mock) resta solo come stato interno di partenza e per i test: non e'
-	# una scelta di gioco, quindi non compare qui.
-	_opt_motore.add_item(Testi.s("impostazioni/ollama_locale"), MOTORE_OLLAMA)
-	_opt_motore.add_item(Testi.s("impostazioni/provider_esterno"), MOTORE_ESTERNO)
-	var motore_salvato := int(Impostazioni.leggi("motore", MOTORE_ESTERNO))
-	var idx_motore := _opt_motore.get_item_index(motore_salvato)
-	_opt_motore.select(idx_motore if idx_motore >= 0 else 0)
-	_opt_motore.item_selected.connect(func(i):
-		var modo := _opt_motore.get_item_id(i)
-		Impostazioni.scrivi("motore", modo)
-		motore_scelto.emit(modo))
-	riga_motore.add_child(_opt_motore)
-
-	v.add_child(_separatore())
 	v.add_child(_etichetta(Testi.s("impostazioni/provider_modello"), 14, C_GOLD))
-	var riga := HBoxContainer.new()
-	riga.add_theme_constant_override("separation", 10)
-	v.add_child(riga)
-	riga.add_child(_etichetta(Testi.s("impostazioni/provider"), 13, C_BONE_DIM))
+	var nota_p := _etichetta(Testi.s("impostazioni/provider_nota"), 12, C_BONE_DIM)
+	nota_p.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	nota_p.custom_minimum_size = Vector2(600, 0)
+	v.add_child(nota_p)
+
+	var riga_p := HBoxContainer.new()
+	riga_p.add_theme_constant_override("separation", 10)
+	v.add_child(riga_p)
+	riga_p.add_child(_etichetta(Testi.s("impostazioni/provider"), 13, C_BONE_DIM))
 	_opt_provider = OptionButton.new()
-	for nome in LLMManager.nomi_profili_esterni():
+	for nome in LLMManager.nomi_profili():
 		_opt_provider.add_item(String(nome))
 	_opt_provider.item_selected.connect(_on_provider)
-	riga.add_child(_opt_provider)
-	riga.add_child(_etichetta(Testi.s("impostazioni/modello"), 13, C_BONE_DIM))
+	riga_p.add_child(_opt_provider)
+	_stato_chiave = _etichetta("", 12, C_BONE_DIM)
+	riga_p.add_child(_stato_chiave)
+
+	# L'AUTORE. OpenRouter offre oltre trecento modelli: un menu piatto con dentro
+	# trecento voci non e' un elenco fra cui scegliere, e' un muro. La riga compare solo
+	# per i provider che usano nomi «autore/modello» — altrove non ci sarebbe niente dentro.
+	_riga_autore = HBoxContainer.new()
+	_riga_autore.add_theme_constant_override("separation", 10)
+	v.add_child(_riga_autore)
+	_riga_autore.add_child(_etichetta(Testi.s("impostazioni/autore"), 13, C_BONE_DIM))
+	_opt_autore = OptionButton.new()
+	_opt_autore.custom_minimum_size = Vector2(200, 0)
+	_opt_autore.item_selected.connect(_on_autore)
+	_riga_autore.add_child(_opt_autore)
+	_riga_autore.add_child(_etichetta(Testi.s("impostazioni/autore_nota"), 11, C_BONE_DIM))
+
+	var riga_m := HBoxContainer.new()
+	riga_m.add_theme_constant_override("separation", 10)
+	v.add_child(riga_m)
+	riga_m.add_child(_etichetta(Testi.s("impostazioni/modello"), 13, C_BONE_DIM))
 	_opt_modello = OptionButton.new()
+	_opt_modello.custom_minimum_size = Vector2(300, 0)
 	# Ricordato PER PROVIDER: un modello appartiene al suo provider.
 	_opt_modello.item_selected.connect(func(i):
-		LLMManager.ricorda_modello(_opt_modello.get_item_text(i))
-		_sincronizza_modello())
-	riga.add_child(_opt_modello)
-	var btn_agg := Button.new()
-	btn_agg.text = Testi.s("impostazioni/aggiorna_elenco")
-	btn_agg.pressed.connect(_aggiorna_modelli)
-	riga.add_child(btn_agg)
+		LLMManager.ricorda_modello(_opt_modello.get_item_text(i)))
+	riga_m.add_child(_opt_modello)
+	_btn_aggiorna = Button.new()
+	_btn_aggiorna.text = Testi.s("impostazioni/aggiorna_elenco")
+	_btn_aggiorna.tooltip_text = Testi.s("impostazioni/tooltip_aggiorna")
+	_btn_aggiorna.pressed.connect(_aggiorna_modelli)
+	riga_m.add_child(_btn_aggiorna)
 	_btn_prova = Button.new()
 	_btn_prova.text = Testi.s("impostazioni/prova")
+	_btn_prova.tooltip_text = Testi.s("impostazioni/tooltip_prova")
 	_btn_prova.pressed.connect(_prova_modello)
-	riga.add_child(_btn_prova)
+	riga_m.add_child(_btn_prova)
 
 	_chk_gateway = CheckBox.new()
 	_chk_gateway.text = Testi.s("impostazioni/gateway")
@@ -149,6 +179,7 @@ func _ready() -> void:
 	v.add_child(_etichetta(Testi.s("impostazioni/chiavi"), 14, C_GOLD))
 	var nota := _etichetta(Testi.s("impostazioni/chiavi_nota"), 12, C_BONE_DIM)
 	nota.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	nota.custom_minimum_size = Vector2(600, 0)
 	v.add_child(nota)
 
 	var griglia := GridContainer.new()
@@ -156,8 +187,9 @@ func _ready() -> void:
 	griglia.add_theme_constant_override("h_separation", 10)
 	griglia.add_theme_constant_override("v_separation", 8)
 	v.add_child(griglia)
-	for env in _variabili_chiave():
-		griglia.add_child(_etichetta(env, 13, C_BONE))
+	for riga in _variabili_chiave():
+		var env := String(riga[0])
+		griglia.add_child(_etichetta("%s  ·  %s" % [String(riga[1]), env], 13, C_BONE))
 		var campo := LineEdit.new()
 		campo.secret = true
 		campo.placeholder_text = Testi.s("impostazioni/chiave_placeholder")
@@ -171,6 +203,7 @@ func _ready() -> void:
 	v.add_child(_separatore())
 	_stato = _etichetta("", 13, C_VERDIGRIS)
 	_stato.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_stato.custom_minimum_size = Vector2(600, 0)
 	v.add_child(_stato)
 
 	var azioni := HBoxContainer.new()
@@ -185,13 +218,10 @@ func _ready() -> void:
 	chiudi.pressed.connect(hide)
 	azioni.add_child(chiudi)
 
-	_scheda_costi(schede)
-	_sincronizza()
+# --- Scheda «Costi» ---
 
-# --- costruzione minuta ---
-
-## LA SCHEDA DEI COSTI. Il pannello si costruisce dai DESCRITTORI dichiarati in
-## data/profili_costo.json: aggiungere un limite non richiede di toccare l'interfaccia.
+## Il pannello si costruisce dai DESCRITTORI dichiarati in data/profili_costo.json:
+## aggiungere un limite non richiede di toccare l'interfaccia.
 func _scheda_costi(schede: TabContainer) -> void:
 	var scorri := ScrollContainer.new()
 	scorri.name = Testi.s("impostazioni/tab_costi")
@@ -199,23 +229,31 @@ func _scheda_costi(schede: TabContainer) -> void:
 	schede.add_child(scorri)
 	_costi_box = VBoxContainer.new()
 	_costi_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_costi_box.add_theme_constant_override("separation", 12)
+	_costi_box.add_theme_constant_override("separation", 10)
 	scorri.add_child(_costi_box)
 	_ridisegna_costi()
 
 func _ridisegna_costi() -> void:
+	# remove_child PRIMA di queue_free: queue_free e' differito a fine frame, e senza
+	# toglierli subito le righe vecchie restano accanto alle nuove per un fotogramma.
 	for c in _costi_box.get_children():
 		_costi_box.remove_child(c)
 		c.queue_free()
 
-	_costi_box.add_child(_etichetta(Testi.s("impostazioni/profilo_nota"), 12, C_BONE_DIM))
+	_costi_box.add_child(_etichetta(Testi.s("impostazioni/costi_titolo"), 14, C_GOLD))
+	var intro := _etichetta(Testi.s("impostazioni/profilo_nota"), 12, C_BONE_DIM)
+	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	intro.custom_minimum_size = Vector2(620, 0)
+	_costi_box.add_child(intro)
+
 	var riga := HBoxContainer.new()
 	riga.add_theme_constant_override("separation", 10)
 	_costi_box.add_child(riga)
-	riga.add_child(_etichetta(Testi.s("impostazioni/profilo"), 13, C_BONE_DIM))
+	riga.add_child(_etichetta(Testi.s("impostazioni/profilo"), 13, C_BONE))
 
 	var profili := Costi.profili()
 	var opt := OptionButton.new()
+	opt.custom_minimum_size = Vector2(260, 0)
 	for i in profili.size():
 		opt.add_item(String(profili[i]["nome"]), i)
 		if String(profili[i]["id"]) == Costi.attivo():
@@ -230,23 +268,27 @@ func _ridisegna_costi() -> void:
 
 	var crea := Button.new()
 	crea.text = Testi.s("impostazioni/nuovo_profilo")
+	crea.tooltip_text = Testi.s("impostazioni/tooltip_nuovo_profilo")
 	crea.pressed.connect(_chiedi_nome_profilo)
 	riga.add_child(crea)
 
+	# Cancellare: si puo' su tutti tranne i due predefiniti, che sono il riferimento con
+	# cui il gioco e' stato tarato. Sui predefiniti il bottone c'e' lo stesso ma spento,
+	# con la ragione nel tooltip: un comando che appare e sparisce si direbbe un difetto.
+	var togli := Button.new()
+	togli.text = Testi.s("impostazioni/cancella_profilo")
+	togli.disabled = bloccato
+	togli.tooltip_text = Testi.s("impostazioni/profilo_bloccato" if bloccato else "impostazioni/tooltip_cancella")
 	if not bloccato:
-		var togli := Button.new()
-		togli.text = Testi.s("impostazioni/cancella_profilo")
 		togli.add_theme_color_override("font_color", C_OXBLOOD)
-		togli.pressed.connect(func():
-			Costi.cancella(String(attivo["id"]))
-			_ridisegna_costi())
-		riga.add_child(togli)
+		togli.pressed.connect(func(): _chiedi_conferma_cancella(String(attivo["id"]), String(attivo["nome"])))
+	riga.add_child(togli)
 
 	var descr := String(attivo.get("descrizione", ""))
 	if descr != "":
 		var d := _etichetta(descr, 12, C_BONE_DIM)
 		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		d.custom_minimum_size = Vector2(560, 0)
+		d.custom_minimum_size = Vector2(620, 0)
 		_costi_box.add_child(d)
 	if bloccato:
 		_costi_box.add_child(_etichetta(Testi.s("impostazioni/profilo_bloccato"), 12, C_GOLD))
@@ -255,6 +297,8 @@ func _ridisegna_costi() -> void:
 	for chiave in Costi.descrittori():
 		_costi_box.add_child(_riga_limite(String(chiave), Costi.descrittori()[chiave], bloccato))
 
+## Una manopola: etichetta senza gergo, il comando, il «?», e sotto una riga che dice cosa
+## cambia davvero. Se la spiegazione non sta in una riga NON si accorcia — sta nel «?».
 func _riga_limite(chiave: String, d: Dictionary, bloccato: bool) -> Control:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 2)
@@ -262,17 +306,21 @@ func _riga_limite(chiave: String, d: Dictionary, bloccato: bool) -> Control:
 	riga.add_theme_constant_override("separation", 10)
 	box.add_child(riga)
 	var id_profilo := Costi.attivo()
+	var etichetta := String(d.get("etichetta", chiave))
 
 	if String(d.get("tipo", "")) == "booleano":
 		var chk := CheckBox.new()
-		chk.text = String(d.get("etichetta", chiave))
+		chk.text = etichetta
+		chk.add_theme_color_override("font_color", C_BONE)
 		chk.button_pressed = Costi.acceso(chiave)
 		chk.disabled = bloccato
 		chk.toggled.connect(func(premuto):
 			Costi.imposta(id_profilo, chiave, premuto))
 		riga.add_child(chk)
 	else:
-		riga.add_child(_etichetta(String(d.get("etichetta", chiave)), 13, C_BONE))
+		var l := _etichetta(etichetta, 13, C_BONE)
+		l.custom_minimum_size = Vector2(430, 0)
+		riga.add_child(l)
 		var sp := SpinBox.new()
 		sp.min_value = int(d.get("min", 0))
 		sp.max_value = int(d.get("max", 99))
@@ -282,22 +330,74 @@ func _riga_limite(chiave: String, d: Dictionary, bloccato: bool) -> Control:
 			Costi.imposta(id_profilo, chiave, int(val)))
 		riga.add_child(sp)
 
+	var lungo := String(d.get("aiuto_lungo", ""))
+	if lungo != "":
+		riga.add_child(_bottone_aiuto(etichetta, lungo))
+
 	var aiuto := String(d.get("aiuto", ""))
 	if aiuto != "":
 		var a := _etichetta(aiuto, 11, C_BONE_DIM)
 		a.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		a.custom_minimum_size = Vector2(560, 0)
+		a.custom_minimum_size = Vector2(620, 0)
 		box.add_child(a)
+	box.add_child(_separatore())
 	return box
+
+func _bottone_aiuto(titolo: String, testo: String) -> Button:
+	var b := Button.new()
+	b.text = "?"
+	b.custom_minimum_size = Vector2(30, 0)
+	b.tooltip_text = Testi.s("impostazioni/tooltip_aiuto")
+	b.add_theme_color_override("font_color", C_GOLD)
+	b.pressed.connect(func(): mostra_aiuto(titolo, testo))
+	return b
+
+func mostra_aiuto(titolo: String, testo: String) -> void:
+	if _dlg_aiuto == null:
+		_dlg_aiuto = AcceptDialog.new()
+		_dlg_aiuto.min_size = Vector2i(560, 320)
+		var m := MarginContainer.new()
+		for lato in ["left", "top", "right", "bottom"]:
+			m.add_theme_constant_override("margin_" + lato, 8)
+		_testo_aiuto = Label.new()
+		_testo_aiuto.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_testo_aiuto.custom_minimum_size = Vector2(520, 0)
+		m.add_child(_testo_aiuto)
+		_dlg_aiuto.add_child(m)
+		add_child(_dlg_aiuto)
+	_dlg_aiuto.title = titolo
+	_testo_aiuto.text = testo
+	_apri(_dlg_aiuto, Vector2i(580, 340))
 
 ## Creare un profilo parte SEMPRE da uno esistente: si modifica, non si compila da zero.
 func _chiedi_nome_profilo() -> void:
 	if _dlg_nome == null:
-		_dlg_nome = AcceptDialog.new()
+		_dlg_nome = ConfirmationDialog.new()
 		_dlg_nome.title = Testi.s("impostazioni/nome_nuovo_profilo")
+		_dlg_nome.min_size = Vector2i(460, 210)
+		var m := MarginContainer.new()
+		for lato in ["left", "top", "right", "bottom"]:
+			m.add_theme_constant_override("margin_" + lato, 10)
+		var v := VBoxContainer.new()
+		v.add_theme_constant_override("separation", 10)
+		var spiega := Label.new()
+		spiega.text = Testi.s("impostazioni/nuovo_profilo_nota")
+		spiega.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		spiega.custom_minimum_size = Vector2(400, 0)
+		v.add_child(spiega)
 		_campo_nome = LineEdit.new()
-		_campo_nome.custom_minimum_size = Vector2(280, 0)
-		_dlg_nome.add_child(_campo_nome)
+		_campo_nome.custom_minimum_size = Vector2(400, 34)
+		_campo_nome.placeholder_text = Testi.s("impostazioni/nome_placeholder")
+		v.add_child(_campo_nome)
+		m.add_child(v)
+		_dlg_nome.add_child(m)
+		# I bottoni dei dialoghi di Godot nascono in inglese: «Cancel» in mezzo a una
+		# finestra italiana e' una crepa piccola e visibilissima.
+		_dlg_nome.ok_button_text = Testi.s("finestre/crea")
+		_dlg_nome.cancel_button_text = Testi.s("finestre/annulla")
+		# Invio = conferma: in un dialogo con un campo solo, dover andare col mouse fino a
+		# OK e' un passaggio che nessuno si aspetta.
+		_dlg_nome.register_text_enter(_campo_nome)
 		_dlg_nome.confirmed.connect(func():
 			var id := Costi.crea(_campo_nome.text, Costi.attivo())
 			if id != "":
@@ -305,7 +405,34 @@ func _chiedi_nome_profilo() -> void:
 			_ridisegna_costi())
 		add_child(_dlg_nome)
 	_campo_nome.text = ""
-	_dlg_nome.popup_centered()
+	_apri(_dlg_nome, Vector2i(480, 230))
+	_campo_nome.grab_focus()
+
+func _chiedi_conferma_cancella(id: String, nome: String) -> void:
+	var d := ConfirmationDialog.new()
+	d.title = Testi.s("impostazioni/cancella_profilo")
+	d.dialog_text = Testi.s("impostazioni/cancella_conferma", [nome])
+	d.ok_button_text = Testi.s("impostazioni/cancella_profilo")
+	d.cancel_button_text = Testi.s("finestre/annulla")
+	d.min_size = Vector2i(420, 170)
+	d.confirmed.connect(func():
+		Costi.cancella(id)
+		_ridisegna_costi())
+	d.visibility_changed.connect(func():
+		if not d.visible:
+			d.queue_free())
+	add_child(d)
+	_apri(d, Vector2i(440, 190))
+
+## I DIALOGHI SONO FINESTRE A SE': non ereditano il content_scale_factor del genitore.
+## Con l'interfaccia al 150% la finestra scalava e il dialogo no — usciva grande come un
+## francobollo, col bottone OK illeggibile. La scala va data anche a loro, e la dimensione
+## moltiplicata di conseguenza, o il contenuto scalato non ci sta dentro.
+func _apri(d: Window, dim: Vector2i) -> void:
+	d.content_scale_factor = _scala
+	d.popup_centered(Vector2i(int(dim.x * _scala), int(dim.y * _scala)))
+
+# --- costruzione minuta ---
 
 func _etichetta(testo: String, dim: int, col: Color) -> Label:
 	var l := Label.new()
@@ -320,13 +447,18 @@ func _separatore() -> Control:
 	r.custom_minimum_size = Vector2(0, 1)
 	return r
 
-## Le variabili d'ambiente dichiarate dai profili (così l'elenco segue i profili, non è fisso).
+## Le variabili d'ambiente dichiarate dai provider, con accanto il provider che le usa —
+## «OPENROUTER_API_KEY» da solo non dice a chi serve. I provider locali non compaiono:
+## non hanno chiavi da chiedere.
 func _variabili_chiave() -> Array:
 	var out: Array = []
-	for p in LLMManager.profili_esterni:
+	var visti: Dictionary = {}
+	for p in LLMManager.profili:
 		var env := String(p.get("api_key_env", ""))
-		if env != "" and not out.has(env):
-			out.append(env)
+		if env == "" or visti.has(env):
+			continue
+		visti[env] = true
+		out.append([env, String(p.get("nome", "?"))])
 	return out
 
 # --- persistenza ---
@@ -348,6 +480,7 @@ func _salva() -> void:
 				OS.set_environment(env, v)
 	Impostazioni.scrivi("chiavi", chiavi)
 	_stato.text = Testi.s("impostazioni/salvato")
+	_aggiorna_stato_chiave()
 	applicate.emit()
 
 # --- reazioni ---
@@ -355,9 +488,17 @@ func _salva() -> void:
 func _on_provider(idx: int) -> void:
 	# Salvato per NOME: aggiungere o togliere un file in config/providers/ non deve far
 	# scivolare la scelta su un altro provider.
-	Impostazioni.scrivi("provider_nome", LLMManager.nomi_profili_esterni()[idx] if idx < LLMManager.nomi_profili_esterni().size() else "")
-	LLMManager.imposta_profilo_esterno(idx)
+	var nomi: Array = LLMManager.nomi_profili()
+	Impostazioni.scrivi("provider_nome", String(nomi[idx]) if idx < nomi.size() else "")
+	LLMManager.imposta_profilo(idx)
 	_sincronizza_modello()
+
+func _on_autore(_i: int) -> void:
+	_riempi_modelli(_autore_scelto(), LLMManager.modello_del_profilo())
+	# Cambiare autore cambia il modello mostrato: se non lo si registra, il gioco resta
+	# su quello di prima mentre il menu ne mostra un altro.
+	if _opt_modello.item_count > 0:
+		LLMManager.ricorda_modello(_opt_modello.get_item_text(maxi(0, _opt_modello.selected)))
 
 ## La spunta e' ORTOGONALE al provider: dice solo se passare dalla coda locale. Prima
 ## selezionava il "profilo gateway", e quindi accenderla voleva dire perdere il provider
@@ -370,39 +511,103 @@ func _on_gateway(premuto: bool) -> void:
 
 ## Adegua la finestra alla scala, senza uscire dallo schermo.
 func adegua_a_scala(f: float) -> void:
-	content_scale_factor = clampf(f, 1.0, 3.0)
+	_scala = clampf(f, 1.0, 3.0)
+	content_scale_factor = _scala
 	var schermo := DisplayServer.screen_get_size()
 	size = Vector2i(
 		mini(int(DIM_BASE.x * content_scale_factor), schermo.x - 60),
 		mini(int(DIM_BASE.y * content_scale_factor), schermo.y - 80))
 
 func _sincronizza() -> void:
-	if LLMManager.profili_esterni.is_empty():
+	if LLMManager.profili.is_empty():
 		return
-	_opt_provider.select(LLMManager.provider_esterno_idx)
+	_opt_provider.select(LLMManager.profilo_idx)
 	_chk_gateway.set_pressed_no_signal(LLMManager.usa_gateway)
-	_chk_gateway.disabled = not LLMManager.gateway_disponibile()
 	_sincronizza_modello()
 
+## Rimette il menu dei modelli su cio' che il provider selezionato offre: i modelli curati
+## nel suo file, piu' quello scelto se non fosse gia' fra loro.
 func _sincronizza_modello() -> void:
-	_opt_modello.clear()
-	_opt_modello.add_item(LLMManager.modello_del_profilo())
-	_opt_modello.select(0)
+	var elenco: Array = LLMManager.modelli_noti().duplicate()
+	var attuale := LLMManager.modello_del_profilo()
+	if attuale != "" and attuale != "?" and not elenco.has(attuale):
+		elenco.append(attuale)
+	_usa_elenco(elenco, attuale)
+	_aggiorna_stato_chiave()
 
-## Chiede al provider l'elenco dei modelli disponibili.
-func _aggiorna_modelli() -> void:
-	_stato.text = Testi.s("impostazioni/interrogo")
-	var v: Dictionary = await LLMManager.verifica_ollama()
-	if not v["attivo"]:
-		_stato.text = Testi.s("impostazioni/non_raggiungibile", [v.get("errore", "?")])
+## Un provider locale non vuole chiavi; uno remoto senza chiave non puo' funzionare, e
+## dirlo qui evita di scoprirlo a partita iniziata con gli dei muti.
+func _aggiorna_stato_chiave() -> void:
+	if LLMManager.e_locale():
+		_stato_chiave.text = Testi.s("impostazioni/provider_locale")
+		_stato_chiave.add_theme_color_override("font_color", C_VERDIGRIS)
+	elif LLMManager.chiave_presente():
+		_stato_chiave.text = Testi.s("impostazioni/chiave_ok")
+		_stato_chiave.add_theme_color_override("font_color", C_VERDIGRIS)
+	else:
+		_stato_chiave.text = Testi.s("impostazioni/chiave_manca")
+		_stato_chiave.add_theme_color_override("font_color", C_OXBLOOD)
+	# Davanti a un provider locale il Gateway non ha senso: non c'e' nessun piano gratuito
+	# da rispettare, e la coda aggiungerebbe attesa senza proteggere da niente.
+	_chk_gateway.disabled = not LLMManager.gateway_disponibile() or LLMManager.e_locale()
+
+## Riempie i due menu — autore e modello — a partire dall'elenco in mano.
+func _usa_elenco(modelli: Array, selezionato: String) -> void:
+	_modelli = LLMManager.solo_modelli_testuali(
+		modelli, LLMManager.filtro_modelli(), LLMManager.nome_pieno())
+	var elenco_autori := LLMManager.autori(_modelli)
+	_riga_autore.visible = not elenco_autori.is_empty()
+	_opt_autore.clear()
+	if elenco_autori.is_empty():
+		_riempi_modelli("", selezionato)
 		return
-	_riempi_modelli(v["modelli"])
-	var atteso: String = v["atteso"]
-	for i in _opt_modello.item_count:
-		if _opt_modello.get_item_text(i) == atteso:
-			_opt_modello.select(i)
-	_stato.text = Testi.s("impostazioni/modelli_trovati", [v["modelli"].size()])
+	var mio := LLMManager.autore_di(selezionato)
+	for i in elenco_autori.size():
+		_opt_autore.add_item(String(elenco_autori[i]))
+		if String(elenco_autori[i]) == mio:
+			_opt_autore.select(i)
+	if _opt_autore.selected < 0:
+		_opt_autore.select(0)
+	_riempi_modelli(_autore_scelto(), selezionato)
 
+func _autore_scelto() -> String:
+	if not _riga_autore.visible or _opt_autore.selected < 0:
+		return ""
+	return _opt_autore.get_item_text(_opt_autore.selected)
+
+func _riempi_modelli(autore: String, selezionato: String) -> void:
+	_opt_modello.clear()
+	var suoi := LLMManager.modelli_di(autore, _modelli)
+	for i in suoi.size():
+		_opt_modello.add_item(String(suoi[i]))
+		if String(suoi[i]) == selezionato:
+			_opt_modello.select(i)
+	if _opt_modello.item_count > 0 and _opt_modello.selected < 0:
+		_opt_modello.select(0)
+	_opt_modello.disabled = _opt_modello.item_count == 0
+
+## CHIEDE L'ELENCO AL PROVIDER SELEZIONATO NEL MENU.
+##
+## Prima chiamava verifica_provider(), che interroga il MOTORE ACCESO: con Ollama in
+## esecuzione e OpenRouter scelto qui sopra, il gioco chiedeva la lista a Ollama e la
+## mostrava come se fosse di OpenRouter. Nessun errore, nessuna spia: la risposta di un
+## altro. Il bottone «Prova il modello», accanto, faceva gia' la cosa giusta.
+func _aggiorna_modelli() -> void:
+	_btn_aggiorna.disabled = true
+	_stato.add_theme_color_override("font_color", C_BONE_DIM)
+	_stato.text = Testi.s("impostazioni/interrogo", [LLMManager.nome_profilo_corrente()])
+	var r: Dictionary = await LLMManager.elenca_modelli_del_profilo()
+	_btn_aggiorna.disabled = false
+	if not r["ok"]:
+		_verdetto(Testi.s("impostazioni/non_raggiungibile", [String(r["dove"]), String(r["errore"])]), false)
+		return
+	var modelli: Array = r["modelli"]
+	if modelli.is_empty():
+		_verdetto(Testi.s("impostazioni/elenco_vuoto", [LLMManager.nome_profilo_corrente()]), false)
+		return
+	_usa_elenco(modelli, LLMManager.modello_del_profilo())
+	_verdetto(Testi.s("impostazioni/modelli_trovati",
+		[_modelli.size(), LLMManager.nome_profilo_corrente(), modelli.size()]), true)
 
 ## Prova il modello configurato QUI, non quello che sta girando: si sta configurando
 ## Gemini mentre il gioco e' ancora sul motore simulato, e provare "il provider attivo"
@@ -416,10 +621,7 @@ func _prova_modello() -> void:
 
 	# L'elenco appena arrivato dal provider: se qualcosa non va, le alternative sono li'.
 	if not v["modelli"].is_empty():
-		_riempi_modelli(v["modelli"])
-		for i in _opt_modello.item_count:
-			if _opt_modello.get_item_text(i) == String(v["atteso"]):
-				_opt_modello.select(i)
+		_usa_elenco(v["modelli"], String(v["atteso"]))
 
 	if not v["raggiungibile"]:
 		_verdetto(Testi.s("impostazioni/prova_irraggiungibile", [v["dove"], v["errore"]]), false)
@@ -440,20 +642,9 @@ func _prova_modello() -> void:
 func _accendi_se_spento() -> void:
 	if not LLMManager.mock_mode:
 		return
-	var modo := _opt_motore.get_item_id(_opt_motore.selected)
-	Impostazioni.scrivi("motore", modo)
-	motore_scelto.emit(modo)
+	Impostazioni.scrivi("motore", MOTORE_REALE)
+	motore_scelto.emit(true)
 	_stato.text += "\n" + Testi.s("impostazioni/motore_acceso")
-
-## Riempie il menu coi soli modelli che sanno scrivere testo: l'endpoint dei provider
-## restituisce tutto il catalogo (voce, immagini, video, embedding) e offrirlo intero
-## significa proporre scelte che non possono funzionare.
-func _riempi_modelli(modelli: Array) -> void:
-	_opt_modello.clear()
-	var pieno := LLMManager.nome_pieno()
-	var utili := LLMManager.solo_modelli_testuali(modelli, LLMManager.filtro_modelli(), pieno)
-	for m in utili:
-		_opt_modello.add_item(LLMManager.nome_nudo(String(m), pieno))
 
 func _verdetto(testo: String, buono: bool) -> void:
 	_stato.text = testo

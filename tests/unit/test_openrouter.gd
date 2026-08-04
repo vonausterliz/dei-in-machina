@@ -13,7 +13,10 @@ extends GutTest
 ##
 ## Il profilo dichiara `nome_pieno: true`: la barra fa parte del nome, non toccarla.
 
-const PIENO := "mistralai/mistral-small-3.2-24b-instruct:free"
+## Un nome vero, verificato sul catalogo. Prima era «…-instruct:free», che NON ESISTE: il
+## profilo lo dichiarava come predefinito e ogni chiamata a OpenRouter rispondeva 404.
+## Questi test guardavano la FORMA del nome, mai la sua esistenza.
+const PIENO := "mistralai/mistral-medium-3.1"
 
 func before_each():
 	LLMManager.mock_mode = true
@@ -23,7 +26,7 @@ func _idx_openrouter() -> int:
 
 func test_il_profilo_esiste_ed_e_un_provider_vero():
 	assert_gte(_idx_openrouter(), 0, "config/providers/ deve contenere OpenRouter")
-	var p: Dictionary = LLMManager.profili_esterni[_idx_openrouter()]
+	var p: Dictionary = LLMManager.profili[_idx_openrouter()]
 	assert_false(bool(p.get("trasporto", false)), "e' un provider, non un trasporto")
 	assert_true(bool(p.get("nome_pieno", false)), "deve dichiarare che la barra e' del nome")
 	assert_string_contains(String(p.get("base_url", "")), "openrouter.ai")
@@ -39,14 +42,16 @@ func test_il_nome_col_flag_resta_intero():
 ## Scegliere un modello di OpenRouter e ritrovarlo intero: e' il giro che si fa davvero,
 ## ed e' dove il difetto si sarebbe visto — un 404 a partita gia' iniziata.
 func test_scegliere_un_modello_openrouter_non_lo_mutila():
-	var prima := LLMManager.provider_esterno_idx
-	var prima_esterno := LLMManager.provider_esterno
-	LLMManager.provider_esterno = true
-	LLMManager.imposta_profilo_esterno(_idx_openrouter())
+	var prima := LLMManager.profilo_idx
+	var i := _idx_openrouter()
+	var modello_prima := String(LLMManager.profili[i]["model"])
+	LLMManager.imposta_profilo(i)
 	LLMManager.imposta_modello(PIENO)
 	assert_eq(LLMManager.modello_del_profilo(), PIENO)
-	LLMManager.provider_esterno = prima_esterno
-	LLMManager.imposta_profilo_esterno(prima)
+	# Rimettere il modello com'era: senza, questo test lasciava un nome finto nel profilo e
+	# il controllo «il predefinito esiste» di test_provider falliva senza colpa sua.
+	LLMManager.profili[i]["model"] = modello_prima
+	LLMManager.imposta_profilo(prima)
 
 ## Il filtro dei modelli testuali guarda il nome: con la barra non deve scartare tutto,
 ## ne' confondere l'autore col modello.

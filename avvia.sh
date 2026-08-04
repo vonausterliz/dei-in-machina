@@ -70,9 +70,11 @@ fi
 "$GODOT" --headless --path "$DIR" --import >/dev/null 2>&1 || true
 
 # --- Ollama: verifica/attiva server e modello prima di avviare (modalita' "dei reali") ---
-# Legge il nome del modello da config/llm_config.json (senza dipendenze extra).
+# Legge il nome del modello dal profilo di Ollama (senza dipendenze extra).
+# Prima stava in config/llm_config.json: Ollama era l'unico provider descritto fuori da
+# config/providers/, ed e' per questo che nel gioco non lo si poteva scegliere come gli altri.
 _leggi_modello() {
-  grep -o '"model"[[:space:]]*:[[:space:]]*"[^"]*"' "$DIR/config/llm_config.json" 2>/dev/null \
+  grep -o '"model"[[:space:]]*:[[:space:]]*"[^"]*"' "$DIR/config/providers/1_ollama.json" 2>/dev/null \
     | head -1 | sed -E 's/.*:[[:space:]]*"([^"]*)"/\1/'
 }
 

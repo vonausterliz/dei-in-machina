@@ -80,15 +80,15 @@ func test_settings_ha_il_bottone_prova_collegato():
 ## La prova deve guardare il profilo SCELTO, non quello che sta girando: si configura
 ## Gemini mentre il gioco e' ancora sul simulato, e provare "l'attivo" proverebbe Ollama.
 func test_la_prova_guarda_il_profilo_scelto_non_quello_attivo():
-	LLMManager.provider_esterno = false          # com'e' all'avvio
-	var quanti: int = LLMManager.profili_esterni.size()
+	var quanti: int = LLMManager.profili.size()
 	if quanti == 0:
-		pending("nessun profilo esterno"); return
-	LLMManager.provider_esterno_idx = quanti - 1
+		pending("nessun provider configurato"); return
+	var locale := LLMManager.indice_profilo("Ollama locale")
+	LLMManager.profilo_idx = quanti - 1
 	var cfg := LLMManager.config_del_profilo()
-	assert_eq(String(cfg["model"]), String(LLMManager.profili_esterni[quanti - 1]["model"]))
-	assert_ne(String(cfg["base_url"]), String(LLMManager.config.get("base_url", "")),
-		"non deve cadere sul profilo locale")
+	assert_eq(String(cfg["model"]), String(LLMManager.profili[quanti - 1]["model"]))
+	assert_ne(String(cfg["base_url"]), String(LLMManager.profili[locale]["base_url"]),
+		"non deve cadere sul provider locale")
 
 ## L'avviso del motore simulato dev'essere nell'INTESTAZIONE e in rosso: quando stava in
 ## fondo alla pagina, in colore tenue, si sono giocati quattro turni credendo di parlare

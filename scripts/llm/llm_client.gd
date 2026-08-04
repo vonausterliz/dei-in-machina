@@ -16,6 +16,18 @@ var timeout_sec: float = 120.0
 # Path dell'endpoint (dopo base_url). Default OpenAI/Ollama/Mistral; Google usa /v1beta/openai/...
 var chat_path: String = "/v1/chat/completions"
 var models_path: String = "/v1/models"
+## Intestazioni HTTP in piu', dichiarate dal profilo del provider.
+##
+## Serve ad Anthropic, l'unico che non parla del tutto la lingua di OpenAI: il suo layer di
+## compatibilita' accetta il «Authorization: Bearer» su /chat/completions, ma /models
+## pretende «x-api-key» e il Bearer lo rifiuta con un 401. L'alternativa era un ramo
+## «se il provider e' anthropic» qui dentro; cosi' invece resta un dato nel suo file, e il
+## prossimo provider con le sue manie si aggiunge senza toccare il client.
+## Il valore SEGNAPOSTO_CHIAVE viene sostituito con la chiave API vera.
+var intestazioni_extra: Dictionary = {}
+
+## Nei dati la chiave API non c'e': c'e' questo, e lo sostituisce il client.
+const SEGNAPOSTO_CHIAVE := "$CHIAVE"
 
 ## Logger opzionale per il debug: se valido, riceve righe di testo con il traffico
 ## (cosa viene mandato / cosa viene ricevuto). La GUI lo collega alla finestra di log.
@@ -47,8 +59,24 @@ func configura(config: Dictionary, chiave: String = "") -> void:
 	# passando da Google a Mistral il path non resta quello di Google).
 	chat_path = config.get("chat_path", "/v1/chat/completions")
 	models_path = config.get("models_path", "/v1/models")
+	intestazioni_extra = config.get("intestazioni", {})
 	if _http:
 		_http.timeout = timeout_sec
+
+## Le intestazioni di autenticazione, uguali per chat ed elenco dei modelli. Erano scritte
+## due volte, e con Anthropic le due copie avrebbero dovuto divergere: un posto solo.
+func intestazioni() -> PackedStringArray:
+	var h := PackedStringArray()
+	if api_key != "":
+		h.append("Authorization: Bearer %s" % api_key)
+	for nome in intestazioni_extra:
+		var valore := String(intestazioni_extra[nome])
+		if valore == SEGNAPOSTO_CHIAVE:
+			if api_key == "":
+				continue   # senza chiave l'intestazione sarebbe vuota: meglio non mandarla
+			valore = api_key
+		h.append("%s: %s" % [nome, valore])
+	return h
 
 ## messaggi: Array di {role, content}. opzioni: {temperature, seed, json_mode}.
 func chat(messaggi: Array, opzioni: Dictionary = {}) -> Dictionary:
@@ -69,8 +97,7 @@ func chat(messaggi: Array, opzioni: Dictionary = {}) -> Dictionary:
 		corpo["response_format"] = {"type": "json_object"}
 
 	var headers := PackedStringArray(["Content-Type: application/json"])
-	if api_key != "":
-		headers.append("Authorization: Bearer %s" % api_key)
+	headers.append_array(intestazioni())
 
 	var url := base_url.trim_suffix("/") + chat_path
 	_log("  ⇢ POST %s · model=%s · temp=%s%s" % [url, model, corpo["temperature"], " · json" if opzioni.get("json_mode", false) else ""])
@@ -145,10 +172,7 @@ func elenca_modelli() -> Dictionary:
 	if _http == null:
 		return {"ok": false, "modelli": [], "errore": "client non pronto"}
 	var url := base_url.trim_suffix("/") + models_path
-	var headers := PackedStringArray()
-	if api_key != "":
-		headers.append("Authorization: Bearer %s" % api_key)
-	var err := _http.request(url, headers, HTTPClient.METHOD_GET)
+	var err := _http.request(url, intestazioni(), HTTPClient.METHOD_GET)
 	if err != OK:
 		return {"ok": false, "modelli": [], "errore": "connessione fallita: %s" % error_string(err)}
 	var r: Array = await _http.request_completed
@@ -169,11 +193,8 @@ func elenca_modelli() -> Dictionary:
 func disponibile() -> bool:
 	if _http == null:
 		return false
-	var url := "%s/v1/models" % base_url.trim_suffix("/")
-	var headers := PackedStringArray()
-	if api_key != "":
-		headers.append("Authorization: Bearer %s" % api_key)  # richiesto dalle API cloud (Mistral)
-	var err := _http.request(url, headers, HTTPClient.METHOD_GET)
+	var url := base_url.trim_suffix("/") + models_path
+	var err := _http.request(url, intestazioni(), HTTPClient.METHOD_GET)
 	if err != OK:
 		return false
 	var risultato: Array = await _http.request_completed

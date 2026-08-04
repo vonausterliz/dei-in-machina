@@ -2,50 +2,64 @@
   "_nota": "PROFILI DI COSTO. Molte scelte del gioco non sono state prese perche' rendevano il gioco migliore, ma perche' una chiamata LLM in piu' costava troppo sul tier gratuito (dove il vincolo non e' il prezzo ma il pavimento richieste/secondo). Qui si decide quali di quei limiti tenere. Inventario ragionato e classificazione: docs/costi.md.",
   "_nota_dove": "Questi sono limiti di COSTO. La taratura di GIOCO (delta, coalizioni, soglie) resta in bilanciamento.json: una cosa sola in un posto solo.",
   "_nota_utente": "I profili creati dall'utente NON stanno qui: vivono nelle sue preferenze (user://impostazioni.json). Questo file contiene i due predefiniti, che non si possono modificare ne' cancellare.",
-
+  "_nota_testi": "Ogni limite ha tre testi, e servono a tre momenti diversi. `etichetta`: cosa fa, in una riga, senza gergo. `aiuto`: la conseguenza pratica di alzarlo o accenderlo, sempre col numero di chiamate in piu' a partita dove ha senso. `aiuto_lungo`: la spiegazione intera, quella che compare premendo il «?» — perche' il limite esiste, cosa cambia davvero nel gioco, e quando conviene toglierlo. Se una cosa non sta in una riga NON si accorcia: si mette qui.",
   "limiti": {
     "cronaca_ogni": {
-      "tipo": "intero", "min": 1, "max": 12,
-      "etichetta": "Aggiorna la memoria della vicenda ogni N turni",
-      "aiuto": "1 = a ogni turno (memoria sempre fresca, +19 chiamate a partita)."
+      "tipo": "intero",
+      "min": 1,
+      "max": 12,
+      "etichetta": "Ogni quanti turni si riscrive il riassunto della vicenda",
+      "aiuto": "1 = a ogni turno: memoria sempre fresca, +19 chiamate a partita.",
+      "aiuto_lungo": "Gli dèi e Omero non rileggono tutta la partita a ogni turno: sarebbe insostenibile. Leggono un riassunto — la «cronaca» — che un agente apposta riscrive ogni tanto. Fra un aggiornamento e l'altro la memoria condivisa resta ferma: con il valore a 4, ciò che è successo tre turni fa può non essere ancora entrato nel riassunto, e un dio può reagire a una situazione che non c'è più.\n\nAbbassarlo a 1 significa una chiamata in più a ogni turno (circa 19 su una partita intera) e memoria sempre aggiornata. Alzarlo oltre 4 fa risparmiare poco e fa dimenticare molto.\n\nNon influisce sulla lunghezza dei prompt: il riassunto ha sempre la stessa taglia, cambia solo quanto è recente."
     },
     "ricordi_per_dio": {
-      "tipo": "intero", "min": 3, "max": 20,
-      "etichetta": "Ricordi tenuti per esteso, per ogni dio",
-      "aiuto": "Oltre questo si condensano. Piu' alto = prompt piu' lungo, nessuna chiamata in piu'."
+      "tipo": "intero",
+      "min": 3,
+      "max": 20,
+      "etichetta": "Quanti ricordi ogni dio tiene per esteso",
+      "aiuto": "Oltre questo numero i più vecchi si condensano. Nessuna chiamata in più: prompt più lunghi.",
+      "aiuto_lungo": "Ogni dio ha un taccuino privato: cosa ha proposto, cosa ha ottenuto, cosa gli è stato negato. I ricordi più recenti gli vengono messi davanti per intero; oltre questo numero i più vecchi vengono riassunti in poche righe.\n\nÈ l'unico limite che NON aggiunge chiamate: costa in token del prompt, che si rileggono a ogni chiamata di quel dio. Alzarlo da 5 a 12 rende le rivalse più precise — un dio si ricorda per nome del torto di dieci turni prima invece che «in generale» — al prezzo di prompt sensibilmente più lunghi.\n\nSe paghi a token e non a chiamata, questo è il limite che ti costa di più alzare."
     },
     "max_repliche": {
-      "tipo": "intero", "min": 0, "max": 6,
-      "etichetta": "Quanti dei possono ribattere in un turno",
-      "aiuto": "Ogni replica e' una chiamata. ATTENZIONE: oltre 4 la Vista Olimpo diventa un coro confuso — qui il limite non era solo di costo."
+      "tipo": "intero",
+      "min": 0,
+      "max": 6,
+      "etichetta": "Quanti dèi possono ribattere nella stessa contesa",
+      "aiuto": "Ogni replica è una chiamata. Oltre 4 la Vista Olimpo diventa un coro confuso.",
+      "aiuto_lungo": "Quando più dèi vogliono cose diverse, dopo la prima proposta ognuno può RIBATTERE a quella degli altri: è la parte in cui l'Olimpo litiga davvero invece di limitarsi a votare.\n\nQuesto limite non è di puro costo. Sopra le quattro repliche la Vista Olimpo smette di essere una discussione e diventa un coro: le voci si accavallano, e l'arbitrato di Zeus finisce per pesare argomenti che il giocatore non riuscirà a distinguere. Per questo il profilo «Senza vincoli» lo ALZA da 2 a 4 invece di toglierlo.\n\nA 0 gli dèi propongono e basta: si risparmia molto, e si perde la cosa più bella che il gioco sa fare."
     },
     "compagni_per_turno": {
-      "tipo": "intero", "min": 1, "max": 6,
-      "etichetta": "Quanti compagni commentano spontaneamente",
-      "aiuto": "Vale solo per chi parla da se': se li chiami per nome rispondono comunque tutti."
+      "tipo": "intero",
+      "min": 1,
+      "max": 6,
+      "etichetta": "Quanti compagni commentano di loro iniziativa",
+      "aiuto": "Vale solo per chi parla da sé: se li chiami per nome rispondono comunque tutti.",
+      "aiuto_lungo": "Alla fine di un turno qualche compagno di ciurma commenta quello che è appena successo. Questo numero dice quanti lo fanno SPONTANEAMENTE: chiamare qualcuno per nome con @nome funziona sempre, e non conta qui.\n\nAnche questo non è solo costo. Con uno solo la chat resta leggibile e ogni voce si sente; con tre o più il riquadro della ciurma diventa un muro di testo dopo ogni mossa, e le battute buone si perdono fra le altre. Il profilo «Senza vincoli» lo porta a 2: si sente il contrasto fra due caratteri diversi senza perdere la leggibilità.\n\nOgni compagno che parla è una chiamata."
     },
     "spunti_separati": {
       "tipo": "booleano",
-      "etichetta": "Genera gli appigli con una chiamata dedicata",
-      "aiuto": "Spento, arrivano insieme alla narrazione di Omero e costano zero (+72 chiamate a partita se acceso)."
+      "etichetta": "Chiedi i tre appigli con una chiamata dedicata",
+      "aiuto": "Spento arrivano insieme al racconto di Omero e non costano niente. +72 chiamate se acceso.",
+      "aiuto_lungo": "Sotto il riquadro del racconto ci sono tre appigli: cose che Ulisse potrebbe fare adesso. Oggi arrivano nella STESSA risposta con cui Omero narra il turno — una chiamata sola per due lavori.\n\nAccendere questo limite li fa chiedere a parte, con un prompt tutto loro. Sono più mirati, perché l'agente che li scrive non sta contemporaneamente cercando di essere un poeta; in compenso è una chiamata in più a ogni turno, circa 72 su una partita intera — il singolo limite più caro da togliere.\n\nDifferenza pratica: modesta. È il primo che rimetterei se il gioco diventasse lento."
     },
     "vaglia_sempre": {
       "tipo": "booleano",
-      "etichetta": "Vaglia la plausibilita' anche degli appigli offerti dal gioco",
-      "aiuto": "Su un testo scritto da Omero non c'e' nulla da vagliare: e' in-mondo per costruzione (+30 chiamate)."
+      "etichetta": "Controlla la plausibilità anche degli appigli offerti dal gioco",
+      "aiuto": "Su un testo scritto da Omero non c'è niente da controllare. +30 chiamate se acceso.",
+      "aiuto_lungo": "Quello che scrivi tu viene passato a un secondo agente che giudica se appartiene al mondo dell'Odissea: è il vaglio che intercetta gli anacronismi che la lista dei marcatori non prevede (e che, ripetuti, portano alla follia e alla morte).\n\nSugli appigli che il gioco stesso ti offre il vaglio oggi non parte, perché quei testi li ha scritti Omero: sono in-mondo per costruzione, e chiederne conferma è chiedere a un agente di controllare il lavoro di un altro.\n\nAccenderlo costa circa 30 chiamate a partita e in condizioni normali non cambia mai un esito. Serve se hai riscritto i prompt di Omero e vuoi una rete di sicurezza mentre li collaudi."
     },
     "ricognizione_sempre": {
       "tipo": "booleano",
-      "etichetta": "Cerca sempre col modello il dio invocato",
-      "aiuto": "Spento, parte solo con un indizio di preghiera. Acceso riconosce parafrasi piu' oscure (+68 chiamate)."
+      "etichetta": "Chiedi sempre al modello quale dio è stato invocato",
+      "aiuto": "Spento parte solo se c'è un indizio di preghiera. +68 chiamate se acceso.",
+      "aiuto_lungo": "Invocare un dio è uno dei tre modi per svegliarlo. Il riconoscimento è a due stadi: prima un controllo deterministico sugli epiteti e sui nomi, poi — solo se il testo SEMBRA una preghiera — una domanda al modello, che sa riconoscere le parafrasi.\n\nAcceso, la domanda al modello parte a ogni turno, anche quando non c'è nessun indizio di invocazione. Riconosce chiamate molto oblique («tu che scuoti la terra, guardami») che il primo stadio si perde, al prezzo di circa 68 chiamate a partita.\n\nAttenzione all'effetto collaterale: chiedendolo sempre, ogni tanto il modello «trova» un dio dove non c'era nessuna invocazione. Il gioco diventa un po' più rumoroso, non solo più costoso."
     }
   },
-
   "profili": [
     {
       "id": "frugale",
       "nome": "Frugale (tier gratuito)",
-      "descrizione": "I limiti con cui il gioco e' stato costruito e tarato. ~450 chiamate per una partita intera: ci sta nei piani gratuiti.",
+      "descrizione": "I limiti con cui il gioco è stato costruito e tarato. Circa 450 chiamate per una partita intera da Troia a Itaca: ci sta nei piani gratuiti.",
       "valori": {
         "cronaca_ogni": 4,
         "ricordi_per_dio": 5,
@@ -59,7 +73,7 @@
     {
       "id": "libero",
       "nome": "Senza vincoli di costo",
-      "descrizione": "Toglie i limiti nati solo per risparmiare chiamate; ALZA — senza toglierli — i due che avevano anche una ragione narrativa. Circa il doppio delle chiamate, e turni sensibilmente piu' lenti.",
+      "descrizione": "Toglie i limiti nati solo per risparmiare chiamate; ALZA — senza toglierli — i due che avevano anche una ragione narrativa (repliche degli dèi e compagni che parlano), perché portarli al massimo darebbe un gioco più caro E peggiore. Circa il doppio delle chiamate, e turni sensibilmente più lenti.",
       "valori": {
         "cronaca_ogni": 1,
         "ricordi_per_dio": 12,

@@ -7,25 +7,21 @@ extends GutTest
 ## piano gratuito" sono due domande indipendenti, e mescolarle costringeva a rinunciare
 ## all'una per avere l'altra. Ora sono due comandi separati.
 
-var _esterno_prima := false
 var _idx_prima := 0
 
 func before_each():
-	# Il gateway riguarda il percorso ESTERNO: senza questo _config_attiva() tornerebbe
-	# il profilo Ollama locale e i test misurerebbero tutt'altro.
-	_esterno_prima = LLMManager.provider_esterno
-	_idx_prima = LLMManager.provider_esterno_idx
-	LLMManager.provider_esterno = true
+	# Il gateway riguarda i provider REMOTI: davanti a Ollama, che gira in casa, non c'e'
+	# nessun piano gratuito da rispettare e il trasporto si tira indietro da solo.
+	_idx_prima = LLMManager.profilo_idx
 	LLMManager.usa_gateway = false
 
 func after_each():
 	# Stato globale: va rimesso com'era, o si sporcano gli altri test.
 	LLMManager.usa_gateway = false
-	LLMManager.provider_esterno = _esterno_prima
-	LLMManager.provider_esterno_idx = _idx_prima
+	LLMManager.profilo_idx = _idx_prima
 
 func test_il_gateway_non_compare_fra_i_provider():
-	for nome in LLMManager.nomi_profili_esterni():
+	for nome in LLMManager.nomi_profili():
 		assert_false(String(nome).to_lower().contains("gateway"),
 			"il gateway non e' un provider fra cui scegliere: e' la strada per arrivarci")
 
@@ -35,10 +31,8 @@ func test_il_gateway_esiste_come_trasporto():
 
 ## Senza gateway si va dritti al provider, col suo nome di modello nudo.
 func test_senza_gateway_si_va_diritti_al_provider():
-	var i := _indice_di("gemini")
-	if i < 0:
-		pending("nessun profilo Gemini configurato"); return
-	LLMManager.imposta_profilo_esterno(i)
+	var i := _indice_di("google")
+	LLMManager.imposta_profilo(i)
 	var cfg := LLMManager._config_attiva()
 	assert_string_contains(String(cfg["base_url"]), "googleapis")
 	assert_false(String(cfg["model"]).contains("/"), "niente prefisso: parla col provider")
@@ -46,10 +40,8 @@ func test_senza_gateway_si_va_diritti_al_provider():
 ## Col gateway acceso si va a localhost, e il modello prende il prefisso d'instradamento.
 ## E' esattamente cio' che prima si poteva ottenere solo rinunciando a scegliere Gemini.
 func test_col_gateway_acceso_ci_si_passa_attraverso_TENENDO_il_provider():
-	var i := _indice_di("gemini")
-	if i < 0:
-		pending("nessun profilo Gemini configurato"); return
-	LLMManager.imposta_profilo_esterno(i)
+	var i := _indice_di("google")
+	LLMManager.imposta_profilo(i)
 	LLMManager.usa_gateway = true
 	var cfg := LLMManager._config_attiva()
 	assert_string_contains(String(cfg["base_url"]), "localhost", "si passa dalla coda locale")
@@ -62,41 +54,41 @@ func test_il_prefisso_usa_il_provider_del_profilo_non_il_suo_nome():
 	var i := _indice_di("mistral")
 	if i < 0:
 		pending("nessun profilo Mistral configurato"); return
-	LLMManager.imposta_profilo_esterno(i)
+	LLMManager.imposta_profilo(i)
 	LLMManager.usa_gateway = true
 	assert_true(String(LLMManager._config_attiva()["model"]).begins_with("mistral/"))
 
 ## Il modello mostrato e verificato dev'essere quello che parte davvero, prefisso compreso:
 ## altrimenti il preflight controlla una cosa e il gioco ne chiama un'altra.
 func test_il_modello_atteso_e_quello_che_parte_davvero():
-	var i := _indice_di("gemini")
-	if i < 0:
-		pending("nessun profilo Gemini configurato"); return
-	LLMManager.imposta_profilo_esterno(i)
+	var i := _indice_di("google")
+	LLMManager.imposta_profilo(i)
 	LLMManager.usa_gateway = true
 	assert_eq(LLMManager.modello_atteso(), String(LLMManager._config_attiva()["model"]))
 
 ## Spegnere il gateway non deve far perdere il provider scelto.
 func test_accendere_e_spegnere_il_gateway_non_cambia_provider():
-	var i := _indice_di("gemini")
-	if i < 0:
-		pending("nessun profilo Gemini configurato"); return
-	LLMManager.imposta_profilo_esterno(i)
+	var i := _indice_di("google")
+	LLMManager.imposta_profilo(i)
 	LLMManager.usa_gateway = true
 	LLMManager.usa_gateway = false
-	assert_eq(LLMManager.provider_esterno_idx, i, "il provider resta quello che avevi scelto")
+	assert_eq(LLMManager.profilo_idx, i, "il provider resta quello che avevi scelto")
 	assert_string_contains(String(LLMManager._config_attiva()["base_url"]), "googleapis")
 
 ## Il modello come sta nel file del profilo: cosi' il test resta valido quando il modello
 ## cambia (e cambiera').
 func _modello_del_file(idx: int) -> String:
-	return String(LLMManager.profili_esterni[idx].get("model", ""))
+	return String(LLMManager.profili[idx].get("model", ""))
 
-func _indice_di(pezzo: String) -> int:
-	var nomi: Array = LLMManager.nomi_profili_esterni()
-	for i in nomi.size():
-		if String(nomi[i]).to_lower().contains(pezzo):
+## Cerca per PROVIDER, non per nome mostrato. Cercava «gemini» nel nome; il giorno in cui
+## il profilo si e' chiamato «Google» sei test di questo file sono diventati pending —
+## verdi, silenziosi e inutili. Il campo `provider` e' quello che non cambia, e se manca il
+## test fallisce invece di dichiararsi non pertinente.
+func _indice_di(provider: String) -> int:
+	for i in LLMManager.profili.size():
+		if String(LLMManager.profili[i].get("provider", "")) == provider:
 			return i
+	assert_true(false, "config/providers/ deve contenere un profilo con provider «%s»" % provider)
 	return -1
 
 # --- Migrazione della preferenza salvata ---
@@ -112,7 +104,7 @@ func test_la_vecchia_scelta_salvata_per_posizione_viene_convertita():
 	add_child_autofree(ui)
 	await wait_frames(2)
 	ui._ripristina_provider()
-	assert_eq(LLMManager.nome_profilo_corrente(), LLMManager.nomi_profili_esterni()[1],
+	assert_eq(LLMManager.nome_profilo_corrente(), LLMManager.nomi_profili()[1],
 		"la vecchia posizione 2 (col gateway in testa) e' la 1 di oggi")
 	assert_null(Impostazioni.leggi("provider_idx"), "la chiave vecchia sparisce")
 
@@ -132,12 +124,9 @@ func test_chi_aveva_scelto_il_gateway_se_lo_ritrova_acceso():
 ## all'avvio il percorso esterno non e' ancora acceso, e comparirebbe Ollama sotto la
 ## voce "Gemini".
 func test_settings_mostra_il_modello_del_profilo_scelto():
-	var i := _indice_di("gemini")
-	if i < 0:
-		pending("nessun profilo Gemini configurato"); return
-	LLMManager.provider_esterno = false        # com'e' all'avvio
-	LLMManager.imposta_profilo_esterno(i)
-	LLMManager.provider_esterno_idx = i
+	var i := _indice_di("google")
+	LLMManager.imposta_profilo(i)
+	LLMManager.profilo_idx = i
 	assert_string_contains(LLMManager.modello_del_profilo(), "gemini")
 	LLMManager.usa_gateway = true
 	assert_eq(LLMManager.modello_del_profilo(), "google/%s" % _modello_del_file(i))
@@ -146,12 +135,10 @@ func test_settings_mostra_il_modello_del_profilo_scelto():
 ## menu non deve lasciare due verita' in giro: il profilo col nome pulito e il client con
 ## un altro. Il nome effettivo si ricalcola sempre dal profilo + trasporto.
 func test_il_prefisso_dell_elenco_non_si_porta_dietro():
-	var i := _indice_di("gemini")
-	if i < 0:
-		pending("nessun profilo Gemini configurato"); return
-	LLMManager.imposta_profilo_esterno(i)
+	var i := _indice_di("google")
+	LLMManager.imposta_profilo(i)
 	LLMManager.imposta_modello("models/gemini-3.5-flash")
-	assert_eq(String(LLMManager.profili_esterni[i]["model"]), "gemini-3.5-flash",
+	assert_eq(String(LLMManager.profili[i]["model"]), "gemini-3.5-flash",
 		"nel profilo si salva il nome nudo")
 	assert_eq(LLMManager.modello_atteso(), "gemini-3.5-flash", "e si manda quello")
 	LLMManager.usa_gateway = true

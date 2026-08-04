@@ -10,17 +10,37 @@ extends Node
 ## arrivano dalle fasi 2-3 (per ora restano sul mock anche in modalita' non-mock).
 
 const CONFIG_PATH := "res://config/llm_config.json"
-const PROVIDERS_DIR := "res://config/providers"  # profili API esterni (un .json per provider)
+const PROVIDERS_DIR := "res://config/providers"  # un .json per provider, Ollama compreso
 
 var mock_mode: bool = true
-var provider_esterno: bool = false   # false = Ollama locale; true = API esterna
 ## Passare o no dalla coda locale del gateway. Ortogonale al provider scelto.
 var usa_gateway := false
 ## Il profilo del trasporto (config/providers/ con "trasporto": true). Vuoto se assente.
 var gateway_cfg: Dictionary = {}
-var provider_esterno_idx: int = 0    # quale profilo esterno è selezionato
-var config: Dictionary = {}          # profilo locale (Ollama)
-var profili_esterni: Array = []      # profili API esterni caricati da config/providers/*.json
+## OLLAMA E' UN PROVIDER COME GLI ALTRI.
+##
+## Prima no: stava in config/llm_config.json, fuori dall'elenco, e si sceglieva con un
+## interruttore suo («chi da' voce agli dei: Ollama / provider esterno»). Ma «con quale
+## modello parlo» e' una domanda sola, e averla in due posti aveva una conseguenza precisa:
+## col motore su Ollama il menu «Modello» mostrava il modello di un ALTRO provider, e i
+## modelli installati in casa non erano raggiungibili da nessuna parte. Ora ha il suo file
+## come tutti (1_ollama.json) e dichiara `locale: true` — l'unica differenza che gli resta.
+var profilo_idx: int = 0
+var profili: Array = []              # tutti i provider, da config/providers/*.json
+var config: Dictionary = {}          # cio' che non appartiene a nessun provider: mock, stadio
+
+## Nei dati dei provider la chiave API non c'e': c'e' questo segnaposto (vedi LLMClient).
+const SEGNAPOSTO_CHIAVE := LLMClient.SEGNAPOSTO_CHIAVE
+
+## I provider si chiamavano col nome di un modello («Mistral Small», «Gemini 3.5 Flash»):
+## sbagliato due volte, perche' il modello si sceglie a parte e perche' cambiava sotto il
+## nome. Rinominarli pero' fa perdere la scelta a chi aveva gia' giocato — la preferenza e'
+## salvata per nome. Questa tabella la traduce, una volta.
+const NOMI_STORICI := {
+	"Mistral Small": "Mistral",
+	"Gemini 3.5 Flash": "Google",
+	"GPT-4o mini": "OpenAI",
+}
 
 var _mock := LLMMock.new()
 var _client: LLMClient = null
@@ -34,18 +54,25 @@ var _compagno: Compagno = null
 
 func _ready() -> void:
 	config = _carica_config()
-	profili_esterni = _carica_profili_esterni()
+	profili = _carica_profili()
 	_applica_override_env()
 	mock_mode = config.get("mock", true)
 	if not mock_mode:
 		_inizializza_reale()
 
-## Profilo del provider attivo (locale o esterno). I punti di chiamata non cambiano: il
-## client è provider-agnostico (formato chat-completions OpenAI).
+## Profilo del provider selezionato, con il trasporto applicato. I punti di chiamata non
+## cambiano: il client è provider-agnostico (formato chat-completions OpenAI).
 func _config_attiva() -> Dictionary:
-	if provider_esterno and provider_esterno_idx >= 0 and provider_esterno_idx < profili_esterni.size():
-		return _attraverso_il_gateway(profili_esterni[provider_esterno_idx])
-	return config
+	if profilo_idx < 0 or profilo_idx >= profili.size():
+		return {}
+	return _attraverso_il_gateway(profili[profilo_idx])
+
+## Il provider scelto gira in casa? Cambia una cosa sola: non gli servono chiavi, e non c'è
+## nessun piano gratuito da rispettare — quindi nemmeno il gateway ha senso davanti a lui.
+func e_locale() -> bool:
+	if profilo_idx < 0 or profilo_idx >= profili.size():
+		return false
+	return bool(profili[profilo_idx].get("locale", false))
 
 ## IL GATEWAY E' UN TRASPORTO, NON UN PROVIDER.
 ##
@@ -60,6 +87,8 @@ func _config_attiva() -> Dictionary:
 func _attraverso_il_gateway(profilo: Dictionary) -> Dictionary:
 	if not usa_gateway or gateway_cfg.is_empty():
 		return profilo
+	if bool(profilo.get("locale", false)):
+		return profilo   # un server in casa non ha limiti da rispettare: la coda non serve
 	var cfg := profilo.duplicate(true)
 	cfg["base_url"] = gateway_cfg.get("base_url", "http://localhost:8800")
 	cfg["chat_path"] = gateway_cfg.get("chat_path", "/v1/chat/completions")
@@ -96,14 +125,23 @@ func gateway_disponibile() -> bool:
 ## Accende/spegne il passaggio dal gateway senza toccare il provider scelto.
 func imposta_gateway(attivo: bool) -> void:
 	usa_gateway = attivo
-	if _client and provider_esterno:
-		var cfg := _config_attiva()
-		_client.configura(cfg, _leggi_chiave(cfg))
+	_riconfigura()
 
-## Carica config/providers/*.json (ordinati per nome file). Un file con "trasporto": true
-## NON e' un provider ma la strada per raggiungerli (il Gateway): finisce in gateway_cfg e
-## resta fuori dall'elenco fra cui si sceglie.
-func _carica_profili_esterni() -> Array:
+## Rimette il client sul profilo selezionato. Prima ogni chiamante lo faceva a mano, e
+## ognuno con la sua condizione: bastava dimenticarne una perche' il gioco continuasse a
+## parlare col provider di prima senza dirlo a nessuno.
+func _riconfigura() -> void:
+	if _client == null:
+		return
+	var cfg := _config_attiva()
+	if cfg.is_empty():
+		return
+	_client.configura(cfg, _leggi_chiave(cfg))
+
+## Carica config/providers/*.json (ordinati per nome file): TUTTI i provider, compreso
+## Ollama. Un file con "trasporto": true NON e' un provider ma la strada per raggiungerli
+## (il Gateway): finisce in gateway_cfg e resta fuori dall'elenco fra cui si sceglie.
+func _carica_profili() -> Array:
 	var out: Array = []
 	gateway_cfg = {}
 	var dir := DirAccess.open(PROVIDERS_DIR)
@@ -127,68 +165,77 @@ func _carica_profili_esterni() -> Array:
 
 ## Indice del profilo dal NOME (come e' salvato nelle preferenze). -1 se non c'e' piu':
 ## salvare il nome invece della posizione evita che aggiungere o togliere un file in
-## config/providers/ faccia scivolare la scelta su un altro provider.
+## config/providers/ faccia scivolare la scelta su un altro provider. I nomi vecchi
+## («Mistral Small» -> «Mistral») si traducono, cosi' chi aveva gia' scelto non si ritrova
+## su un altro provider dopo un aggiornamento.
 func indice_profilo(nome: String) -> int:
-	for i in profili_esterni.size():
-		if String(profili_esterni[i].get("nome", "")) == nome:
+	var cercato := String(NOMI_STORICI.get(nome, nome))
+	for i in profili.size():
+		if String(profili[i].get("nome", "")) == cercato:
 			return i
 	return -1
 
 func nome_profilo_corrente() -> String:
-	if provider_esterno_idx < 0 or provider_esterno_idx >= profili_esterni.size():
+	if profilo_idx < 0 or profilo_idx >= profili.size():
 		return ""
-	return String(profili_esterni[provider_esterno_idx].get("nome", ""))
+	return String(profili[profilo_idx].get("nome", ""))
 
-## Almeno un profilo esterno disponibile?
-func provider_esterno_disponibile() -> bool:
-	return not profili_esterni.is_empty()
+## Almeno un provider configurato?
+func c_e_un_provider() -> bool:
+	return not profili.is_empty()
 
-## Etichette dei profili esterni, per il menù a tendina.
-func nomi_profili_esterni() -> Array:
+## Etichette dei provider, per il menù a tendina.
+func nomi_profili() -> Array:
 	var out: Array = []
-	for p in profili_esterni:
+	for p in profili:
 		out.append(String(p.get("nome", "?")))
 	return out
 
-## Seleziona quale profilo esterno usare; se il percorso esterno è già attivo, riconfigura.
-func imposta_profilo_esterno(idx: int) -> void:
-	if idx < 0 or idx >= profili_esterni.size():
+## Seleziona quale provider usare, e riconfigura subito il client.
+##
+## Prima riconfigurava solo «se il percorso esterno e' gia' acceso»: scegliere un provider
+## in Settings prima di iniziare non arrivava al client, e la verifica successiva
+## interrogava ancora quello di prima. Era la meta' del difetto di «Aggiorna elenco».
+func imposta_profilo(idx: int) -> void:
+	if idx < 0 or idx >= profili.size():
 		return
-	provider_esterno_idx = idx
-	if _client and provider_esterno:
-		var cfg := _config_attiva()
-		_client.configura(cfg, _leggi_chiave(cfg))
+	profilo_idx = idx
+	_riconfigura()
 
-## La chiave API del profilo esterno selezionato è esportata nell'ambiente?
-## Un profilo che non dichiara api_key_env non ne ha bisogno (es. il Gateway locale, che
-## tiene lui le chiavi, o un endpoint senza autenticazione): in quel caso va sempre bene.
-func chiave_esterno_presente() -> bool:
+## La chiave API del provider selezionato è disponibile?
+## Un profilo che non dichiara api_key_env non ne ha bisogno (Ollama, che gira in casa, o
+## il Gateway locale, che le chiavi le tiene lui): in quel caso va sempre bene.
+func chiave_presente() -> bool:
+	if profili.is_empty():
+		return false
+	if e_locale():
+		return true
 	if usa_gateway and gateway_disponibile():
 		return true   # passando dal gateway le chiavi le tiene lui, non il gioco
-	if profili_esterni.is_empty():
-		return false
-	var idx := clampi(provider_esterno_idx, 0, profili_esterni.size() - 1)
-	var cfg: Dictionary = profili_esterni[idx]
+	var idx := clampi(profilo_idx, 0, profili.size() - 1)
+	var cfg: Dictionary = profili[idx]
 	if String(cfg.get("api_key_env", "")) == "":
 		return true
 	return _leggi_chiave(cfg) != ""
 
-## Il modello del profilo SELEZIONATO nel menu (col prefisso se si passa dal gateway).
-## Diverso da modello_atteso(): quello dice cosa parte davvero adesso, e all'avvio il
-## percorso esterno non e' ancora acceso — in Settings comparirebbe il modello di Ollama
-## mentre il menu mostra "Gemini". Qui si mostra cio' che si sta scegliendo.
+## Il modello del provider SELEZIONATO (col prefisso se si passa dal gateway).
 func modello_del_profilo() -> String:
-	if provider_esterno_idx < 0 or provider_esterno_idx >= profili_esterni.size():
-		return String(config.get("model", "?"))
-	return String(_attraverso_il_gateway(profili_esterni[provider_esterno_idx]).get("model", "?"))
+	return String(_config_attiva().get("model", "?"))
 
-## La configurazione del profilo SELEZIONATO (col trasporto applicato), a prescindere da
-## quale motore stia girando adesso. Serve alla prova in Settings: si sta configurando
-## Gemini col gioco ancora su simulato, e provare "il provider attivo" proverebbe Ollama.
+## La configurazione del provider SELEZIONATO, col trasporto applicato.
 func config_del_profilo() -> Dictionary:
-	if provider_esterno_idx < 0 or provider_esterno_idx >= profili_esterni.size():
-		return config
-	return _attraverso_il_gateway(profili_esterni[provider_esterno_idx])
+	return _config_attiva()
+
+## I modelli che il profilo propone senza chiedere niente a nessuno.
+##
+## Un menu vuoto finche' non premi «Aggiorna» costringe a essere online per capire cosa si
+## puo' scegliere; e un elenco salvato in cache invecchia in silenzio — che e' esattamente
+## l'errore da cui viene tutto questo. Qui sono scritti nel file del provider, e
+## `tools/verifica_modelli` li confronta col catalogo vero quando glielo si chiede.
+func modelli_noti() -> Array:
+	if profilo_idx < 0 or profilo_idx >= profili.size():
+		return []
+	return Array(profili[profilo_idx].get("modelli_noti", []))
 
 ## PROVA IL MODELLO CONFIGURATO, senza accendere niente e senza disturbare la partita.
 ##
@@ -219,10 +266,37 @@ func prova_profilo() -> Dictionary:
 		if not prova["ok"]:
 			esito["errore"] = prova["errore"]
 	esito["ms"] = Time.get_ticks_msec() - t0
-	# La partita non deve accorgersi della prova: il client torna com'era.
-	var attuale := _config_attiva()
-	_client.configura(attuale, _leggi_chiave(attuale))
+	_riconfigura()   # la partita non deve accorgersi della prova
 	return esito
+
+## SOLO L'ELENCO DEI MODELLI, e solo dal provider SELEZIONATO nel menu.
+##
+## Questo e' cio' che «Aggiorna elenco» avrebbe dovuto fare da sempre. Chiamava invece
+## verifica_provider(), che interroga il MOTORE ACCESO: con Ollama in esecuzione e OpenRouter
+## scelto nel menu, il gioco chiedeva la lista a Ollama e la mostrava come se fosse di
+## OpenRouter. Non un errore a schermo — la risposta di un altro. Il bottone «Prova il
+## modello», accanto, faceva gia' la cosa giusta: due strade per la stessa domanda, e solo
+## una corretta.
+##
+## E si ferma qui: nessuna generazione di prova. Aggiornare un elenco non deve costare un
+## token, e la prova del modello ha gia' il suo bottone.
+## Ritorna {ok, modelli, errore, dove} — `dove` e' l'indirizzo interrogato davvero.
+func elenca_modelli_del_profilo() -> Dictionary:
+	if _client == null:
+		_inizializza_reale()
+	var cfg := config_del_profilo()
+	var dove := String(cfg.get("base_url", "?"))
+	if cfg.is_empty():
+		return {"ok": false, "modelli": [], "errore": "nessun provider selezionato", "dove": dove}
+	_client.configura(cfg, _leggi_chiave(cfg))
+	_reg("→ elenco dei modelli di «%s» (%s)…" % [nome_profilo_corrente(), dove])
+	var r: Dictionary = await _client.elenca_modelli()
+	_reg("← %d modelli · %s" % [Array(r.get("modelli", [])).size(), String(r.get("errore", "ok"))])
+	_riconfigura()
+	return {
+		"ok": bool(r.get("ok", false)), "modelli": r.get("modelli", []),
+		"errore": String(r.get("errore", "")), "dove": dove,
+	}
 
 ## --- La scelta del modello, ricordata PER PROVIDER ---
 ##
@@ -247,22 +321,53 @@ static func nome_nudo(nome: String, nome_pieno: bool = false) -> String:
 
 ## Il profilo selezionato dichiara nomi «autore/modello»?
 func nome_pieno() -> bool:
-	if provider_esterno_idx < 0 or provider_esterno_idx >= profili_esterni.size():
+	if profilo_idx < 0 or profilo_idx >= profili.size():
 		return false
-	return bool(profili_esterni[provider_esterno_idx].get("nome_pieno", false))
+	return bool(profili[profilo_idx].get("nome_pieno", false))
 
 func _chiave_modello(idx: int) -> String:
-	if idx < 0 or idx >= profili_esterni.size():
+	if idx < 0 or idx >= profili.size():
 		return "modello:locale"
-	return "modello:%s" % String(profili_esterni[idx].get("nome", idx))
+	return "modello:%s" % String(profili[idx].get("nome", idx))
 
 ## Ricorda il modello scelto per il provider CORRENTE (e lo applica subito).
 func ricorda_modello(nome: String) -> void:
 	var pulito := nome_nudo(nome.strip_edges(), nome_pieno())
 	if pulito == "":
 		return
-	Impostazioni.scrivi(_chiave_modello(provider_esterno_idx), pulito)
+	Impostazioni.scrivi(_chiave_modello(profilo_idx), pulito)
 	imposta_modello(pulito)
+
+# --- Autore e modello: il menu a cascata ---
+#
+# OpenRouter offre oltre trecento modelli. Un unico menu a tendina con dentro trecento voci
+# non e' un elenco fra cui scegliere, e' un muro: si divide in due, prima l'autore poi il
+# modello. Sono funzioni pure perche' cosi' si provano senza aprire una finestra.
+
+## «mistralai/mistral-medium-3.1» -> «mistralai». Senza barra non c'e' autore: e' un
+## provider a nome semplice, e inventargliene uno riempirebbe il menu di una voce falsa.
+static func autore_di(nome: String) -> String:
+	return nome.get_slice("/", 0) if nome.contains("/") else ""
+
+## Gli autori presenti nell'elenco, in ordine e senza ripetizioni. Vuoto se nessuno ne ha.
+static func autori(modelli: Array) -> Array:
+	var visti: Dictionary = {}
+	for m in modelli:
+		var a := autore_di(String(m))
+		if a != "":
+			visti[a] = true
+	var out: Array = visti.keys()
+	out.sort()
+	return out
+
+## I modelli di quell'autore, in ordine. Con autore vuoto: tutti (provider a nome semplice).
+static func modelli_di(autore: String, modelli: Array) -> Array:
+	var out: Array = []
+	for m in modelli:
+		if autore == "" or autore_di(String(m)) == autore:
+			out.append(String(m))
+	out.sort()
+	return out
 
 func modello_ricordato(idx: int) -> String:
 	return String(Impostazioni.leggi(_chiave_modello(idx), ""))
@@ -271,10 +376,10 @@ func modello_ricordato(idx: int) -> String:
 ## Scrive nei profili DIRETTAMENTE: all'avvio il percorso esterno non e' ancora acceso, e
 ## passare da imposta_modello() manderebbe la scelta sul provider locale.
 func applica_modelli_ricordati() -> void:
-	for i in profili_esterni.size():
+	for i in profili.size():
 		var m := modello_ricordato(i)
 		if m != "":
-			profili_esterni[i]["model"] = m
+			profili[i]["model"] = m
 
 ## L'elenco dei modelli, senza quelli che non sanno scrivere testo. Gli endpoint dei
 ## provider restituiscono tutto il catalogo — sintesi vocale, immagini, video, embedding —
@@ -298,9 +403,9 @@ static func solo_modelli_testuali(modelli: Array, escludi: Array, pieno: bool = 
 
 ## I frammenti da escludere dichiarati dal profilo selezionato.
 func filtro_modelli() -> Array:
-	if provider_esterno_idx < 0 or provider_esterno_idx >= profili_esterni.size():
+	if profilo_idx < 0 or profilo_idx >= profili.size():
 		return []
-	return Array(profili_esterni[provider_esterno_idx].get("escludi_modelli", []))
+	return Array(profili[profilo_idx].get("escludi_modelli", []))
 
 ## Modello atteso dal provider attivo (per messaggi/verifica).
 func modello_atteso() -> String:
@@ -308,11 +413,17 @@ func modello_atteso() -> String:
 
 ## Il modello puo' essere scelto senza toccare il JSON: variabile d'ambiente DEI_MODELLO
 ## (impostata da ./avvia.sh con MODELLO=...). Comodo per provare modelli diversi su M1.
+## Vale per Ollama: e' il provider che ./avvia.sh prepara col preflight.
 func _applica_override_env() -> void:
-	if OS.has_environment("DEI_MODELLO"):
-		var m := OS.get_environment("DEI_MODELLO").strip_edges()
-		if m != "":
-			config["model"] = m
+	if not OS.has_environment("DEI_MODELLO"):
+		return
+	var m := OS.get_environment("DEI_MODELLO").strip_edges()
+	if m == "":
+		return
+	for p in profili:
+		if bool(p.get("locale", false)):
+			p["model"] = m
+			return
 
 ## Cambia il modello a runtime (usato dal menu a tendina della GUI). Effetto dal turno dopo.
 func imposta_modello(nome: String) -> void:
@@ -322,11 +433,16 @@ func imposta_modello(nome: String) -> void:
 	# acceso quello e' una copia col prefisso d'instradamento, e la modifica si perderebbe.
 	# Il prefisso non appartiene al nome del modello: lo rimette il trasporto. Su un provider
 	# a nome pieno (OpenRouter) invece la barra e' del nome e non si tocca.
+	#
+	# QUI C'ERA UN «if provider_esterno»: a motore ancora spento — cioe' ogni volta che si
+	# apriva Settings prima di iniziare — la scelta finiva nel profilo di Ollama. Poi il menu
+	# si risincronizzava dal profilo vero, rimasto invariato, e la scelta tornava indietro
+	# da sola sotto gli occhi di chi l'aveva appena fatta. Il modello appartiene al provider
+	# SELEZIONATO, che il motore sia acceso o no.
 	var pulito := nome_nudo(nome, nome_pieno())
-	if provider_esterno and provider_esterno_idx >= 0 and provider_esterno_idx < profili_esterni.size():
-		profili_esterni[provider_esterno_idx]["model"] = pulito
-	else:
-		config["model"] = pulito
+	if profilo_idx < 0 or profilo_idx >= profili.size():
+		return
+	profili[profilo_idx]["model"] = pulito
 	# Cio' che il client manda dev'essere il nome EFFETTIVO, ricalcolato: senza gateway il
 	# nome nudo, col gateway quello col prefisso d'instradamento. Prima si assegnava `nome`
 	# cosi' com'era arrivato — e dall'elenco di Google arriva come «models/gemini-3.5-flash»:
@@ -337,16 +453,13 @@ func imposta_modello(nome: String) -> void:
 		_client.model = effettivo
 	_reg("modello impostato: %s" % effettivo)
 
-## Abilita il percorso LLM reale a runtime. esterno=false -> Ollama locale; true -> API
-## esterna (profilo config_esterno). Riconfigura il client sul provider scelto. Idempotente.
-func abilita_reale(esterno: bool = false) -> void:
+## Abilita il percorso LLM reale a runtime sul provider selezionato. Idempotente.
+func abilita_reale() -> void:
 	mock_mode = false
-	provider_esterno = esterno
 	if _client == null:
 		_inizializza_reale()
 	else:
-		var cfg := _config_attiva()
-		_client.configura(cfg, _leggi_chiave(cfg))
+		_riconfigura()
 
 func _inizializza_reale() -> void:
 	_client = LLMClient.new()
@@ -394,7 +507,7 @@ func _reg(r: String) -> void:
 ## Verifica pre-partita del percorso reale: il server risponde? il modello atteso
 ## (config.model) e' caricato? Ritorna {ok, attivo, modello_presente, modelli, atteso, errore}.
 ## Non attiva nulla da sola: la GUI decide se procedere o restare sul mock.
-func verifica_ollama() -> Dictionary:
+func verifica_provider() -> Dictionary:
 	if _client == null:
 		_inizializza_reale()
 	var atteso: String = modello_atteso()

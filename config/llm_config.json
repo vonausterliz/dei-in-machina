@@ -1,9 +1,5 @@
 {
+  "_nota": "Cosa NON c'e' piu' qui: provider, base_url, model, api_key_env, timeout_sec. Ollama era l'unico provider descritto fuori da config/providers/, ed e' per questo che nel gioco non lo si poteva scegliere come gli altri: ora ha il suo file, 1_ollama.json. Qui resta solo cio' che non appartiene a nessun provider.",
   "mock": true,
-  "provider": "ollama",
-  "base_url": "http://localhost:11434",
-  "model": "mistral-small3.2:latest",
-  "api_key_env": "MISTRAL_API_KEY",
-  "timeout_sec": 300,
   "dei_attivi_stadio": 1
 }

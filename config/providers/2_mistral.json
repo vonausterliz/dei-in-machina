@@ -1,0 +1,21 @@
+{
+  "nome": "Mistral",
+  "provider": "mistral",
+  "base_url": "https://api.mistral.ai",
+  "model": "mistral-small-latest",
+  "api_key_env": "MISTRAL_API_KEY",
+  "timeout_sec": 120,
+  "_nota": "Il gioco e' tarato su Mistral Small: e' il modello con cui sono stati scritti e misurati i prompt degli otto agenti. Gli altri funzionano, ma lunghezze e registro sono stati messi a punto su questo.",
+  "modelli_noti": [
+    "mistral-small-latest",
+    "mistral-medium-latest",
+    "mistral-large-latest",
+    "open-mistral-nemo"
+  ],
+  "escludi_modelli": [
+    "embed",
+    "moderation",
+    "ocr",
+    "voxtral"
+  ]
+}

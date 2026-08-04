@@ -1,0 +1,23 @@
+{
+  "nome": "Ollama locale",
+  "provider": "ollama",
+  "locale": true,
+  "base_url": "http://localhost:11434",
+  "model": "mistral-small3.2:latest",
+  "api_key_env": "",
+  "timeout_sec": 300,
+  "_nota": "Ollama gira sulla TUA macchina: nessuna chiave, nessun costo, nessun limite di richieste — solo la RAM e la pazienza. E' il provider con cui il gioco e' stato collaudato (mistral-small3.2 su un MacBook M1). Prima era un motore a parte, scelto da un interruttore suo: ma «con quale modello parlo» e' una domanda sola, e averla in due posti voleva dire che scegliendo Ollama non si poteva scegliere il modello.",
+  "_nota_modelli": "L'elenco vero dipende da cosa hai installato tu: «Aggiorna elenco» lo chiede a Ollama. Quelli qui sotto sono solo un punto di partenza; se non li hai, scaricali con «ollama pull <nome>».",
+  "modelli_noti": [
+    "mistral-small3.2:latest",
+    "llama3.3:latest",
+    "mixtral:latest",
+    "deepseek-r1:latest",
+    "qwen2.5:latest"
+  ],
+  "escludi_modelli": [
+    "embed",
+    "nomic",
+    "bge-"
+  ]
+}

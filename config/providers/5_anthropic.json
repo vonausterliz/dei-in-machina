@@ -1,0 +1,21 @@
+{
+  "nome": "Anthropic",
+  "provider": "anthropic",
+  "base_url": "https://api.anthropic.com/v1",
+  "chat_path": "/chat/completions",
+  "models_path": "/models",
+  "model": "claude-sonnet-5",
+  "api_key_env": "ANTHROPIC_API_KEY",
+  "timeout_sec": 180,
+  "_nota": "L'unico provider che non parla del tutto la lingua di OpenAI. Il suo layer di compatibilita' accetta /chat/completions con l'Authorization: Bearer (provato: risponde con errori in formato OpenAI), ma /models pretende l'intestazione «x-api-key» e il Bearer lo rifiuta con un 401. Invece di aggiungere un ramo «se e' Anthropic» dentro il client, il profilo dichiara le intestazioni che gli servono: resta un dato, non diventa codice — e il prossimo provider con le sue manie si aggiunge senza toccare niente.",
+  "intestazioni": {
+    "x-api-key": "$CHIAVE",
+    "anthropic-version": "2023-06-01"
+  },
+  "modelli_noti": [
+    "claude-opus-5",
+    "claude-sonnet-5",
+    "claude-haiku-4-5-20251001"
+  ],
+  "escludi_modelli": []
+}

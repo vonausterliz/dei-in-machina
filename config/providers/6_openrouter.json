@@ -1,0 +1,33 @@
+{
+  "nome": "OpenRouter",
+  "provider": "openrouter",
+  "base_url": "https://openrouter.ai/api/v1",
+  "chat_path": "/chat/completions",
+  "models_path": "/models",
+  "model": "mistralai/mistral-small-3.2-24b-instruct",
+  "api_key_env": "OPENROUTER_API_KEY",
+  "timeout_sec": 180,
+  "_nota": "Un solo endpoint per centinaia di modelli di provider diversi (Mistral, Google, Anthropic, Meta, DeepSeek...), in formato chat-completions: per il gioco e' un provider come gli altri. Comodo qui per due motivi: si cambia modello senza cambiare chiave, e i modelli col suffisso «:free» permettono di provare il gioco a costo zero. La chiave si prende su https://openrouter.ai/keys.",
+  "_nota_nomi": "I nomi hanno SEMPRE la forma «autore/modello», con la barra. E' l'unico provider in cui la barra fa parte del nome e non e' l'instradamento del Gateway: vedi `nome_pieno` piu' sotto.",
+  "_nota_errore": "Qui c'era «mistralai/mistral-small-3.2-24b-instruct:free», che NON ESISTE: dedotto dal fatto che OpenRouter ha modelli col suffisso «:free», mai verificato sul catalogo vero. Ogni chiamata rispondeva 404 e nessun test poteva accorgersene, perche' tutti guardavano la forma del nome e nessuno la sua esistenza. Il rimedio non e' solo il nome giusto: e' `tools/verifica_modelli`, che confronta i `modelli_noti` di ogni provider col catalogo che il provider pubblica adesso.",
+  "nome_pieno": true,
+  "_nota_modelli": "Verificati sul catalogo il 2026-08-03. I «:free» hanno limiti di richieste stretti e cambiano spesso: fra i gratuiti oggi non c'e' nessun Mistral, e il gioco e' tarato su Mistral Small.",
+  "modelli_noti": [
+    "mistralai/mistral-small-3.2-24b-instruct",
+    "mistralai/mistral-medium-3.1",
+    "mistralai/mistral-large-2512",
+    "openai/gpt-oss-20b:free",
+    "google/gemma-4-31b-it:free",
+    "nvidia/nemotron-nano-9b-v2:free"
+  ],
+  "escludi_modelli": [
+    "embedding",
+    "tts",
+    "whisper",
+    "audio",
+    "image",
+    "vision-only",
+    "moderation",
+    "rerank"
+  ]
+}

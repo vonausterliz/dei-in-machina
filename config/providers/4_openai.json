@@ -1,10 +1,16 @@
 {
-  "nome": "GPT-4o mini",
+  "nome": "OpenAI",
   "provider": "openai",
   "base_url": "https://api.openai.com",
   "model": "gpt-4o-mini",
   "api_key_env": "OPENAI_API_KEY",
   "timeout_sec": 120,
+  "modelli_noti": [
+    "gpt-4o-mini",
+    "gpt-4o",
+    "gpt-4.1-mini",
+    "gpt-4.1"
+  ],
   "escludi_modelli": [
     "embedding",
     "dall-e",
