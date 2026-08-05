@@ -141,12 +141,13 @@ func connessione(dati: Dictionary) -> void:
 	_riga("CONN", "", "gateway=%s" % (via if via != "" else "no (diretto al provider)"))
 	# Mai il VALORE. Solo se c'è, e da dove verrebbe: è la differenza fra un log
 	# incollabile in una segnalazione e un segreto perso.
-	var env := String(dati.get("chiave_env", ""))
-	if env == "":
-		_riga("CONN", "", "chiave=non serve (provider locale)")
-	else:
-		_riga("CONN", "", "chiave=%s (variabile %s)" % [
-			"presente" if bool(dati.get("chiave_presente", false)) else "ASSENTE", env])
+	#
+	# La frase la compone chi CHIAMA, non questa funzione: qui si vedeva solo `api_key_env`,
+	# che passando dal Gateway è vuoto — e da un campo vuoto usciva «non serve (provider
+	# locale)», cioè la spiegazione di Ollama messa sotto OpenRouter. Il dato non bastava a
+	# distinguere «nessuno la vuole» da «la vuole il Gateway», e chi ha il contesto per
+	# saperlo è `LLMManager`.
+	_riga("CONN", "", "chiave=%s" % dati.get("chiave", "?"))
 	if dati.has("timeout_s"):
 		_riga("CONN", "", "timeout=%s s" % dati["timeout_s"])
 

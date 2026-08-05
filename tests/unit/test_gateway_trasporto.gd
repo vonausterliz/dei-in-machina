@@ -58,13 +58,57 @@ func test_il_prefisso_usa_il_provider_del_profilo_non_il_suo_nome():
 	LLMManager.usa_gateway = true
 	assert_true(String(LLMManager._config_attiva()["model"]).begins_with("mistral/"))
 
-## Il modello mostrato e verificato dev'essere quello che parte davvero, prefisso compreso:
-## altrimenti il preflight controlla una cosa e il gioco ne chiama un'altra.
-func test_il_modello_atteso_e_quello_che_parte_davvero():
+## DUE NOMI, DUE MESTIERI — e per un po' sono stati confusi.
+##
+## Il nome che parte sul filo porta il prefisso d'instradamento («google/gemini-3.5-flash»):
+## lo compone il trasporto, e lo da' `modello_del_profilo()`.
+##
+## Il nome ATTESO serve a due cose diverse — mostrarlo a chi legge e confrontarlo col
+## CATALOGO del provider — e per entrambe conta il nome che il provider conosce. Nel catalogo
+## il prefisso d'instradamento non c'e' mai: e' nostro, non suo.
+##
+## Prima `modello_atteso()` tornava quello instradato, con l'idea ragionevole che «si debba
+## verificare cio' che parte davvero». Ragionevole e sbagliata: si confrontava una cosa nostra
+## con un elenco loro. Su due segmenti passava per caso, perche' il confronto tollerante
+## toglieva un pezzo da entrambi i lati. Su tre no — vedi il test qui sotto.
+func test_il_nome_atteso_e_quello_che_il_provider_conosce():
 	var i := _indice_di("google")
 	LLMManager.imposta_profilo(i)
 	LLMManager.usa_gateway = true
-	assert_eq(LLMManager.modello_atteso(), String(LLMManager._config_attiva()["model"]))
+	var sul_filo := String(LLMManager._config_attiva()["model"])
+	assert_true(sul_filo.begins_with("google/"), "sul filo il prefisso c'e'")
+	assert_false(LLMManager.modello_atteso().begins_with("google/"),
+		"nel nome atteso il prefisso d'instradamento non deve esserci")
+	assert_eq(LLMManager.modello_atteso(), String(LLMManager.profili[i]["model"]))
+
+## IL DIFETTO DEI TRE SEGMENTI. Su OpenRouter il nome del modello contiene gia' una barra
+## («deepseek/deepseek-v4-flash»), e il gateway ne aggiunge un'altra davanti: tre pezzi.
+##
+## `_senza_prefisso()` faceva `get_slice("/", 1)`, che non toglie il primo pezzo — restituisce
+## il SECONDO e butta il resto. Su due segmenti le due cose coincidono; su tre,
+## «openrouter/deepseek/deepseek-v4-flash» diventava «deepseek», che non e' il nome di niente.
+## Il confronto col catalogo falliva sempre, e il gioco scriveva «modello non caricato» di un
+## modello presente e funzionante — accusando il provider di una mancanza sua.
+func test_un_modello_col_nome_a_due_pezzi_viene_riconosciuto():
+	var i := _indice_di("openrouter")
+	if i < 0:
+		pending("nessun profilo OpenRouter configurato"); return
+	LLMManager.imposta_profilo(i)
+	LLMManager.imposta_modello("deepseek/deepseek-v4-flash")
+	LLMManager.usa_gateway = true
+	# Cio' che parte: tre pezzi. Cio' che il catalogo dichiara: due.
+	assert_eq(String(LLMManager._config_attiva()["model"]), "openrouter/deepseek/deepseek-v4-flash",
+		"sul filo il gateway vuole il prefisso davanti al nome intero")
+	assert_true(LLMManager._modello_presente(LLMManager.modello_atteso(),
+		["deepseek/deepseek-v4-flash", "qwen/qwen3.8-max"]),
+		"un modello che il catalogo elenca dev'essere riconosciuto, non dichiarato assente")
+
+## …e il confronto tollerante non deve diventare tollerante al punto di dire di si' a
+## chiunque: due modelli dello stesso autore restano due modelli diversi.
+func test_il_confronto_tollerante_non_confonde_due_modelli():
+	assert_false(LLMManager._modello_presente("deepseek/deepseek-v4-flash",
+		["deepseek/deepseek-v3.2", "deepseek/deepseek-r1"]),
+		"un modello assente non deve risultare presente perche' l'autore coincide")
 
 ## Spegnere il gateway non deve far perdere il provider scelto.
 func test_accendere_e_spegnere_il_gateway_non_cambia_provider():
@@ -142,8 +186,10 @@ func test_il_prefisso_dell_elenco_non_si_porta_dietro():
 		"nel profilo si salva il nome nudo")
 	assert_eq(LLMManager.modello_atteso(), "gemini-3.5-flash", "e si manda quello")
 	LLMManager.usa_gateway = true
-	assert_eq(LLMManager.modello_atteso(), "google/gemini-3.5-flash",
+	assert_eq(LLMManager.modello_del_profilo(), "google/gemini-3.5-flash",
 		"col gateway il prefisso e' quello d'instradamento, non quello dell'elenco")
+	assert_eq(LLMManager.modello_atteso(), "gemini-3.5-flash",
+		"ma il nome atteso resta quello del provider: e' con quello che si cerca nel catalogo")
 
 ## L'ELENCO DEI MODELLI DEVE DIRE PER CHI.
 ##

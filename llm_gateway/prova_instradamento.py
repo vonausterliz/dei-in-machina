@@ -201,6 +201,26 @@ def main() -> int:
     verifica(ric and ric[-1][1] == "pippo/pluto",
              f"tolto solo il prefisso, il resto del nome resta intero (model={ric[-1][1]!r})")
 
+    print("\n9. La cache non conserva una risposta inservibile")
+    # Un `200` dice che il provider ha fatto il suo lavoro, non che la risposta serva. Una
+    # troncata o senza contenuto messa in cache torna identica per un'ora a ogni ritentativo,
+    # senza toccare la rete: un modello sano sembra guasto in modo riproducibile, e non se ne
+    # esce. Successo davvero — la stessa `gen-1785930448-...` per trentacinque secondi.
+    casi = [
+        ("normale",             {"finish_reason": "stop",   "message": {"content": "ciao"}},                       True),
+        ("troncata",            {"finish_reason": "length", "message": {"content": "ci"}},                         False),
+        ("contenuto nullo",     {"finish_reason": "stop",   "message": {"content": None}},                         False),
+        ("solo ragionamento",   {"finish_reason": "length", "message": {"content": None, "reasoning": "…"}},        False),
+    ]
+    for nome, scelta, atteso in casi:
+        corpo = json.dumps({"choices": [scelta]}).encode()
+        verifica(G._vale_la_pena_ricordarla(corpo) is atteso,
+                 f"«{nome}» {'si conserva' if atteso else 'NON si conserva'}")
+    verifica(G._vale_la_pena_ricordarla(b'{"choices":[]}') is False,
+             "una risposta senza scelte non si conserva")
+    verifica(G._vale_la_pena_ricordarla(b"non e' json") is False,
+             "un corpo illeggibile non si conserva (nel dubbio si richiede)")
+
     falliti = [c for ok, c in ESITI if not ok]
     print(f"\n{len(ESITI) - len(falliti)}/{len(ESITI)} controlli passati.")
     if falliti:

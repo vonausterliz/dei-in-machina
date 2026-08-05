@@ -129,6 +129,37 @@ class Limitatore:
             }
 
 
+def _vale_la_pena_ricordarla(corpo: bytes) -> bool:
+    """Una risposta `200` inservibile non va messa in cache.
+
+    Il `200` dice che il PROVIDER ha fatto il suo lavoro, non che la risposta serva a
+    qualcosa. Una troncata a meta' (`finish_reason: length`) o senza contenuto lo e' —
+    e metterla in cache e' peggio che non averla: per un'ora ogni ritentativo riceve la
+    stessa risposta rotta senza toccare la rete, e chi la riceve non ha modo di uscirne.
+
+    Successo davvero: chiamando la stessa richiesta quattro volte in trentacinque secondi,
+    tornava sempre `gen-1785930448-...` — la stessa generazione vuota, in 260 ms invece che
+    in 5117, con l'ora che diceva 13:47:33 anche alle 13:48:04. Sembrava un modello guasto
+    in modo perfettamente riproducibile, ed era una cache che difendeva un errore.
+
+    Nel dubbio si NON-cachea: costa una chiamata, e una chiamata in piu' e' un danno
+    reversibile mentre un errore congelato per un'ora non lo e'.
+    """
+    try:
+        d = json.loads(corpo)
+    except (ValueError, TypeError):
+        return False   # se non si riesce nemmeno a leggerla, non la si conserva
+    scelte = d.get("choices")
+    if not isinstance(scelte, list) or not scelte:
+        return False
+    prima = scelte[0] if isinstance(scelte[0], dict) else {}
+    if prima.get("finish_reason") == "length":
+        return False   # troncata: rigiocarla vuol dire rigiocare il troncamento
+    msg = prima.get("message")
+    contenuto = msg.get("content") if isinstance(msg, dict) else None
+    return bool(contenuto)
+
+
 class Cache:
     """Cache aggressiva delle risposte: chiave = hash del payload inviato.
 
@@ -280,7 +311,7 @@ class Provider:
         self.coda.put(lavoro)
         lavoro["pronto"].wait()
         stato, corpo = lavoro["esito"]
-        if stato == 200:
+        if stato == 200 and _vale_la_pena_ricordarla(corpo):
             self.cache.scrivi(k, corpo)
         return stato, corpo, False
 

@@ -29,6 +29,27 @@ class H(BaseHTTPRequestHandler):
             if chi.lower() in testo.lower():
                 attesa = s
         time.sleep(attesa)
+
+        # IL MODELLO CHE RAGIONA E NON PARLA. E' la risposta vera che ha bloccato una
+        # partita: DeepSeek V4 Flash con un tetto di pochi token lo spende tutto a pensare
+        # e restituisce `content: null` con `finish_reason: length`. Il gioco lo leggeva
+        # come «il modello non risponde» e rifiutava un modello funzionante.
+        tetto = richiesta.get("max_tokens")
+        if tetto is not None and tetto <= 4:
+            corpo = json.dumps({
+                "id": "gen-finta-ragiona", "provider": "Parasail",
+                "model": richiesta.get("model", "?"),
+                "choices": [{"finish_reason": "length", "native_finish_reason": "length",
+                             "message": {"role": "assistant", "content": None,
+                                         "reasoning": "好的"}}],
+                "usage": {"prompt_tokens": 5, "completion_tokens": 1, "total_tokens": 6,
+                          "cost": 9.8e-07,
+                          "prompt_tokens_details": {"cached_tokens": 0},
+                          "completion_tokens_details": {"reasoning_tokens": 2}},
+            })
+            self._invia(200, corpo, {"x-ratelimit-remaining-requests": "18"})
+            return
+
         corpo = json.dumps({
             "id": "gen-finta-0001",
             "provider": "DeepInfra",
@@ -56,7 +77,13 @@ class H(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    # SERVE FINCHE' NON LO SI FERMA. Prima c'era un `time.sleep(120)`: dopo due minuti il
+    # processo usciva in silenzio, e lo strumento che gli parla riportava «il provider non
+    # risponde» — tre fallimenti che accusavano il codice giusto. Un banco di prova che
+    # scade da solo produce diagnosi false, che e' l'esatto contrario del suo mestiere.
     s = HTTPServer(("127.0.0.1", 8899), H)
-    threading.Thread(target=s.serve_forever, daemon=True).start()
-    print("finto provider su http://127.0.0.1:8899", flush=True)
-    time.sleep(120)
+    print("finto provider su http://127.0.0.1:8899 — Ctrl-C per fermarlo", flush=True)
+    try:
+        s.serve_forever()
+    except KeyboardInterrupt:
+        print("\nfermato.")

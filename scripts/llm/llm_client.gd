@@ -230,14 +230,24 @@ func chat(messaggi: Array, opzioni: Dictionary = {}) -> Dictionary:
 	if typeof(parsed) != TYPE_DICTIONARY:
 		return _fallita(n, "risposta non-JSON dal provider")
 
+	# I token li dichiara il PROVIDER, in `usage`: sono quelli fatturati. La nostra stima
+	# in partenza serve solo a non restare al buio prima della risposta.
+	var uso: Dictionary = parsed.get("usage", {}) if typeof(parsed.get("usage")) == TYPE_DICTIONARY else {}
 	var contenuto := _estrai_contenuto(parsed)
 	if contenuto == "":
-		return _fallita(n, "nessun contenuto nella risposta del provider")
+		# UNA RISPOSTA VUOTA NON E' UN FATTO SOLO. La riga della traccia si scrive comunque —
+		# altrimenti l'unico caso in cui i token servono davvero e' l'unico in cui mancano — e
+		# il `grezzo` si consegna a chi chiama, perche' «il modello ha prodotto token ma niente
+		# contenuto» e «il modello non ha risposto» si curano in modi opposti e da qui non si
+		# vede quale delle due interessi.
+		if tracciato != null:
+			tracciato.risposta(n, {"stato": status, "ms": ms, "usage": uso, "agente": chi,
+				"fine": _motivo_fine(parsed), "servito_da": _servito_da(parsed)})
+		var esito := _fallita(n, _perche_vuota(parsed, uso))
+		esito["grezzo"] = parsed
+		return esito
 
 	if tracciato != null:
-		# I token li dichiara il PROVIDER, in `usage`: sono quelli fatturati. La nostra stima
-		# in partenza serve solo a non restare al buio prima della risposta.
-		var uso: Dictionary = parsed.get("usage", {}) if typeof(parsed.get("usage")) == TYPE_DICTIONARY else {}
 		tracciato.risposta(n, {
 			"stato": status, "ms": ms, "usage": uso, "agente": chi,
 			"fine": _motivo_fine(parsed), "contenuto": contenuto,
@@ -249,6 +259,42 @@ func chat(messaggi: Array, opzioni: Dictionary = {}) -> Dictionary:
 		# BBCode: senza neutralizzarlo una quadra generata dal modello colorerebbe il log.
 		_log("    ⇣ HTTP %d · %s" % [status, Bbcode.neutro(_tronca(contenuto, 320))])
 	return {"ok": true, "content": contenuto, "error": "", "grezzo": parsed}
+
+## PERCHE' LA RISPOSTA E' VUOTA. «Nessun contenuto nella risposta del provider» e' vero e
+## inutile: non dice se il modello ha taciuto, se l'abbiamo strozzato noi, o se ha parlato
+## in un campo che non guardiamo.
+##
+## I tre casi si distinguono dai dati che il provider manda gia':
+##  - `finish_reason: length` con dei token in uscita → l'ha troncata **il nostro tetto**;
+##  - un campo `reasoning` pieno e `content` nullo → e' un modello a ragionamento
+##    obbligatorio che ha speso tutto a pensare (DeepSeek V4, Qwen3.8…). In partita, senza
+##    tetto, scrive normalmente: il consiglio giusto e' alzare il tetto, non cambiare modello;
+##  - zero token in uscita → allora si', il modello non ha prodotto niente.
+##
+## E' costato un modello rifiutato per errore: la prova pre-partita chiedeva un token solo,
+## DeepSeek lo spendeva nel ragionamento, e il gioco concludeva «non risponde».
+func _perche_vuota(risposta: Dictionary, uso: Dictionary) -> String:
+	var out := int(uso.get("completion_tokens", 0))
+	var fine := _motivo_fine(risposta)
+	if _ha_ragionato(risposta):
+		return "risposta vuota: il modello ha speso a ragionare %s concesso (è un modello a ragionamento obbligatorio). Alza il tetto di token." % (
+			"l'unico token" if out == 1 else "tutti i %d token" % out)
+	if fine == "length" and out > 0:
+		return "risposta vuota: troncata dal tetto di token dopo %d token, prima di scrivere" % out
+	return "nessun contenuto nella risposta del provider"
+
+## Il modello ha pensato senza parlare? OpenRouter mette il pensiero in `reasoning`, accanto a
+## un `content` nullo. Non lo si usa MAI come risposta — il ragionamento non è la battuta di
+## un dio — ma sapere che c'è cambia la diagnosi.
+func _ha_ragionato(risposta: Dictionary) -> bool:
+	var choices: Variant = risposta.get("choices", [])
+	if typeof(choices) != TYPE_ARRAY or Array(choices).is_empty():
+		return false
+	var primo: Variant = choices[0]
+	if typeof(primo) != TYPE_DICTIONARY:
+		return false
+	var m: Variant = (primo as Dictionary).get("message", {})
+	return typeof(m) == TYPE_DICTIONARY and String((m as Dictionary).get("reasoning", "")) != ""
 
 ## CHI HA SERVITO LA RICHIESTA A MONTE, quando il provider lo dichiara.
 ##
@@ -283,7 +329,11 @@ func _estrai_contenuto(risposta: Dictionary) -> String:
 		return ""
 	var primo: Dictionary = choices[0]
 	var messaggio: Dictionary = primo.get("message", {})
-	return messaggio.get("content", "")
+	# `content` ESISTE E VALE null quando il modello non ha scritto nulla — e' cosi' che
+	# risponde OpenRouter per i modelli a ragionamento. Il valore predefinito di `get()` non
+	# scatta (la chiave c'e'), e da qui usciva un null dentro una funzione tipizzata String.
+	var c: Variant = messaggio.get("content")
+	return String(c) if typeof(c) == TYPE_STRING else ""
 
 ## «HTTP 401» e basta non dice niente a nessuno: non chi ha risposto, non perche'. Il corpo
 ## della risposta di solito lo dice in chiaro («No API key found in request»), e finora lo

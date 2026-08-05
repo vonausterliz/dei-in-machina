@@ -212,20 +212,53 @@ func _riconfigura() -> void:
 	# parlando?» — e prima non c'era: si deduceva da un indirizzo di passaggio, male.
 	segna_connessione()
 
+## L'ultima destinazione scritta nel tracciato, per non riscriverla identica.
+var _ultima_connessione := ""
+
 ## Scrive nel tracciato dove si sta parlando adesso. Nessun valore di chiave: solo se c'e'.
+##
+## SOLO SE E' CAMBIATO QUALCOSA. `_riconfigura()` viene chiamata parecchie volte — a ogni
+## prova del modello, a ogni giro in Impostazioni, e due volte per ogni verifica (una per
+## mettere il tetto breve, una per rimetterlo lungo). Ognuna scriveva il suo blocco di sei
+## righe: in un log vero se ne contano sette in trentacinque secondi, tutti uguali, che
+## separano le chiamate che si vorrebbe leggere di fila.
+##
+## Il blocco esiste per segnalare un CAMBIO di destinazione. Ripeterlo quando non e' cambiato
+## niente non aggiunge un'informazione: ne toglie, perche' insegna a saltarlo.
 func segna_connessione() -> void:
 	var cfg := _config_attiva()
 	if cfg.is_empty():
 		return
-	var env := String(cfg.get("api_key_env", ""))
 	var url := String(cfg.get("base_url", "")).trim_suffix("/") + String(cfg.get("chat_path", "/v1/chat/completions"))
+	var impronta := "%s|%s|%s|%s" % [nome_profilo_corrente(), cfg.get("model", "?"), url, usa_gateway]
+	if impronta == _ultima_connessione:
+		return
+	_ultima_connessione = impronta
+	# LA CHIAVE LA CHIEDE QUALCUN ALTRO, e va detto per nome.
+	#
+	# Passando dal Gateway `_attraverso_il_gateway()` svuota `api_key_env`: e' vero che al
+	# GIOCO la chiave non serve piu'. Ma la riga stampava «non serve (provider locale)», che e'
+	# la spiegazione di Ollama — e con OpenRouter dietro il Gateway era semplicemente falsa.
+	# Peggio: quella chiave serve eccome, solo che va nell'ambiente del Gateway, ed e' il passo
+	# che tutti saltano. La riga che dovrebbe dirlo diceva l'opposto.
+	#
+	# Si guarda quindi il PROFILO, non la configurazione instradata: e' il profilo a sapere se
+	# quel provider una chiave la vuole.
+	var env := String(cfg.get("api_key_env", ""))
+	var chiave := ""
+	if usa_gateway and not e_locale():
+		var suo := String(profili[profilo_idx].get("api_key_env", "")) if profilo_idx >= 0 and profilo_idx < profili.size() else ""
+		chiave = "la tiene il Gateway (esporta %s nel SUO ambiente, non in Settings)" % suo if suo != "" else "non serve"
+	elif env == "":
+		chiave = "non serve (provider locale)"
+	else:
+		chiave = "%s (variabile %s)" % ["presente" if OS.get_environment(env) != "" else "ASSENTE", env]
 	tracciato.connessione({
 		"provider": nome_profilo_corrente(),
 		"modello": cfg.get("model", "?"),
 		"endpoint": url,
 		"gateway": String(gateway_cfg.get("base_url", "")) if usa_gateway else "",
-		"chiave_env": env,
-		"chiave_presente": env != "" and OS.get_environment(env) != "",
+		"chiave": chiave,
 		"timeout_s": cfg.get("timeout_sec", ""),
 	})
 
@@ -378,7 +411,8 @@ func prova_profilo() -> Dictionary:
 	if _client == null:
 		_inizializza_reale()
 	var cfg := config_del_profilo()
-	var atteso := String(cfg.get("model", "?"))
+	# Il nome che il PROVIDER conosce, non quello instradato: vedi `modello_atteso()`.
+	var atteso := modello_atteso()
 	_client.configura(_config_prova(), _leggi_chiave(cfg))
 	var t0 := Time.get_ticks_msec()
 	var elenco: Dictionary = await _client.elenca_modelli()
@@ -600,8 +634,20 @@ func filtro_modelli() -> Array:
 	return Array(profili[profilo_idx].get("escludi_modelli", []))
 
 ## Modello atteso dal provider attivo (per messaggi/verifica).
+##
+## SENZA L'INSTRADAMENTO DEL GATEWAY. Questo nome serve a due cose — confrontarlo col catalogo
+## e mostrarlo a chi legge — e per entrambe conta il nome che il PROVIDER conosce, non
+## l'indirizzo con cui ci si arriva. Prima tornava quello instradato,
+## «openrouter/deepseek/deepseek-v4-flash»: un nome che non esiste da nessuna parte. Il
+## confronto col catalogo falliva sempre e il messaggio d'errore citava un modello immaginario,
+## cosi' il gioco accusava OpenRouter di non avere un modello che aveva e che rispondeva.
+##
+## Il nome instradato serve solo a una cosa, ed e' andare sul filo: quello lo compone
+## `_attraverso_il_gateway()` e lo tiene il client. Qui non deve arrivare.
 func modello_atteso() -> String:
-	return String(_config_attiva().get("model", "?"))
+	if profilo_idx < 0 or profilo_idx >= profili.size():
+		return "?"
+	return String(profili[profilo_idx].get("model", "?"))
 
 ## Il modello puo' essere scelto senza toccare il JSON: variabile d'ambiente DEI_MODELLO
 ## (impostata da ./avvia.sh con MODELLO=...). Comodo per provare modelli diversi su M1.
@@ -749,16 +795,57 @@ func verifica_provider() -> Dictionary:
 		"modelli": modelli, "atteso": atteso, "errore": "",
 	}
 
+## Quanti token concedere alla prova del modello.
+##
+## ERA 1, ED ERA SBAGLIATO — per due ragioni opposte in due momenti diversi.
+##
+## Finche' `chat()` buttava via `max_tokens` (fino alla v2.37) il valore non arrivava a
+## nessuno: la prova generava una risposta intera e funzionava per caso. Appena il tetto ha
+## cominciato ad arrivare davvero, la prova si e' rotta sui **modelli che ragionano**: con un
+## solo token concesso, DeepSeek V4 Flash lo spende nel ragionamento e restituisce
+## `content: null` con `finish_reason: length`. Il gioco lo leggeva come «il modello non
+## risponde» e rifiutava un modello perfettamente funzionante.
+##
+## E' il difetto piu' insidioso della serie: la correzione di ieri era giusta, e ha reso
+## visibile un secondo difetto che la prima nascondeva. Il numero 1 non era «minimo»,
+## era «meno di quanto serva a rispondere» — e su una classe di modelli che nel 2026 e'
+## la norma, non l'eccezione.
+##
+## 64 lascia spazio a un ragionamento breve e a una parola di risposta, e costa un decimo di
+## centesimo. Ma il tetto resta un tetto: per questo il giudizio qui sotto non si fonda piu'
+## sul contenuto.
+const TOKEN_PROVA := 64
+
 ## La prova del nove: una generazione minima. Se il modello e' ritirato, dietro un piano
 ## sbagliato o senza quota, si scopre QUI e non a meta' partita.
+##
+## LA DOMANDA E' «QUESTO MODELLO GENERA?», non «cos'ha detto». Un `200` con dei token in
+## uscita dichiarati la risponde: se il modello e' ritirato arriva un 404, se il piano e'
+## sbagliato un 401, se la quota e' finita un 429 — e nessuno di questi produce token. Il
+## contenuto, invece, puo' mancare per una ragione che non riguarda il modello: il nostro
+## stesso tetto. Giudicare sul contenuto voleva dire far dipendere l'esito da una nostra
+## impostazione, ed e' esattamente cio' che e' successo.
 func _prova_generazione() -> Dictionary:
-	var r = await _per("prova del modello").call([{"role": "user", "content": "ok"}], {"max_tokens": 1, "temperature": 0.0})
-	if typeof(r) == TYPE_DICTIONARY and r.get("ok", false):
+	var r = await _per("prova del modello").call(
+		[{"role": "user", "content": "ok"}], {"max_tokens": TOKEN_PROVA, "temperature": 0.0})
+	if typeof(r) != TYPE_DICTIONARY:
+		return {"ok": false, "errore": "risposta non valida"}
+	if r.get("ok", false):
 		return {"ok": true, "errore": ""}
-	var motivo := "risposta non valida"
-	if typeof(r) == TYPE_DICTIONARY:
-		motivo = String(r.get("error", r.get("errore", motivo)))
-	return {"ok": false, "errore": motivo.substr(0, 200)}
+	# Il modello HA prodotto token ma non contenuto utilizzabile: ha risposto, e la prova
+	# chiedeva questo. Si dice cosa e' successo invece di bocciarlo — sono i modelli a
+	# ragionamento obbligatorio, e in partita (senza tetto) scrivono normalmente.
+	var uso := _uso_dichiarato(r.get("grezzo", {}))
+	if int(uso.get("completion_tokens", 0)) > 0:
+		_reg("  (ha risposto spendendo i token in ragionamento: e' un modello che ragiona)")
+		return {"ok": true, "errore": ""}
+	return {"ok": false, "errore": String(r.get("error", "risposta non valida")).substr(0, 200)}
+
+func _uso_dichiarato(grezzo: Variant) -> Dictionary:
+	if typeof(grezzo) != TYPE_DICTIONARY:
+		return {}
+	var u: Variant = (grezzo as Dictionary).get("usage")
+	return u if typeof(u) == TYPE_DICTIONARY else {}
 
 ## Confronto tollerante: ignora il tag (":latest") E il prefisso di provider usato dal
 ## Gateway ("mistral/mistral-small-latest" == "mistral-small-latest"). Senza questo, col
@@ -778,8 +865,19 @@ func _modello_presente(atteso: String, modelli: Array) -> bool:
 
 ## "mistral/mistral-small-latest" -> "mistral-small-latest" (il prefisso e' l'instradamento
 ## del Gateway, non fa parte del nome del modello presso il provider).
+##
+## VIA SOLO IL PRIMO PEZZO, e il resto resta INTERO. Qui c'era `get_slice("/", 1)`, che non
+## toglie il prefisso: restituisce il SECONDO pezzo e butta tutti gli altri. Su due segmenti
+## le due cose coincidono — «mistral/mistral-small-latest» funziona — e per questo il difetto
+## e' rimasto invisibile finche' i nomi ne hanno avuti due.
+##
+## Con OpenRouter dietro il Gateway i segmenti sono TRE: «openrouter/deepseek/deepseek-v4-flash»
+## diventava «deepseek», che non e' il nome di nessun modello. Il confronto col catalogo
+## falliva sempre e il gioco diceva «modello non caricato» di un modello presente e
+## funzionante — accusando il provider di non avere una cosa che aveva.
 func _senza_prefisso(nome: String) -> String:
-	return nome.get_slice("/", 1) if nome.find("/") != -1 else nome
+	var barra := nome.find("/")
+	return nome.substr(barra + 1) if barra != -1 else nome
 
 ## CHI STA CHIAMANDO. Gli agenti ricevono `_client.chat` come Callable e il client, da solo,
 ## non ha modo di sapere se sta parlando per l'Interprete o per Poseidone. Qui si dichiara

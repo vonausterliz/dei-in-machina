@@ -44,7 +44,7 @@ func _prova() -> void:
 
 	t.connessione({"provider": "OpenRouter (finto)", "modello": c.model,
 		"endpoint": dove + c.chat_path, "gateway": "",
-		"chiave_env": "OPENROUTER_API_KEY", "chiave_presente": true, "timeout_s": 30})
+		"chiave": "presente (variabile OPENROUTER_API_KEY)", "timeout_s": 30})
 
 	# Una GET, come all'avvio: e' meta' del traffico del gioco e finora non era tracciata.
 	c.agente = "elenco modelli"

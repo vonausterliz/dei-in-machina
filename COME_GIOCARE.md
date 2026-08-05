@@ -393,6 +393,26 @@ d'avvio. Erano metà del traffico del gioco e non comparivano da nessuna parte.
 | «Il provider non risponde» | la riga `ERR`, col messaggio vero |
 | Consumo più alto del previsto | la riga `token` del `BILANCIO`, e la quota `dalla cache` |
 | Sospetti che il gioco sbagli, non il modello | le righe `GIOCO ↘ ENTRA` / `↗ ESCE` |
+| «*Il modello X non risponde*» ma il modello esiste | la riga `RES`: se ci sono token in uscita, il modello ha risposto. Vedi qui sotto |
+
+### I modelli che ragionano
+
+Molti modelli recenti (DeepSeek V4, Qwen3.8, i Gemini «thinking») **pensano prima di
+rispondere**, e alcuni non si possono spegnere. Quei token si pagano in secondi e in denaro e
+**non compaiono nella risposta**: nel tracciato li trovi come `⚠ ragionamento=N`.
+
+Due conseguenze pratiche:
+
+- **Sono spesso la spiegazione di «lento senza scrivere molto».** Se un agente prende venti
+  secondi per tre righe, guarda lì prima di sospettare la rete.
+- **Con un tetto di token stretto il modello può spendere tutto a pensare e non scrivere
+  nulla.** Arriva `content: null` e `finish_reason: length`. Non è un guasto: è il tetto.
+  Il tracciato ora lo dice con queste parole invece di «nessun contenuto».
+
+> La verifica pre-partita chiedeva **un solo token** — abbastanza per sapere se un modello
+> genera, non abbastanza per un modello che ragiona. Dichiarava «non risponde» un modello
+> funzionante. Ora ne concede 64 e, soprattutto, giudica sul fatto che il modello abbia
+> prodotto token: è la domanda che voleva fare.
 
 ### La cache dei prompt: conviene?
 
