@@ -12,6 +12,7 @@
 #   ./avvia.sh installa-menu   # mette il gioco nel menu applicazioni col suo nome
 #   ./avvia.sh --debugllm      # apre la finestra col tracciato delle chiamate al modello
 #   ./avvia.sh --tracellm      # come sopra, PIU' il dettaglio HTTP di ogni richiesta/risposta
+#   ./avvia.sh --logdei        # apre la finestra col diario dell'applicazione (eventi ed errori)
 #   Aggiungi "-- ollama mistral-small3.2:latest" a 'console' per i dei reali.
 #
 # Scelta del modello Ollama (senza toccare il config):
@@ -168,10 +169,17 @@ ollama_preflight() {
 #                richiesta, e lo stesso di ogni risposta. E' il livello con cui si scopre
 #                PERCHE'. Implica --debugllm: chiedere il dettaglio e non vederlo a schermo
 #                sarebbe una trappola. Le credenziali restano oscurate anche qui.
+# --logdei apre invece la finestra del DIARIO DELL'APPLICAZIONE: cosa fa il gioco e cosa gli
+# va storto — l'avvio, le preferenze rilette, la partita caricata, il motore, l'audio, i guai.
+# E' un log separato da quello del modello perche' risponde a una domanda diversa, e cercare
+# «perche' non ho la musica» in mezzo a settemila righe di prompt e' peggio che non cercarla.
+# Anche questo si scrive SEMPRE su file, in user://log/app-*.log.
 for a in "$@"; do
   case "$a" in
     --debugllm) export DEI_DEBUG_LLM=1; shift ;;
     --tracellm) export DEI_DEBUG_LLM=1; export DEI_TRACE_LLM=1; shift ;;
+    # Accettate tutte le grafie: e' un'opzione da riga di comando, non un indovinello.
+    --logdei|--logDei|--logDEI) export DEI_LOG_APP=1; shift ;;
   esac
 done
 

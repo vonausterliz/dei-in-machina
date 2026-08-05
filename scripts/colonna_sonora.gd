@@ -44,6 +44,47 @@ func _ready() -> void:
 	add_child(_suono)
 	set_process(false)
 
+## LO STATO DELL'IMPIANTO AUDIO, in una riga leggibile.
+##
+## Serve perche' esiste un modo di fallire che non produce nessun sintomo dentro il gioco: il
+## driver di sistema non parte, e tutto il resto continua a funzionare come se suonasse. Su
+## macOS si manifesta cosi', prima ancora che il nostro codice giri:
+##
+##     ERROR: AudioOutputUnitStart failed, code: 2003329396
+##
+## `2003329396` e' `0x77686174`, cioe' i quattro caratteri **'what'**: e'
+## `kAudioHardwareUnspecifiedError`, il modo di CoreAudio di dire «non ha funzionato e non so
+## dirti perche'». Capita quando il dispositivo d'uscita cambia sotto i piedi (cuffie,
+## Bluetooth, un monitor con altoparlanti) o quando un processo precedente non ha rilasciato
+## il suo client audio — per esempio perche' e' stato ucciso invece che chiuso.
+##
+## Non possiamo intercettarlo: lo stampa il driver di Godot prima che esista una nostra
+## riga di codice. Possiamo pero' ACCORGERCENE e dirlo, invece di lasciare che il silenzio
+## sembri una scelta.
+func stato_audio() -> String:
+	var driver := AudioServer.get_driver_name() if AudioServer.has_method("get_driver_name") else "?"
+	var uscita := AudioServer.get_output_device()
+	return "driver=%s  uscita=%s  mix=%d Hz  canali=%d" % [
+		driver, uscita, int(AudioServer.get_mix_rate()), AudioServer.get_bus_channels(0)]
+
+## L'AUDIO SUONA DAVVERO? Non «crediamo di suonare»: la testa di lettura avanza?
+##
+## E' l'unica prova che distingue «il driver e' partito» da «il driver e' morto e noi non lo
+## sappiamo». Chi chiama deve aspettare qualche fotogramma fra `suona()` e questa domanda,
+## altrimenti misura zero perche' non e' passato tempo, non perche' l'audio sia fermo.
+func avanza() -> bool:
+	return _suono != null and _suono.playing and _suono.get_playback_position() > 0.0
+
+## CHIUDERE RILASCIANDO IL DISPOSITIVO. Il gioco che esce senza fermare la riproduzione
+## lascia a CoreAudio un client da ripulire, ed e' una delle strade per cui l'avvio
+## successivo trova l'uscita occupata. Non e' una cura garantita — un processo ucciso non
+## esegue niente, nemmeno questo — ma toglie di mezzo il caso in cui siamo noi la causa.
+func congeda() -> void:
+	set_process(false)
+	if _suono != null and _suono.playing:
+		_suono.stop()
+	_momento = ""
+
 static func _leggi() -> Dictionary:
 	if not FileAccess.file_exists(CONFIG):
 		push_warning("ColonnaSonora: manca %s" % CONFIG)

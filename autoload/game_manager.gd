@@ -242,7 +242,15 @@ func salva_partita(path: String = SALVATAGGIO_DEFAULT) -> bool:
 		for id in ciurma.caduti:
 			stato.ciurma_caduti.append(String(id))
 	stato.ultima_narrazione = _ultima_narrazione
-	return stato.salva(path)
+	var fatto := stato.salva(path)
+	# UN SALVATAGGIO FALLITO NON DEVE ESSERE SILENZIOSO. Ritornava `false` e basta, e chi
+	# chiama spesso non lo guarda: il disco pieno o i permessi sbagliati si scoprivano al
+	# riavvio, trovando una partita vecchia di ore.
+	if fatto:
+		Registro.info("partita", "salvata: turno %d · %s" % [stato.turno, path])
+	else:
+		Registro.errore("partita", "SALVATAGGIO FALLITO su %s — la partita non e' su disco" % path)
+	return fatto
 
 ## Esegue un turno completo (fino a Omero) sull'input libero di Ulisse.
 ## `eventi`: condizioni di mondo attive questo turno (di norma vuote finche' gli

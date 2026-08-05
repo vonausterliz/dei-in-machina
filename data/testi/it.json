@@ -96,6 +96,7 @@
   },
   "finestre": {
     "log_titolo": "Tracciato · chiamate al modello",
+    "app_titolo": "Diario dell'applicazione",
     "olimpo_titolo": "Vista Olimpo · le voci degli dèi",
     "impostazioni_titolo": "Impostazioni · modelli e chiavi API",
     "annulla": "Annulla",
@@ -177,6 +178,22 @@
   },
   "splash": {
     "prosegui": "un tasto, e il viaggio comincia"
+  },
+  "avvio": {
+    "titolo": "Dei in machina",
+    "sottotitolo": "Sei Ulisse. Gli dèi discutono sopra di te, e non li vedrai mai.",
+    "riprendi": "Riprendi la partita",
+    "riprendi_dett": "%s · turno %d · salvata %s",
+    "nuova": "Comincia da Troia",
+    "impostazioni": "Impostazioni…",
+    "motore": "Motore",
+    "audio": "Audio",
+    "audio_ok": "attivo",
+    "audio_muto": "MUTO — il driver di sistema non è partito. Il gioco funziona lo stesso.",
+    "salvataggio_rotto": "C'è un salvataggio ma non si riesce a leggerlo: si può solo ricominciare.",
+    "senza_salvataggio": "Nessuna partita salvata.",
+    "pronto": "Tutto pronto.",
+    "da_sistemare": "Da sistemare prima di giocare — apri Impostazioni."
   },
   "olimpo": {
     "zeus_chiude": "E così sia. La volontà di %s si compie.",

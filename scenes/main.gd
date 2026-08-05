@@ -15,7 +15,7 @@ extends Control
 ## Versione mostrata in Settings › Informazioni: bumpala a ogni cambiamento, così si vede
 ## a colpo d'occhio se la copia che sta girando è aggiornata (un'app già avviata NON
 ## ricarica i prompt: va rilanciata).
-const VERSIONE := "2.39"
+const VERSIONE := "2.40"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -66,6 +66,9 @@ var _episodio: Label
 ## Il tracciato su FILE si scrive comunque, in user://log/: la finestra ne e' solo una
 ## vetrina, e il file e' quello che si allega a una segnalazione.
 var _fin_log: FinestraTesto = null
+## Il diario dell'applicazione, con --logdei. Vedi `Registro` per la divisione dei compiti
+## fra i due log: qui cosa fa il GIOCO, di là cosa si dice al MODELLO.
+var _fin_app: FinestraTesto = null
 
 ## Vero se il gioco e' stato avviato con --debugllm (avvia.sh esporta DEI_DEBUG_LLM=1).
 ## --tracellm esporta ANCHE questa: il dettaglio HTTP senza la finestra sarebbe una trappola.
@@ -101,6 +104,12 @@ func _line() -> Color:
 	return c
 
 func _ready() -> void:
+	# IL DIARIO PRIMA DI TUTTO. Le righe piu' interessanti sono quelle dell'avvio — quale
+	# provider e' stato ripreso, quale modello, se l'audio e' partito — e sono anche le prime
+	# a passare: aprirlo dopo vorrebbe dire perderle.
+	Registro.apri(ProjectSettings.get_setting("application/config/name", "Dei in machina"))
+	Registro.info("avvio", "versione %s · Godot %s · %s" % [
+		VERSIONE, Engine.get_version_info().get("string", "?"), OS.get_name()])
 	_serif = load("res://fonts/Cardo-Regular.ttf")
 	_serif_bold = load("res://fonts/Cardo-Bold.ttf")
 	_serif_italic = load("res://fonts/Cardo-Italic.ttf")
@@ -115,6 +124,8 @@ func _ready() -> void:
 	GameManager.nuova_partita(0)
 	_apri_scena()
 	_ripristina_finestre()
+	Registro.info("avvio", "audio: %s" % _musica.stato_audio())
+	Registro.sezione("in gioco")
 	_apri_sipario()
 
 ## La schermata d'apertura sta SOPRA il gioco gia' pronto: mentre si guarda il marchio, la
@@ -128,7 +139,112 @@ func _apri_sipario() -> void:
 	# Il capitolo attacca quando il sipario e' calato, non prima: sotto la schermata
 	# d'apertura la partita e' gia' avviata, e senza questo le due musiche si sovrapporrebbero.
 	s.finito.connect(_musica_del_capitolo)
+	s.finito.connect(_chiedi_come_cominciare)
 	add_child(s)   # ultimo figlio: sta davanti a tutto il resto della schermata
+
+## LA SOGLIA, fra il sipario e la prima mossa. Vedi `DialogoAvvio` per il perche'.
+##
+## Salta se `_niente_dialoghi` e' acceso: gli strumenti che ritraggono la schermata (e
+## chiunque piloti il gioco dall'esterno) devono trovare il gioco, non una finestra modale
+## davanti al gioco. Sarebbe la terza volta che uno scatto ritrae la cosa sbagliata.
+var _niente_dialoghi := false
+var _dlg_avvio: DialogoAvvio = null
+
+func _chiedi_come_cominciare() -> void:
+	if _senza_schermo() or _niente_dialoghi or _dlg_avvio != null:
+		return
+	_dlg_avvio = DialogoAvvio.new(_referto_avvio(), _serif, _serif_bold)
+	_dlg_avvio.scelto.connect(_su_scelta_avvio)
+	add_child(_dlg_avvio)
+	_veste_dialogo(_dlg_avvio)
+	var scala := get_window().content_scale_factor
+	_dlg_avvio.content_scale_factor = scala
+	_dlg_avvio.popup_centered()
+
+## CIO' CHE IL DIALOGO NON PUO' SAPERE DA SOLO. Lo raccoglie chi ha accesso a tutto: la
+## partita salvata, il motore, l'audio. Il dialogo lo dispone, non lo va a cercare.
+func _referto_avvio() -> Dictionary:
+	var guai: Array[String] = []
+	var audio := ""
+	# L'AUDIO SI PROVA, non si presume. Il driver puo' non essere partito senza che dentro il
+	# gioco cambi niente: su macOS lo dice CoreAudio con un «AudioOutputUnitStart failed» che
+	# passa prima del nostro codice, e da li' in poi il silenzio sembra una scelta.
+	# Si guarda se la testa di lettura AVANZA — l'unica prova che distingue «suona» da
+	# «crede di suonare». Se il sipario non aveva musica non si puo' concludere niente, e si
+	# tace invece di inventare un referto.
+	if _musica != null and _musica.sta_suonando() and not _musica.avanza():
+		audio = Testi.s("avvio/audio_muto")
+		Registro.avviso("audio", "la riproduzione non avanza: driver non partito? %s"
+			% _musica.stato_audio())
+	if not LLMManager.chiave_presente():
+		guai.append(Testi.s("motore/manca_chiave", [LLMManager.nome_profilo_corrente()]))
+	return {
+		"ripresa": _partita_ripresa(),
+		"motore": "%s · %s" % [LLMManager.nome_profilo_corrente(), LLMManager.modello_atteso()],
+		"audio": audio,
+		"guai": guai,
+	}
+
+## Il salvataggio, letto senza caricarlo: qui si decide se OFFRIRE di riprenderlo, e leggere
+## per intero una partita che magari non si vuole riprendere e' lavoro sprecato — oltre che un
+## modo di far esplodere la soglia su un file rotto, che e' il momento peggiore.
+func _partita_ripresa() -> Dictionary:
+	var dove := GameManager.SALVATAGGIO_DEFAULT
+	if not FileAccess.file_exists(dove):
+		Registro.info("partita", "nessun salvataggio in %s" % dove)
+		return {}
+	var testo := FileAccess.get_file_as_string(dove)
+	var d: Variant = JSON.parse_string(testo)
+	if typeof(d) != TYPE_DICTIONARY or not (d as Dictionary).has("turno"):
+		Registro.avviso("partita", "salvataggio illeggibile: %s" % dove)
+		return {}
+	var quando := Time.get_datetime_string_from_system(false, true)
+	var mod := FileAccess.get_modified_time(dove)
+	if mod > 0:
+		quando = Time.get_datetime_string_from_unix_time(mod, true).replace("T", " ")
+	var id := String((d as Dictionary).get("viaggio", {}).get("corrente", "?"))
+	# Il nome LEGGIBILE della tappa, non il suo identificativo: nel dialogo si legge
+	# «L'isola del ciclope», non «ciclope». Se l'episodio non si riconosce resta l'id, che
+	# e' brutto ma vero — meglio di un «?» che nasconde quale partita si sta per riprendere.
+	var ep := GameManager.episodi.get_episodio(id) if GameManager.episodi else null
+	Registro.info("partita", "salvataggio trovato: %s · turno %d" % [id, int(d["turno"])])
+	return {"episodio": ep.nome if ep else id, "turno": int(d["turno"]), "quando": quando}
+
+func _su_scelta_avvio(cosa: int) -> void:
+	match cosa:
+		DialogoAvvio.IMPOSTAZIONI:
+			# Le Impostazioni si aprono SOPRA la soglia, che resta: chi le apre da qui vuole
+			# sistemare qualcosa e poi scegliere, e chiudergli la soglia sotto vorrebbe dire
+			# lasciarlo davanti a una partita cominciata senza che l'abbia chiesto.
+			_fin_impostazioni.mostra()
+			return
+		DialogoAvvio.RIPRENDI:
+			if GameManager.carica_partita():
+				Registro.info("partita", "ripresa: %s · turno %d" % [
+					_nome_tappa(), GameManager.stato.turno])
+				_ricostruisci_scena()
+			else:
+				# Il file c'era e sembrava buono, ma il caricamento e' fallito: non si finge
+				# che vada bene e non si resta fermi. Si dice, e si comincia da capo.
+				Registro.errore("partita", "il salvataggio non si e' potuto caricare: si ricomincia")
+				_guaio_motore(Testi.s("avvio/salvataggio_rotto"))
+		DialogoAvvio.NUOVA:
+			Registro.info("partita", "nuova partita da Troia")
+	_chiudi_soglia()
+
+func _chiudi_soglia() -> void:
+	if _dlg_avvio != null:
+		_dlg_avvio.hide()
+		_dlg_avvio.queue_free()
+		_dlg_avvio = null
+	_input.grab_focus()
+
+## Ridisegna tutto dopo un cambio di partita. La narrazione si AZZERA: le righe della
+## partita nuova sotto quelle della vecchia sarebbero due storie in una colonna sola.
+func _ricostruisci_scena() -> void:
+	_narrazione.clear()
+	_musica_del_capitolo()
+	await _apri_scena()
 
 ## La musica della tappa in cui ci si trova. Il momento e' l'id del capitolo, lo stesso di
 ## `data/episodi.json`: chi aggiunge un brano non deve imparare un secondo vocabolario.
@@ -166,16 +282,56 @@ func _ripristina_provider() -> void:
 	if nome == "" and Impostazioni.leggi("provider_idx", null) != null:
 		var vecchio := int(Impostazioni.leggi("provider_idx", 0))
 		if vecchio == 0:
-			Impostazioni.scrivi("usa_gateway", true)   # "0" era il gateway
+			# ACCENDERE IL GATEWAY QUI E' UNA DEDUZIONE, e finora era anche MUTA.
+			#
+			# Nello schema vecchio la posizione 0 era il gateway, quindi la deduzione e'
+			# ragionevole. Ma e' una scelta presa al posto di chi gioca, scritta su disco, e
+			# permanente: da quel momento in poi ogni chiamata passa per localhost:8800 e
+			# niente lo dice mai piu'. Chi non ha mai spuntato quella casella non ha modo di
+			# sapere perche' ci passa — e infatti e' cosi' che se n'e' accorto l'umano,
+			# guardando un tracciato.
+			#
+			# La deduzione resta (rifarla dire all'utente sarebbe peggio), ma si dichiara.
+			Impostazioni.scrivi("usa_gateway", true)
+			Registro.avviso("migrazione", "vecchia preferenza «provider_idx: 0» = il Gateway: "
+				+ "lo accendo. Se non lo vuoi, togli la spunta «Gateway» in Impostazioni.")
 		var nomi: Array = LLMManager.nomi_profili()
 		var nuovo := clampi(vecchio - 1, 0, maxi(0, nomi.size() - 1))
 		nome = String(nomi[nuovo]) if not nomi.is_empty() else ""
 		Impostazioni.scrivi("provider_nome", nome)
 		Impostazioni.dimentica("provider_idx")         # la vecchia chiave non vale più
+		Registro.info("migrazione", "provider_idx %d → provider_nome «%s»" % [vecchio, nome])
+	# IL TRASPORTO PRIMA DEL PROVIDER, e attraverso `imposta_gateway()`.
+	#
+	# Era il contrario, e con un assegnamento diretto: `imposta_profilo()` riconfigura il
+	# client (chiama `_riconfigura()`), e lo faceva leggendo un `usa_gateway` non ancora
+	# ripristinato. La riga dopo cambiava il campo ma non il client, che restava configurato
+	# sulla strada sbagliata finche' qualcun altro non lo riconfigurava per caso.
+	# Il campo e il client devono cambiare insieme: e' esattamente cio' che serve
+	# `imposta_gateway()`, e chiamarlo costa una riga meno del difetto.
+	LLMManager.imposta_gateway(bool(Impostazioni.leggi("usa_gateway", false)))
 	var idx := LLMManager.indice_profilo(nome)
 	if idx >= 0:
 		LLMManager.imposta_profilo(idx)
-	LLMManager.usa_gateway = bool(Impostazioni.leggi("usa_gateway", false))
+	Registro.info("motore", _instradamento())
+
+## DOVE FINISCE UNA CHIAMATA, in una riga, detta all'avvio.
+##
+## E' la domanda che l'umano ha dovuto fare due volte — «perche' passa dal gateway?» — e a
+## cui finora si rispondeva solo leggendo un indirizzo in mezzo al traffico HTTP, dove
+## `localhost:11434` (Ollama) e `localhost:8800` (il Gateway) si somigliano abbastanza da
+## ingannare. Qui si dice a parole, e si dice anche PERCHE'.
+func _instradamento() -> String:
+	var chi := LLMManager.nome_profilo_corrente()
+	var mod := LLMManager.modello_atteso()
+	if LLMManager.e_locale():
+		return "%s · %s → diretto (gira in casa: il Gateway non lo tocca mai)" % [chi, mod]
+	if not LLMManager.usa_gateway:
+		return "%s · %s → DIRETTO al provider (spunta «Gateway» non attiva)" % [chi, mod]
+	if not LLMManager.gateway_disponibile():
+		return "%s · %s → diretto (spunta «Gateway» attiva ma nessun trasporto configurato)" % [chi, mod]
+	return "%s · %s → dal GATEWAY (%s), perché la spunta in Impostazioni è attiva" % [
+		chi, mod, LLMManager.gateway_cfg.get("base_url", "?")]
 
 ## Rimette le viste di servizio DOVE erano — non le riapre. Poi riattiva il motore scelto.
 ##
@@ -207,10 +363,23 @@ func _ripristina_finestre() -> void:
 		_motore_da_ripristinare = -1
 		await _on_motore_scelto(m == FinestraImpostazioni.MOTORE_REALE)
 
-## Alla chiusura salvo dove sono finite le finestre, per ritrovarle uguali.
+## Alla chiusura salvo dove sono finite le finestre, per ritrovarle uguali — e RILASCIO
+## L'AUDIO.
+##
+## Uscire senza fermare la riproduzione lascia al sistema un client audio da ripulire, ed e'
+## una delle strade per cui l'avvio successivo trova l'uscita occupata. Su macOS si vede
+## cosi', prima ancora che il gioco parta:
+##
+##     ERROR: AudioOutputUnitStart failed, code: 2003329396      («'what'»)
+##
+## Non e' una cura garantita — un processo UCCISO non esegue niente, nemmeno questa riga — ma
+## toglie di mezzo il caso in cui la causa siamo noi. Vedi `ColonnaSonora.congeda()`.
 func _notification(che: int) -> void:
 	if che == NOTIFICATION_WM_CLOSE_REQUEST or che == NOTIFICATION_PREDELETE:
 		_salva_geometrie()
+		if _musica != null:
+			_musica.congeda()
+		Registro.chiudi()
 
 func _salva_geometrie() -> void:
 	if _senza_schermo():
@@ -412,6 +581,22 @@ func _crea_finestre_servizio() -> void:
 		_fin_log = FinestraTesto.new(Testi.s("finestre/log_titolo"), true, Vector2i(larg, alt),
 			Vector2i(maxi(margine, schermo.x - larg - margine), 70))
 		add_child(_fin_log)
+	# IL DIARIO DELL'APPLICAZIONE, con --logdei. E' una finestra diversa da quella del modello
+	# perche' sono due domande diverse: li' «cosa ho chiesto all'AI», qui «cosa ha fatto il
+	# gioco». Nasce a sinistra, cosi' le due possono stare aperte insieme senza sovrapporsi —
+	# e capita di volerle insieme, perche' un guaio si legge spesso su entrambe.
+	if Registro.a_schermo():
+		_fin_app = FinestraTesto.new(Testi.s("finestre/app_titolo"), true, Vector2i(larg, alt),
+			Vector2i(margine, 70))
+		add_child(_fin_app)
+		# `riversa_in`, non un semplice assegnamento: le righe dell'avvio sono gia' passate
+		# (il Registro si apre come prima cosa in `_ready`, la finestra nasce adesso) e sono
+		# proprio quelle che spiegano com'e' configurata la macchina. Senza, il log a schermo
+		# comincerebbe dopo l'unica sezione che si vuole leggere per prima.
+		Registro.riversa_in(func(riga: String) -> void:
+			if _fin_app != null:
+				_fin_app.aggiungi(riga))
+		_fin_app.mostra()
 	_fin_impostazioni = FinestraImpostazioni.new()
 	_fin_impostazioni.motore_scelto.connect(_on_motore_scelto)
 	_fin_impostazioni.zoom_scelto.connect(imposta_zoom)
@@ -1179,6 +1364,9 @@ func _on_toggle_reale(premuto: bool) -> void:
 ## dice cos'e' successo e porta dove si aggiusta — il bottone apre Settings, invece di
 ## suggerire di cercarlo.
 func _guaio_motore(motivo: String) -> void:
+	# Il popup si chiude e sparisce; il diario resta. E' l'unico posto in cui, a partita
+	# finita, si puo' ancora sapere che c'e' stato un problema e quale.
+	Registro.errore("motore", motivo)
 	if _dlg_guaio == null:
 		_dlg_guaio = AcceptDialog.new()
 		_dlg_guaio.title = Testi.s("motore/guaio_titolo")

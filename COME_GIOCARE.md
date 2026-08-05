@@ -299,7 +299,11 @@ finestra si chiude, il file resta.
 ```bash
 ./avvia.sh --debugllm    # l'esito di ogni chiamata: QUALE è lenta
 ./avvia.sh --tracellm    # + il dettaglio HTTP di ogni richiesta e risposta: PERCHÉ
+./avvia.sh --logdei      # il diario dell'APPLICAZIONE: cosa fa il gioco, e cosa gli va storto
 ```
+
+I primi due riguardano le conversazioni col modello; il terzo è un'altra cosa e un altro
+file — vedi [Il diario dell'applicazione](#il-diario-dellapplicazione).
 
 Non sono voci di menu. Non servono a chi gioca — servono a chi indaga — e una finestra di
 traffico HTTP fra le voci di un menu invita ad aprirla per curiosità e a ritrovarsela davanti
@@ -394,6 +398,41 @@ d'avvio. Erano metà del traffico del gioco e non comparivano da nessuna parte.
 | Consumo più alto del previsto | la riga `token` del `BILANCIO`, e la quota `dalla cache` |
 | Sospetti che il gioco sbagli, non il modello | le righe `GIOCO ↘ ENTRA` / `↗ ESCE` |
 | «*Il modello X non risponde*» ma il modello esiste | la riga `RES`: se ci sono token in uscita, il modello ha risposto. Vedi qui sotto |
+
+## Il diario dell'applicazione
+
+Il tracciato qui sopra racconta le conversazioni col modello. Questo racconta **tutto il
+resto**: l'avvio, le preferenze rilette, la partita caricata, il motore acceso, l'audio, i
+guai. Sono due file perché sono due domande, e cercare «perché non ho la musica» in mezzo a
+settemila righe di prompt è peggio che non cercarla.
+
+**Si scrive sempre**, in `user://log/app-AAAAMMGG-hhmmss-mmm.log`. La finestra si chiede
+all'avvio:
+
+```bash
+./avvia.sh --logdei
+```
+
+Com'è fatto:
+
+```
+17:32:23.068  ── Dei in machina · 2026-08-05 17:32:23 ──
+17:32:23.068         avvio      versione 2.40 · Godot 4.7.1-stable · macOS
+17:32:23.124         motore     OpenRouter · deepseek/deepseek-v4-flash → dal GATEWAY
+                                (http://localhost:8800), perché la spunta in Impostazioni è attiva
+17:32:23.126         avvio      audio: driver=CoreAudio  uscita=Default  mix=44100 Hz  canali=2
+17:32:23.126  ── in gioco ──
+17:32:24.354  AVVISO modello    «deepseek/…» segnato come non funzionante: HTTP 401 …
+17:32:29.978  ERRORE motore     Mistral non risponde. HTTP 401 · no api key provided
+17:32:32.161  ── fine · 1 avviso · 2 errori ──
+```
+
+| | |
+|---|---|
+| **`motore`** | **la riga che dice se passi dal Gateway**, a parole e col perché. Prima si poteva dedurre solo da un indirizzo in mezzo al traffico HTTP, dove `localhost:11434` (Ollama) e `localhost:8800` (il Gateway) si somigliano abbastanza da ingannare — e hanno ingannato |
+| **`AVVISO`** | qualcosa non è come dovrebbe, ma il gioco va avanti. È il livello più utile: gli errori si notano da soli, gli avvisi no, e sono quelli che spiegano i comportamenti strani |
+| **`ERRORE`** | qualcosa è fallito. Va anche sul terminale |
+| **`── fine ──`** | il conto in coda: due numeri dicono a colpo d'occhio com'è andata |
 
 ### I modelli che ragionano
 

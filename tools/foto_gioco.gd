@@ -30,6 +30,12 @@ func _scatta() -> void:
 	# compilatore risolve il METODO e lo script non compila. Senza tipo la risoluzione avviene
 	# a runtime e trova il campo. (Il nome andrebbe cambiato, ma non da qui.)
 	var ui = load("res://scenes/Main.tscn").instantiate()
+	# NIENTE SOGLIA. Dalla v2.40 il sipario lascia il posto a un dialogo modale («riprendi /
+	# nuova partita / impostazioni»): per chi gioca e' giusto, per uno strumento che ritrae la
+	# schermata e' una finestra davanti alla cosa da ritrarre. Sarebbe la TERZA volta che uno
+	# scatto fotografa la cosa sbagliata — prima lo splash, poi la pagina non aggiornata.
+	# Si spegne qui, prima di entrare nell'albero, cosi' il dialogo non nasce affatto.
+	ui._niente_dialoghi = true
 	root.add_child(ui)
 	for i in 30:
 		await process_frame

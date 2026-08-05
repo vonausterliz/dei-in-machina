@@ -489,6 +489,7 @@ func segna_fallimento(modello: String, motivo: String) -> void:
 	var d := _falliti()
 	d[modello] = motivo.substr(0, 300)
 	Impostazioni.scrivi(_chiave_falliti(profilo_idx), d)
+	Registro.avviso("modello", "«%s» segnato come non funzionante: %s" % [modello, motivo])
 
 func dimentica_fallimento(modello: String) -> void:
 	var d := _falliti()
