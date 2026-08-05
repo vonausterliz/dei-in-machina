@@ -51,6 +51,11 @@ const NOMI_STORICI := {
 
 var _mock := LLMMock.new()
 var _client: LLMClient = null
+
+## IL TRACCIATO delle interazioni col modello. Vive quanto il gioco, non quanto una finestra:
+## scrive sempre su file in user://log/, e in piu' alla finestra di debug SE e' stata chiesta
+## all'avvio. Cosi' un problema visto ieri si puo' ancora leggere oggi.
+var tracciato := Tracciato.new()
 var _interprete: Interprete = null
 var _dio_agente: DioAgente = null
 var _narratore: Narratore = null
@@ -60,6 +65,11 @@ var _cronista: Cronista = null
 var _compagno: Compagno = null
 
 func _ready() -> void:
+	# Il file si apre SEMPRE, anche senza la finestra di debug: un problema si nota dopo, e
+	# a quel punto o e' stato scritto o non c'e' piu'. La finestra e' solo una vetrina sul
+	# medesimo flusso, e si chiede all'avvio con --debugllm.
+	tracciato.su_riga = func(riga: String) -> void: llm_log.emit(riga)
+	tracciato.apri(ProjectSettings.get_setting("application/config/name", "Dei in machina"))
 	config = _carica_config()
 	profili = _carica_profili()
 	_applica_override_env()
@@ -186,6 +196,27 @@ func _riconfigura() -> void:
 	if cfg.is_empty():
 		return
 	_client.configura(cfg, _leggi_chiave(cfg))
+	# Ogni volta che la destinazione cambia si riscrive dove si sta parlando. E' la riga
+	# che risponde alla prima domanda di chi vede il gioco lento — «ma con chi sto
+	# parlando?» — e prima non c'era: si deduceva da un indirizzo di passaggio, male.
+	segna_connessione()
+
+## Scrive nel tracciato dove si sta parlando adesso. Nessun valore di chiave: solo se c'e'.
+func segna_connessione() -> void:
+	var cfg := _config_attiva()
+	if cfg.is_empty():
+		return
+	var env := String(cfg.get("api_key_env", ""))
+	var url := String(cfg.get("base_url", "")).trim_suffix("/") + String(cfg.get("chat_path", "/v1/chat/completions"))
+	tracciato.connessione({
+		"provider": nome_profilo_corrente(),
+		"modello": cfg.get("model", "?"),
+		"endpoint": url,
+		"gateway": String(gateway_cfg.get("base_url", "")) if usa_gateway else "",
+		"chiave_env": env,
+		"chiave_presente": env != "" and OS.get_environment(env) != "",
+		"timeout_s": cfg.get("timeout_sec", ""),
+	})
 
 ## Carica config/providers/*.json (ordinati per nome file): TUTTI i provider, compreso
 ## Ollama. Un file con "trasporto": true NON e' un provider ma la strada per raggiungerli
@@ -616,7 +647,9 @@ func _inizializza_reale() -> void:
 	add_child(_client)
 	var cfg := _config_attiva()
 	_client.configura(cfg, _leggi_chiave(cfg))
-	_client.logger = Callable(self, "_reg")  # il traffico HTTP finisce nel log di debug
+	_client.logger = Callable(self, "_reg")     # compatibilita': righe libere
+	_client.tracciato = tracciato               # e il tracciato strutturato
+	segna_connessione()
 	var id_dei: Array = PantheonManager.pantheon.tutti_gli_id() if PantheonManager.pantheon else []
 	_interprete = Interprete.new(id_dei, PantheonManager.pantheon)
 	_dio_agente = DioAgente.new()
@@ -651,8 +684,16 @@ func _carica_config() -> Dictionary:
 ## Log delle chiamate LLM (percorso reale), per la finestra di debug della GUI.
 signal llm_log(riga: String)
 
+## Le righe SEMANTICHE degli agenti («← Interprete: tag [...]»). Passano dal tracciato come
+## tutto il resto: prima andavano dritte alla finestra e non finivano nel file, quindi il
+## log su disco raccontava il traffico HTTP senza dire cosa ne era uscito.
 func _reg(r: String) -> void:
-	llm_log.emit(r)
+	tracciato.nota(r)
+
+## Chiudere il file, non lasciarlo al garbage collector: ogni riga e' gia' su disco perche'
+## si fa flush a ogni scrittura, ma la chiusura pulita e' quella che si nota quando manca.
+func _exit_tree() -> void:
+	tracciato.chiudi()
 
 ## Verifica pre-partita del percorso reale: il server risponde? il modello atteso
 ## (config.model) e' caricato? Ritorna {ok, attivo, modello_presente, modelli, atteso, errore}.
@@ -700,7 +741,7 @@ func verifica_provider() -> Dictionary:
 ## La prova del nove: una generazione minima. Se il modello e' ritirato, dietro un piano
 ## sbagliato o senza quota, si scopre QUI e non a meta' partita.
 func _prova_generazione() -> Dictionary:
-	var r = await _client.chat([{"role": "user", "content": "ok"}], {"max_tokens": 1, "temperature": 0.0})
+	var r = await _per("prova del modello").call([{"role": "user", "content": "ok"}], {"max_tokens": 1, "temperature": 0.0})
 	if typeof(r) == TYPE_DICTIONARY and r.get("ok", false):
 		return {"ok": true, "errore": ""}
 	var motivo := "risposta non valida"
@@ -729,13 +770,22 @@ func _modello_presente(atteso: String, modelli: Array) -> bool:
 func _senza_prefisso(nome: String) -> String:
 	return nome.get_slice("/", 1) if nome.find("/") != -1 else nome
 
+## CHI STA CHIAMANDO. Gli agenti ricevono `_client.chat` come Callable e il client, da solo,
+## non ha modo di sapere se sta parlando per l'Interprete o per Poseidone. Qui si dichiara
+## prima di consegnarlo: in un turno partono fino a nove chiamate, e senza il nome le righe
+## di richiesta e risposta sono indistinguibili fra loro.
+func _per(nome: String) -> Callable:
+	if _client != null:
+		_client.agente = nome
+	return _client.chat
+
 func interpreta(testo_libero: String, seed: int = 0) -> Dictionary:
 	if mock_mode:
 		await get_tree().process_frame
 		return _mock.interpreta(testo_libero)
 	_reg("→ Interprete: «%s»" % testo_libero.substr(0, 70))
 	var t0 := Time.get_ticks_msec()
-	var env := await _interprete.interpreta(testo_libero, _client.chat, seed)
+	var env := await _interprete.interpreta(testo_libero, _per("Interprete"), seed)
 	_reg("← Interprete: tag %s · %s · %d ms" % [str(env.get("tag", [])), env.get("plausibilita", "?"), Time.get_ticks_msec() - t0])
 	return env
 
@@ -747,7 +797,7 @@ func aggiorna_cronaca(contesto: Dictionary, seed: int = 0) -> String:
 		return ""
 	_reg("→ Cronista: aggiorno la memoria della vicenda…")
 	var t0 := Time.get_ticks_msec()
-	var testo := await _cronista.aggiorna(contesto, _client.chat, seed)
+	var testo := await _cronista.aggiorna(contesto, _per("Cronista"), seed)
 	if testo != "" and _narratore and _narratore.nomina_un_dio(testo):
 		testo = _narratore.redigi(testo)  # invariante: la memoria non tradisce i nomi
 	_reg("← Cronista: %d caratteri · %d ms" % [testo.length(), Time.get_ticks_msec() - t0])
@@ -760,7 +810,7 @@ func verifica_plausibilita(testo_libero: String, seed: int = 0) -> String:
 		return ""
 	_reg("→ Vaglio: questa mossa appartiene al mondo dell'Odissea?")
 	var t0 := Time.get_ticks_msec()
-	var classe := await _interprete.verifica_plausibilita(testo_libero, _client.chat, seed)
+	var classe := await _interprete.verifica_plausibilita(testo_libero, _per("Vaglio"), seed)
 	_reg("← Vaglio: %s · %d ms" % [classe if classe != "" else "(incerto)", Time.get_ticks_msec() - t0])
 	return classe
 
@@ -773,7 +823,7 @@ func parla_compagno(c: Dictionary, contesto: Dictionary, seed: int = 0) -> Strin
 	var nome := String(c.get("nome", "?"))
 	_reg("→ %s (ciurma) risponde…" % nome)
 	var t0 := Time.get_ticks_msec()
-	var battuta := await _compagno.parla(c, contesto, _client.chat, seed)
+	var battuta := await _compagno.parla(c, contesto, _per("%s (ciurma)" % nome), seed)
 	_reg("← %s: «%s» · %d ms" % [nome, battuta, Time.get_ticks_msec() - t0])
 	return battuta
 
@@ -785,7 +835,7 @@ func identifica_dio(testo_libero: String, seed: int = 0) -> String:
 		return ""
 	_reg("→ Ricognizione LLM del dio invocato (anche parafrasi)…")
 	var t0 := Time.get_ticks_msec()
-	var id := await _interprete.identifica_dio(testo_libero, _client.chat, seed)
+	var id := await _interprete.identifica_dio(testo_libero, _per("Ricognitore"), seed)
 	_reg("← dio riconosciuto: %s · %d ms" % [id if id != "" else "(nessuno)", Time.get_ticks_msec() - t0])
 	return id
 
@@ -795,7 +845,7 @@ func proposta_dio(dio: Dio, contesto: Dictionary, seed: int = 0) -> Dictionary:
 		return _mock.proposta_dio(dio, contesto)
 	_reg("→ %s medita…" % dio.nome)
 	var t0 := Time.get_ticks_msec()
-	var p := await _dio_agente.proponi(dio, contesto, _client.chat, seed)
+	var p := await _dio_agente.proponi(dio, contesto, _per(dio.nome), seed)
 	_reg("← %s: %s «%s» · %d ms" % [dio.nome, p.get("registro", "?"), p.get("dice", ""), Time.get_ticks_msec() - t0])
 	return p
 
@@ -805,7 +855,7 @@ func verdetto_arbitro(proposte: Array, seed: int = 0) -> Dictionary:
 		return _mock.verdetto_arbitro(proposte)
 	_reg("→ Zeus arbitra (%d proposte)…" % proposte.size())
 	var t0 := Time.get_ticks_msec()
-	var v := await _arbitro.decidi(proposte, _client.chat, seed)
+	var v := await _arbitro.decidi(proposte, _per("Zeus (arbitro)"), seed)
 	_reg("← Zeus: %s → %s · %d ms" % [v.get("attore", "?"), v.get("registro", "?"), Time.get_ticks_msec() - t0])
 	return v
 
@@ -816,7 +866,7 @@ func suggerisci(contesto: Dictionary = {}, seed: int = 0) -> Array:
 		return []   # niente appigli inventati: chi chiama usa quelli della tappa
 	_reg("→ Suggeritore: 3 spunti…")
 	var t0 := Time.get_ticks_msec()
-	var sp := await _suggeritore.suggerisci(contesto, _client.chat, seed)
+	var sp := await _suggeritore.suggerisci(contesto, _per("Suggeritore"), seed)
 	for s in sp:
 		if _narratore and _narratore.nomina_un_dio(s["testo"]):
 			s["testo"] = _narratore.redigi(s["testo"])  # invariante: mai un nome di dio
@@ -835,7 +885,7 @@ func narrazione_e_spunti(contesto: Dictionary, seed: int = 0) -> Dictionary:
 		return {"narrazione": _mock.narrazione_omero(contesto), "spunti": []}
 	_reg("→ Omero narra (e propone gli spunti)…")
 	var t0 := Time.get_ticks_msec()
-	var r := await _narratore.narra_e_suggerisci(contesto, _client.chat, seed)
+	var r := await _narratore.narra_e_suggerisci(contesto, _per("Omero"), seed)
 	var spunti: Array = r.get("spunti", [])
 	for s in spunti:
 		if _narratore.nomina_un_dio(s["testo"]):
@@ -856,6 +906,6 @@ func narrazione_omero(contesto: Dictionary, seed: int = 0) -> String:
 		return _mock.narrazione_omero(contesto)
 	_reg("→ Omero narra…")
 	var t0 := Time.get_ticks_msec()
-	var testo := await _narratore.narra(contesto, _client.chat, seed)
+	var testo := await _narratore.narra(contesto, _per("Omero"), seed)
 	_reg("← Omero · %d ms" % (Time.get_ticks_msec() - t0))
 	return testo

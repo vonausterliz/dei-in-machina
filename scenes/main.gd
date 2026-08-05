@@ -15,7 +15,7 @@ extends Control
 ## Versione mostrata in Settings › Informazioni: bumpala a ogni cambiamento, così si vede
 ## a colpo d'occhio se la copia che sta girando è aggiornata (un'app già avviata NON
 ## ricarica i prompt: va rilanciata).
-const VERSIONE := "2.36"
+const VERSIONE := "2.37"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -32,7 +32,6 @@ const PLACEHOLDER := ""  # dal file testi (vedi _colonna_rapsodia)
 
 # id delle voci di menu
 const VOCE_OLIMPO := 0
-const VOCE_LOG := 1
 const VOCE_CIURMA := 2
 const VOCE_IMPOSTAZIONI := 10
 const VOCE_ABOUT := 11
@@ -59,13 +58,23 @@ var _ultimo_momento: String = ""
 var _mappa: MappaViaggio
 var _input: LineEdit
 var _episodio: Label
-var _fin_log: FinestraTesto      # l'unica rimasta a se': il traffico verso il modello
+## LA FINESTRA DEL TRACCIATO — nulla se non e' stata chiesta all'avvio (--debugllm).
+##
+## Non e' piu' una voce di menu. Non serve a chi gioca: e' uno strumento d'indagine, e una
+## finestra di traffico HTTP fra le voci di un menu invita ad aprirla per curiosita' e a
+## trovarcisi davanti alla narrazione. Chi indaga sa di volerla, e la chiede alla partenza.
+## Il tracciato su FILE si scrive comunque, in user://log/: la finestra ne e' solo una
+## vetrina, e il file e' quello che si allega a una segnalazione.
+var _fin_log: FinestraTesto = null
+
+## Vero se il gioco e' stato avviato con --debugllm (avvia.sh esporta DEI_DEBUG_LLM=1).
+static func debug_llm() -> bool:
+	return OS.get_environment("DEI_DEBUG_LLM") != ""
 ## Le due conversazioni, incastrate nella colonna di destra (v2.34).
 var _pan_olimpo: PannelloChat
 var _pan_ciurma: PannelloChat
 ## Il velo che mostra grande carta e chat.
 var _lente: Lente
-var _menu_view: PopupMenu
 var _scala_schermo: float = 1.0
 var _zoom_utente: float = 1.0
 var _motore_da_ripristinare: int = -1
@@ -76,7 +85,6 @@ var _dlg_guaio: AcceptDialog
 ## Le pagine del menu Aiuto: una finestra sola, riempita di volta in volta.
 var _dlg_aiuto: AcceptDialog
 var _testo_aiuto: Label
-var _btn_log: Button
 var _btn_agisci: Button
 var _chk_reale: CheckButton
 var _stat_bars := {}
@@ -187,6 +195,12 @@ func _ripristina_finestre() -> void:
 		if g["dim"].x > 200 and g["dim"].y > 150:
 			fin.size = g["dim"]
 		fin.position = g["pos"]
+	# CHIESTA ALL'AVVIO = APERTA. Il Log nasceva chiuso perche' era una voce di menu che
+	# nessuno aveva chiesto; ora esiste solo se l'hai invocato con --debugllm, e a quel
+	# punto tenerlo nascosto sarebbe solo un clic in piu' per ottenere cio' che hai gia'
+	# domandato dalla riga di comando.
+	if _fin_log != null:
+		_fin_log.mostra()
 	if _motore_da_ripristinare >= 0:
 		var m := _motore_da_ripristinare
 		_motore_da_ripristinare = -1
@@ -393,12 +407,10 @@ func _crea_finestre_servizio() -> void:
 	var margine := 24
 	var larg: int = clampi(int((schermo.x - margine * 3) / 2.0), 420, 900)
 	var alt: int = clampi(schermo.y - 160, 360, 900)
-	_fin_log = FinestraTesto.new(Testi.s("finestre/log_titolo"), true, Vector2i(larg, alt),
-		Vector2i(maxi(margine, schermo.x - larg - margine), 70))
-	_fin_log.chiusa.connect(func():
-		_btn_log.button_pressed = false
-		_spunta_view(VOCE_LOG, false))
-	add_child(_fin_log)
+	if debug_llm():
+		_fin_log = FinestraTesto.new(Testi.s("finestre/log_titolo"), true, Vector2i(larg, alt),
+			Vector2i(maxi(margine, schermo.x - larg - margine), 70))
+		add_child(_fin_log)
 	_fin_impostazioni = FinestraImpostazioni.new()
 	_fin_impostazioni.motore_scelto.connect(_on_motore_scelto)
 	_fin_impostazioni.zoom_scelto.connect(imposta_zoom)
@@ -422,13 +434,6 @@ func _barra_menu() -> Control:
 	barra.add_theme_stylebox_override("hover", _sfondo(7, C_SEA2, C_GOLD))
 	barra.add_theme_stylebox_override("pressed", _sfondo(7, C_GOLD_DEEP, C_GOLD))
 
-	# Olimpo e Ciurma non sono piu' qui: sono nella pagina, sempre visibili. Restava il Log,
-	# che e' l'unica vista di servizio vera — la si apre quando qualcosa non torna.
-	_menu_view = PopupMenu.new()
-	_menu_view.name = Testi.s("menu/view")
-	_menu_view.add_check_item(Testi.s("menu/log_llm"), VOCE_LOG)
-	_menu_view.id_pressed.connect(_on_menu_view)
-	barra.add_child(_menu_view)
 
 	# Salvare e riprendere: una partita dura ~76 turni: perderla chiudendo la finestra e'
 	# una perdita vera.
@@ -655,17 +660,6 @@ func _aggiorna_indicatore_motore() -> void:
 func _apri_impostazioni() -> void:
 	_fin_impostazioni.popup_centered()
 
-func _on_menu_view(id: int) -> void:
-	var i := _menu_view.get_item_index(id)
-	var acceso := not _menu_view.is_item_checked(i)
-	_menu_view.set_item_checked(i, acceso)
-	_btn_log.button_pressed = acceso
-
-## Tiene la spunta del menu allineata allo stato reale della finestra.
-func _spunta_view(id: int, acceso: bool) -> void:
-	if _menu_view:
-		_menu_view.set_item_checked(_menu_view.get_item_index(id), acceso)
-
 func _riga_oro() -> Control:
 	var r := ColorRect.new()
 	r.color = _line()
@@ -745,16 +739,6 @@ func _colonna_rapsodia() -> Control:
 	opz.add_theme_constant_override("separation", 14)
 	opz.visible = false
 	v.add_child(opz)
-	# Log LLM: l'unica vista rimasta in una finestra a se'.
-	_btn_log = Button.new()
-	_btn_log.text = Testi.s("menu/log_llm")
-	_btn_log.toggle_mode = true
-	_btn_log.add_theme_color_override("font_color", C_BONE_DIM)
-	_btn_log.add_theme_stylebox_override("normal", _sfondo(8, C_SEA2, _line()))
-	_btn_log.add_theme_stylebox_override("hover", _sfondo(8, C_SEA2, C_GOLD))
-	_btn_log.add_theme_stylebox_override("pressed", _sfondo(8, C_GOLD_DEEP, C_GOLD))
-	_btn_log.toggled.connect(_on_toggle_log)
-	opz.add_child(_btn_log)     # idem: comandato dal menu View
 	# Un interruttore solo: dei finti o dei veri. Quale provider lo dice il menu accanto.
 	_chk_reale = CheckButton.new()
 	_chk_reale.text = Testi.s("motore/dei_veri")
@@ -1163,11 +1147,6 @@ func _on_ciurma_invio(testo: String) -> void:
 	_busy = false
 	_aggiorna_ciurma()
 
-func _on_toggle_log(premuto: bool) -> void:
-	if premuto:
-		_fin_log.mostra()
-	else:
-		_fin_log.hide()
 
 func _on_toggle_reale(premuto: bool) -> void:
 	if not premuto:

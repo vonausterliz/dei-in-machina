@@ -206,7 +206,8 @@ chiude con `Esc` o cliccando fuori.
 
 In fondo alla pagina, su una riga: astuzia, animo, ciurma, tracotanza — e il capitolo in
 corso. Sotto **Settings** ci sono motore, provider, modello, chiavi — e le *Informazioni*,
-con la versione. Dal menu **View** si apre il **Log LLM**: vedi sotto.
+con la versione. Il tracciato delle chiamate al modello si scrive su file, e si vede a
+schermo con `./avvia.sh --debugllm`: vedi sotto.
 
 Il menu **Aiuto** ha le regole in breve e i problemi più comuni, più un collegamento a questi
 documenti. Nel gioco c'è il minimo che serve a giocare; il resto sta qui.
@@ -270,7 +271,7 @@ turni credendo che gli dèi pensassero, e non pensavano. Accendi un motore da Se
 
 ### Il modello risponde, ma male
 
-Nessuna finestra si apre, perché tecnicamente funziona tutto. Guarda il **Log LLM** (menu
+Nessuna finestra si apre, perché tecnicamente funziona tutto. Guarda il **tracciato** (vedi
 View): la tabella «sintomo → cosa cercare» qui sotto dice dove.
 
 Un caso ha una spiegazione precisa: se gli dèi sembrano fuori parte o Omero nomina una
@@ -286,78 +287,69 @@ rilancia. Tutto il resto funziona lo stesso.
 
 ---
 
-## Il Log LLM: guardare cosa succede davvero
+## Il tracciato delle chiamate al modello
 
-**Menu View → Log LLM.** Si apre in una finestra a sé, che puoi ingrandire o spostare su un
-altro schermo; la si chiude dalla X o togliendo la spunta.
+**Si scrive sempre, in un file.** A ogni avvio, in `user://log/llm-AAAAMMGG-hhmmss-mmm.log`
+— su Linux `~/.local/share/godot/app_userdata/Dei in machina/log/`. Gli ultimi dieci si
+tengono, i più vecchi si buttano. È il file da allegare quando qualcosa non torna: la
+finestra si chiude, il file resta.
 
-**Parte sempre chiuso**, anche se l'avevi lasciato aperto: non è una vista di gioco, è uno
-strumento di diagnosi, e non deve stare davanti alla narrazione. Dove l'avevi messo e quanto
-era grande, però, se lo ricorda.
+**La finestra si chiede all'avvio**, e solo così:
 
-### Cosa ci trovi
-
-**Le chiamate, una per riga.** Ogni agente che parte lascia una freccia in uscita e una in
-entrata, con i **millisecondi** che ci ha messo:
-
-```
-→ Interprete: «Grido al ciclope il mio vero nome: sono io, Odisseo!»
-← Interprete: tag ["vanto", "tracotanza"] · in_mondo · 1840 ms
-→ Poseidone medita…
-← Poseidone: castigo «Che il mare gli si chiuda addosso» · 2410 ms
-→ Zeus arbitra (2 proposte)…
-← Zeus: poseidone → castigo · 1120 ms
-→ Omero narra (e propone gli spunti)…
-← Omero + 3 spunti · 3050 ms
+```bash
+./avvia.sh --debugllm
 ```
 
-Compaiono così anche il **Cronista** (il riassunto rotolante), il **Vaglio** (*questa mossa
-appartiene al mondo dell'Odissea?*), la **Ricognizione** (a chi stai pregando) e i
-**compagni** della ciurma.
+Non è più una voce di menu. Non serve a chi gioca — serve a chi indaga — e una finestra di
+traffico HTTP fra le voci di un menu invita ad aprirla per curiosità e a ritrovarsela davanti
+alla narrazione.
 
-**E poi la traccia del turno**, in oro, che è la parte che spiega davvero:
+### Come si legge
 
 ```
---- Turno 12 ---
-Input:      Grido al ciclope il mio vero nome: sono io, Odisseo!
-Envelope:   plausibilita=in_mondo tipo=azione tag=["vanto", "tracotanza"] tono=sfida intensita=3
-Svegli:     poseidone, atena
-Eventi:     maledizione_di_polifemo
-Deliberazione:  (CONFLITTO)
-  Poseidone:   Che il mare gli si chiuda addosso  [castigo]
-  Atena:       È stato sciocco, non malvagio      [aiuto]
-Verdetto:   poseidone -> castigo
-Delta:      { "ulisse.animo": -4, "poseidone.ira": 4 }
-Omero:      "Il mare si fece nero, e un uomo non tornò…"
+12:21:27.114  ── connessione ──
+12:21:27.114       CONN  provider=OpenRouter  modello=deepseek/deepseek-chat-v3.1:free
+12:21:27.114       CONN  endpoint=https://openrouter.ai/api/v1/chat/completions
+12:21:27.114       CONN  gateway=no (diretto al provider)
+12:21:27.114       CONN  chiave=presente (variabile OPENROUTER_API_KEY)
+12:21:28.001  ── turno 12 — Grido al ciclope il mio vero nome: sono io, Odisseo! ──
+12:21:28.010  #001 REQ   turno=12  agente=Interprete  msg=2  in≈1.9k tok  temp=0.2  json
+12:21:28.010  #001       ↑ Grido al ciclope il mio vero nome: sono io, Odisseo!
+12:21:30.870  #001 RES   HTTP 200  2860 ms  token in=1842 out=96 tot=1938  fine=stop
+12:21:30.871  #001       ↓ {"plausibilita":"in_mondo","tag":["vanto","tracotanza"],…}
+12:21:30.880  #002 REQ   turno=12  agente=Poseidone  msg=3  in≈3.2k tok  temp=0.9
+12:21:38.880  #002 WAIT  in corso da 8 s…
+12:21:39.880  #002 RETRY  tentativo 2/5 fra 1.0 s — HTTP 429 rate limit
+12:21:45.090  #002 RES   HTTP 200  14210 ms  token in=3204 out=512 tot=3716  fine=length  ⚠ TRONCATA
+12:21:45.100  #003 ERR   HTTP 402: chiave rifiutata. La chiede il provider — Insufficient credits
 ```
 
-L'**Envelope** è il punto in cui si capisce perché un dio si è destato e un altro no.
-Il **Delta** è la conseguenza numerica esatta, quella decisa dalle regole e non dal modello.
+| | |
+|---|---|
+| **`── connessione ──`** | dove si sta parlando *davvero*. È la prima riga da guardare quando il gioco è lento: dice provider, modello, se passi dal Gateway e se una chiave c'è |
+| **`── turno N ──`** | il confine fra un turno e l'altro, con quello che hai scritto |
+| **`#001`** | il numero della chiamata. Le chiamate di un turno partono quasi insieme e tornano in ordine sparso: è questo che ricuce una risposta alla sua domanda |
+| **`REQ`** | chi chiama, quanti messaggi, quanti token stimati (`≈`), temperatura, se pretende JSON |
+| **`RES`** | codice, **millisecondi**, e i token **dichiarati dal provider** — quelli fatturati |
+| **`fine=length`** | la risposta è stata **troncata** dal tetto di token, non conclusa dal modello. È la spiegazione di un JSON che arriva a metà |
+| **`WAIT`** | la richiesta è ancora in volo. Senza, un modello lento e un modello morto si somigliano |
+| **`RETRY`** | un ritentativo. Se non si vedesse, un turno lento sembrerebbe una chiamata lenta |
+| **`ERR`** | il messaggio **del provider**, non la nostra parafrasi |
+| **`···`** | le righe degli agenti: cosa ha estratto l'Interprete, cosa ha proposto un dio |
 
-**Gli errori, per esteso**: server irraggiungibile, modello elencato ma muto, modello non
-caricato con l'elenco di quelli disponibili. Nel gioco leggi una riga rossa; qui leggi il
-messaggio che ha mandato il provider. Il **valore** di una chiave non compare mai — solo se
-c'è o non c'è.
+**Il valore di una chiave non compare mai** — solo se c'è e da quale variabile verrebbe. Un
+log si incolla in una segnalazione, e non deve costare un segreto.
 
 ### Quando aprirlo
 
-Quando qualcosa non torna e la narrazione non basta a spiegarlo:
-
-| Cosa vedi nel gioco | Cosa cercare nel Log |
+| Cosa vedi nel gioco | Cosa cercare nel tracciato |
 |---|---|
-| Gli dèi non reagiscono a quello che scrivi | `Envelope:` — che etichette ha estratto l'Interprete, e `Svegli:` chi si è destato |
-| «Quel gesto non appartiene a questo mondo» | `Vaglio` — è lui che respinge, e dice come ha classificato |
-| Un turno lentissimo | i millisecondi riga per riga: una sola chiamata lenta, o tutte? |
-| «Il provider non risponde» | la riga `✗` con il messaggio vero del provider |
-| I numeri sono cambiati e non capisci perché | `Delta:` — la conseguenza esatta, accanto al `Verdetto:` che l'ha causata |
-| Omero muto o fuori parte | se la riga `← Omero` c'è ma la narrazione no, è scattato un ripiego |
-
-I bottoni in alto: **Copia** mette tutto negli appunti (utile per segnalare un problema),
-**Pulisci** azzera, **A+ / A−** cambiano la dimensione del testo.
-
-Con i **dèi simulati** la traccia del turno c'è lo stesso e non costa niente: è il modo più
-economico di capire come è fatta la macchina. Le chiamate no — quelle esistono solo quando
-un modello vero risponde.
+| Tutto lentissimo | la riga `CONN`: stai parlando con chi credi? Poi i `ms` di ogni `RES` |
+| Un turno lento, gli altri no | una `RES` con molti ms, o dei `RETRY` |
+| Gli dèi non reagiscono | la `RES` dell'Interprete: che etichette ha estratto |
+| Una risposta finisce a metà | `fine=length` |
+| «Il provider non risponde» | la riga `ERR`, col messaggio vero |
+| Consumo più alto del previsto | i `token` per chiamata, sommati per turno |
 
 ---
 

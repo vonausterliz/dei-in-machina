@@ -34,13 +34,24 @@ func _scatta() -> void:
 	for i in 30:
 		await process_frame
 
-	# Lo splash aspetta un tasto: senza questo si ritrae il frontespizio, non il gioco.
-	var tasto := InputEventKey.new()
-	tasto.keycode = KEY_SPACE
-	tasto.pressed = true
-	Input.parse_input_event(tasto)
+	# LO SPLASH SI CONGEDA CHIAMANDOLO, non premendo un tasto.
+	#
+	# Prima si simulava uno SPAZIO con `Input.parse_input_event`. Ha funzionato finche' ha
+	# funzionato: un evento sintetico arriva solo se la finestra ha il fuoco, e questo
+	# strumento gira in una sessione grafica che il fuoco puo' non darglielo. Il risultato non
+	# era un errore ma uno SCATTO SBAGLIATO — il frontespizio al posto del gioco, indistinguibile
+	# da uno scatto riuscito finche' non lo si guarda. Qui non si prova la tastiera: si prova
+	# la schermata di gioco, e allo splash si chiede di togliersi di mezzo.
+	for c in ui.get_children():
+		if c is Splash:
+			c.congeda()
 	for i in 40:
 		await process_frame
+	for c in ui.get_children():
+		if c is Splash:
+			printerr("[!] lo splash non si e' congedato: lo scatto sarebbe del frontespizio")
+			quit(1)
+			return
 
 	_png("gioco", root)
 

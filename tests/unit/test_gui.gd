@@ -34,7 +34,9 @@ func test_le_viste_esistono():
 	var ui = load("res://scenes/Main.tscn").instantiate()
 	add_child_autofree(ui)
 	await wait_frames(2)
-	for nome in ["_fin_log", "_pan_olimpo", "_pan_ciurma", "_lente", "_mappa"]:
+	# `_fin_log` NON e' in elenco: dalla v2.37 esiste solo con --debugllm. Le altre sono
+	# parti della pagina, e la loro assenza lascerebbe mezza colonna vuota.
+	for nome in ["_pan_olimpo", "_pan_ciurma", "_lente", "_mappa"]:
 		assert_not_null(ui.get(nome), "%s deve essere costruito, non solo dichiarato" % nome)
 
 ## Le chat sono INCASTRATE, non finestre: devono stare dentro l'albero della pagina.
@@ -198,16 +200,42 @@ func test_settings_ha_la_scheda_dei_costi():
 
 # --- Il Log LLM: uno strumento di diagnosi, non una vista di gioco ---
 
-## IL LOG NASCE CHIUSO, sempre. Si apriva da solo in due modi: se era aperto all'ultima
-## uscita (geometria salvata) e ogni volta che si attivavano i dei veri — cioe' a ogni avvio
-## con il motore reale in preferenza. La prima cosa che si vedeva del gioco era una finestra
-## di traffico HTTP davanti alla narrazione.
-func test_il_log_llm_nasce_chiuso():
+## LA FINESTRA DEL TRACCIATO NON ESISTE, se non l'hai chiesta.
+##
+## Prima era una voce del menu View, e si apriva da sola a ogni avvio col motore reale: la
+## prima cosa che si vedeva del gioco era traffico HTTP davanti alla narrazione. Poi nasceva
+## chiusa. Ora il menu View non c'e' piu' e la finestra si costruisce solo se il gioco e'
+## stato avviato con --debugllm: chi non indaga non ha modo di trovarcisi davanti.
+func test_senza_il_flag_la_finestra_del_tracciato_non_esiste():
+	assert_false(Main.debug_llm(), "i test non girano in modalita' debug")
 	var ui = load("res://scenes/Main.tscn").instantiate()
 	add_child_autofree(ui)
 	await wait_frames(2)
-	assert_false(ui._fin_log.visible, "il Log e' uno strumento: si apre quando serve")
-	assert_false(ui._btn_log.button_pressed, "e la spunta di View deve dirlo")
+	assert_null(ui._fin_log, "senza --debugllm non si costruisce nemmeno")
+
+## E il menu che la conteneva e' sparito con lei: era rimasto con quella voce sola.
+func test_il_menu_view_non_c_e_piu():
+	var ui = load("res://scenes/Main.tscn").instantiate()
+	add_child_autofree(ui)
+	await wait_frames(2)
+	var barra: MenuBar = null
+	for n in ui.find_children("*", "MenuBar", true, false):
+		barra = n
+	assert_not_null(barra)
+	for i in barra.get_child_count():
+		var p := barra.get_child(i)
+		if p is PopupMenu:
+			assert_ne(String(p.name).to_lower(), "view",
+				"il menu View e' stato tolto: conteneva solo il Log")
+
+## Il tracciato su FILE invece si scrive sempre — anche senza finestra, anche in headless.
+## E' il punto: un problema si nota dopo, e a quel punto o e' stato scritto o non c'e' piu'.
+func test_il_tracciato_su_file_si_scrive_comunque():
+	assert_ne(LLMManager.tracciato.percorso(), "",
+		"il file del tracciato dev'essere aperto anche senza la finestra")
+	LLMManager.tracciato.nota("prova dal test")
+	var testo := FileAccess.get_file_as_string(LLMManager.tracciato.percorso())
+	assert_string_contains(testo, "prova dal test")
 
 ## L'altra meta' della stessa decisione, nel posto dove si puo' verificare senza schermo: la
 ## geometria ricorda DOVE era la finestra, non SE era aperta. Finche' quel dato esisteva,
@@ -348,3 +376,14 @@ func test_la_pagina_di_aiuto_scorre_invece_di_crescere():
 func test_l_indirizzo_del_repository_e_una_costante_https():
 	assert_true(Main.REPOSITORY.begins_with("https://github.com/"),
 		"un solo indirizzo, fisso e in chiaro: %s" % Main.REPOSITORY)
+
+## E COL FLAG la finestra c'è, e si apre da sola: se l'hai chiesta dalla riga di comando,
+## chiederti un altro clic sarebbe una domanda a cui hai già risposto.
+func test_col_flag_la_finestra_del_tracciato_esiste_e_si_apre():
+	OS.set_environment("DEI_DEBUG_LLM", "1")
+	var ui = load("res://scenes/Main.tscn").instantiate()
+	add_child_autofree(ui)
+	await wait_frames(2)
+	OS.set_environment("DEI_DEBUG_LLM", "")   # subito: gli altri test non devono ereditarlo
+	assert_not_null(ui._fin_log, "con --debugllm la finestra si costruisce")
+	assert_true(ui._fin_log is FinestraTesto)

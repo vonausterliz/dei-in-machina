@@ -228,7 +228,7 @@ Su **Windows** lo script d'avvio non funziona (è bash) e i suoi passi vanno rif
 | | |
 |---|---|
 | **Installare** — i tre sistemi, il motore di AI, come togliere tutto | **[INSTALLAZIONE.md](https://github.com/vonausterliz/dei-in-machina/blob/main/INSTALLAZIONE.md)** |
-| **Giocare** — le regole, il Gateway, il Log LLM, i problemi frequenti | **[COME_GIOCARE.md](https://github.com/vonausterliz/dei-in-machina/blob/main/COME_GIOCARE.md)** |
+| **Giocare** — le regole, il Gateway, il tracciato delle chiamate, i problemi frequenti | **[COME_GIOCARE.md](https://github.com/vonausterliz/dei-in-machina/blob/main/COME_GIOCARE.md)** |
 
 ---
 

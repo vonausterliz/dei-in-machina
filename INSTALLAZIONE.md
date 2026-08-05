@@ -238,4 +238,5 @@ I messaggi d'errore del gioco, uno per uno, e cosa provare per ciascuno: **[COME
 › Problemi frequenti](COME_GIOCARE.md#problemi-frequenti)**.
 
 Per guardare cosa succede davvero sotto — quale AI è stata chiamata, cosa ha risposto, quanto
-ci ha messo — c'è il **Log LLM**, nel menu *View*.
+ci ha messo — c'è il **tracciato**: si scrive sempre in `user://log/`, e con
+`./avvia.sh --debugllm` compare anche a schermo.

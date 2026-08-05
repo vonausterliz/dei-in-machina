@@ -27,7 +27,7 @@ scarica Godot dalle release ufficiali su GitHub.
 - Una **variabile d'ambiente** ha la precedenza (`MISTRAL_API_KEY`, `GEMINI_API_KEY`,
   `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`): se preferisci non scriverla
   da nessuna parte, esportala e basta.
-- **Il valore di una chiave non viene mai stampato.** Non nella finestra del Log LLM, non
+- **Il valore di una chiave non viene mai stampato.** Non nel tracciato delle chiamate, non
   nel log del Gateway, non in un messaggio d'errore: si dice solo *se* c'è. È voluto —
   incollare un log per chiedere aiuto è la cosa più naturale del mondo, e non deve costarti
   una chiave.

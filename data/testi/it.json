@@ -8,7 +8,6 @@
     "marchio_poeta": "ΟΜΗΡΟΣ · la voce del poeta"
   },
   "menu": {
-    "view": "View",
     "settings": "Settings",
     "partita": "Partita",
     "vista_olimpo": "Vista Olimpo",
@@ -78,7 +77,7 @@
     "serve_un_motore": "Nessun motore attivo: gli dèi non possono rispondere.",
     "aiuto_gateway": "le chiavi le tiene il Gateway, non il gioco: esporta la variabile nel suo ambiente PRIMA di llm_gateway/gateway.sh start",
     "guaio_titolo": "Problema con il modello",
-    "guaio_dove_guardare": "Gli dèi non possono rispondere finché il motore non funziona.\n\nControlla provider, modello e chiave in Settings › Prova il modello. Se il problema resta: il Log LLM (menu View) mostra l'errore per esteso, e «Problemi frequenti» in COME_GIOCARE.md elenca i casi più comuni.",
+    "guaio_dove_guardare": "Gli dèi non possono rispondere finché il motore non funziona.\n\nControlla provider, modello e chiave in Settings › Prova il modello. Se il problema resta: il tracciato delle chiamate è in user://log/ (riavvia con ./avvia.sh --debugllm per vederlo a schermo), e «Problemi frequenti» in COME_GIOCARE.md elenca i casi più comuni.",
     "apri_settings": "Apri Settings"
   },
   "hardware": {
@@ -96,7 +95,7 @@
     "legenda": "✓ gira sulla scheda · ? gira ma lento · ✗ non gira · · non installato — passa sopra un modello per il perché"
   },
   "finestre": {
-    "log_titolo": "Log LLM · traffico verso il modello",
+    "log_titolo": "Tracciato · chiamate al modello",
     "olimpo_titolo": "Vista Olimpo · le voci degli dèi",
     "impostazioni_titolo": "Impostazioni · modelli e chiavi API",
     "annulla": "Annulla",
@@ -221,7 +220,7 @@
     "regole_titolo": "Come si gioca",
     "regole": "Sei Ulisse. Scrivi in italiano cosa fai e cosa dici: non c'è un menù di comandi, e la frase libera è la mossa. I tre appigli sotto la narrazione sono suggerimenti — la quarta strada è sempre scrivere di tuo.\n\nGLI DÈI SONO NASCOSTI. Omero racconta le conseguenze e non nomina mai nessuno: il gioco vero è capire chi hai svegliato, e come. Ogni divinità dorme finché un fatto preciso non la desta, e quale fatto desti quale dio è scritto nelle regole — non lo decide un modello. La Vista Olimpo, a destra, ti mostra il concilio: tu lo vedi, Ulisse no.\n\nParlare con la ciurma non fa avanzare il turno, ma le tue parole arrivano agli dèi al turno dopo. In fondo alla pagina: astuzia, animo, ciurma, tracotanza. Quindici tappe da Troia a Itaca, circa settanta turni — dal menu Partita si salva e si riprende.",
     "faq_titolo": "Problemi frequenti",
-    "faq": "«Nessun motore attivo» — gli dèi sono simulati e il gioco si ferma apposta. Accendine uno da Settings › Modelli e chiavi API, poi «Prova il modello».\n\nManca la chiave — si mette in Settings, o in una variabile d'ambiente. Se passi dal Gateway la chiave la tiene lui: va esportata nel SUO ambiente prima di avviarlo.\n\nIl provider non risponde — con Ollama, «ollama serve». Con un servizio in rete, controlla chiave e connessione.\n\nIl modello è elencato ma non risponde — il provider l'ha ritirato continuando a elencarlo. Scegline un altro da Settings.\n\nGli dèi sembrano fuori parte — quasi sempre il modello è troppo piccolo. Il gioco è tarato su Mistral Small 3.2, 24 miliardi di parametri.\n\nPer vedere cosa è successo davvero: menu View › Log LLM.",
+    "faq": "«Nessun motore attivo» — gli dèi sono simulati e il gioco si ferma apposta. Accendine uno da Settings › Modelli e chiavi API, poi «Prova il modello».\n\nManca la chiave — si mette in Settings, o in una variabile d'ambiente. Se passi dal Gateway la chiave la tiene lui: va esportata nel SUO ambiente prima di avviarlo.\n\nIl provider non risponde — con Ollama, «ollama serve». Con un servizio in rete, controlla chiave e connessione.\n\nIl modello è elencato ma non risponde — il provider l'ha ritirato continuando a elencarlo. Scegline un altro da Settings.\n\nGli dèi sembrano fuori parte — quasi sempre il modello è troppo piccolo. Il gioco è tarato su Mistral Small 3.2, 24 miliardi di parametri.\n\nPer vedere cosa è successo davvero: il tracciato delle chiamate, in user://log/. Per averlo anche a schermo: ./avvia.sh --debugllm",
     "rimando": "Il resto è nella documentazione: COME_GIOCARE.md per giocare e installare, README.md per com'è fatto dentro.",
     "apri_github": "Apri su GitHub"
   }

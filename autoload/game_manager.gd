@@ -259,6 +259,10 @@ func esegui_turno(input_testo: String, eventi: Array = [], rischio: bool = false
 		push_warning("GameManager: partita gia' conclusa (%s)." % str(stato.esito))
 		return {}
 
+	# Il confine fra un turno e l'altro nel tracciato. Senza, un file di mille righe e' una
+	# colata continua: con questo, si scorre fino al turno che interessa e si legge da li'.
+	LLMManager.tracciato.apre_turno(stato.turno + 1, input_testo)
+
 	var percorso: Array[String] = []
 	stato.turno += 1
 	var turno := stato.turno

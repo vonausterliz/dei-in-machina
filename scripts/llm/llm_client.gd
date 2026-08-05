@@ -36,6 +36,16 @@ const SEGNAPOSTO_CHIAVE := "$CHIAVE"
 ## (cosa viene mandato / cosa viene ricevuto). La GUI lo collega alla finestra di log.
 var logger: Callable = Callable()
 
+## IL TRACCIATO STRUTTURATO. Se c'e', il client non decide piu' come si scrive una riga:
+## riporta i FATTI (quanti messaggi, quanti millisecondi, quali token, che errore) e la
+## formattazione la fa `Tracciato`. Separarli serve a due cose — l'ora e il numero di
+## chiamata compaiono ovunque senza ripeterli qui, e lo stesso evento puo' finire sia nella
+## finestra sia nel file senza che il client sappia dell'esistenza di nessuno dei due.
+var tracciato: Tracciato = null
+## Chi sta chiamando, per la riga di richiesta: «Interprete», «Poseidone», «Omero».
+var agente: String = "?"
+var _n_chiamata: int = 0
+
 ## UN HTTPRequest PER RICHIESTA, non uno per client.
 ##
 ## C'era un nodo solo, riusato da tutti: e HTTPRequest ne serve una alla volta. Due chiamate
@@ -63,7 +73,10 @@ func _ready() -> void:
 ## una senza sembra un blocco.
 func _battito() -> void:
 	var passati := int((Time.get_ticks_msec() - _t_inizio) / 1000)
-	_log("    … in attesa (%d s di %d)…" % [passati, int(timeout_sec)])
+	if tracciato != null:
+		tracciato.attesa(_n_chiamata, passati)
+	else:
+		_log("    … in attesa (%d s di %d)…" % [passati, int(timeout_sec)])
 
 func configura(config: Dictionary, chiave: String = "") -> void:
 	base_url = config.get("base_url", base_url)
@@ -126,8 +139,19 @@ func chat(messaggi: Array, opzioni: Dictionary = {}) -> Dictionary:
 	headers.append_array(intestazioni())
 
 	var url := base_url.trim_suffix("/") + chat_path
-	_log("  ⇢ POST %s · model=%s · temp=%s%s" % [url, model, corpo["temperature"], " · json" if opzioni.get("json_mode", false) else ""])
-	_log("    ⇡ invio: %s" % Bbcode.neutro(_tronca(_ultimo_utente(messaggi), 240)))
+	if tracciato != null:
+		var caratteri := 0
+		for m in messaggi:
+			if typeof(m) == TYPE_DICTIONARY:
+				caratteri += String(m.get("content", "")).length()
+		_n_chiamata = tracciato.richiesta(agente, {
+			"modello": model, "messaggi": messaggi.size(), "caratteri_in": caratteri,
+			"temperatura": corpo["temperature"], "json": opzioni.get("json_mode", false),
+			"prompt": _ultimo_utente(messaggi),
+		})
+	else:
+		_log("  ⇢ POST %s · model=%s · temp=%s%s" % [url, model, corpo["temperature"], " · json" if opzioni.get("json_mode", false) else ""])
+		_log("    ⇡ invio: %s" % Bbcode.neutro(_tronca(_ultimo_utente(messaggi), 240)))
 	var h := _apri()
 	var err := h.request(url, headers, HTTPClient.METHOD_POST, JSON.stringify(corpo))
 	if err != OK:
@@ -144,12 +168,16 @@ func chat(messaggi: Array, opzioni: Dictionary = {}) -> Dictionary:
 	var status: int = risultato[1]
 	var body: PackedByteArray = risultato[3]
 
+	var ms := Time.get_ticks_msec() - _t_inizio
+
 	if result_code != HTTPRequest.RESULT_SUCCESS:
 		if result_code == HTTPRequest.RESULT_TIMEOUT:
 			return _fallita("timeout: nessuna risposta entro %d s (modello troppo lento su questa macchina?)" % int(timeout_sec))
-		return _fallita("trasporto HTTP fallito (result=%d) — Ollama non risponde?" % result_code)
+		return _fallita("trasporto HTTP fallito (result=%d) — il provider non risponde?" % result_code)
 	if status < 200 or status >= 300:
-		return _fallita("HTTP %d: %s" % [status, body.get_string_from_utf8().substr(0, 300)])
+		# `_perche()` conosce i casi che si spiegano da soli (401 col Gateway acceso) e
+		# tiene il messaggio del provider. Prima chat() lo buttava e teneva solo il codice.
+		return _fallita(_perche(status, body))
 
 	var testo := body.get_string_from_utf8()
 	var parsed = JSON.parse_string(testo)
@@ -160,10 +188,28 @@ func chat(messaggi: Array, opzioni: Dictionary = {}) -> Dictionary:
 	if contenuto == "":
 		return _fallita("nessun contenuto nella risposta del provider")
 
-	# Il corpo della risposta e' testo del modello, e la finestra del Log lo mostra in
-	# BBCode: senza neutralizzarlo una quadra generata dal modello colorerebbe il log.
-	_log("    ⇣ HTTP %d · %s" % [status, Bbcode.neutro(_tronca(contenuto, 320))])
+	if tracciato != null:
+		# I token li dichiara il PROVIDER, in `usage`: sono quelli fatturati. La nostra stima
+		# in partenza serve solo a non restare al buio prima della risposta.
+		var uso: Dictionary = parsed.get("usage", {}) if typeof(parsed.get("usage")) == TYPE_DICTIONARY else {}
+		tracciato.risposta(_n_chiamata, {
+			"stato": status, "ms": ms, "usage": uso,
+			"fine": _motivo_fine(parsed), "contenuto": contenuto,
+		})
+	else:
+		# Il corpo della risposta e' testo del modello, e la finestra del Log lo mostra in
+		# BBCode: senza neutralizzarlo una quadra generata dal modello colorerebbe il log.
+		_log("    ⇣ HTTP %d · %s" % [status, Bbcode.neutro(_tronca(contenuto, 320))])
 	return {"ok": true, "content": contenuto, "error": "", "grezzo": parsed}
+
+## Perche' la risposta e' finita: «stop» (il modello ha concluso), «length» (l'ha troncata il
+## tetto di token), «content_filter»… Un JSON che arriva a meta' si spiega quasi sempre qui.
+func _motivo_fine(risposta: Dictionary) -> String:
+	var choices: Variant = risposta.get("choices", [])
+	if typeof(choices) != TYPE_ARRAY or Array(choices).is_empty():
+		return ""
+	var primo: Variant = choices[0]
+	return String(primo.get("finish_reason", "")) if typeof(primo) == TYPE_DICTIONARY else ""
 
 ## Estrae il testo del messaggio dalla risposta chat-completions.
 func _estrai_contenuto(risposta: Dictionary) -> String:
@@ -192,9 +238,12 @@ func _perche(stato: int, corpo: PackedByteArray) -> String:
 func _errore(msg: String) -> Dictionary:
 	return {"ok": false, "content": "", "error": msg, "grezzo": {}}
 
-## Come _errore ma logga l'errore in modo evidente (percorso di chat()).
+## Come _errore ma lo rende visibile (percorso di chat()).
 func _fallita(msg: String) -> Dictionary:
-	_log("    ⇣ [lb]ERRORE] %s" % Bbcode.neutro(msg))
+	if tracciato != null:
+		tracciato.errore(_n_chiamata, msg)
+	else:
+		_log("    ⇣ [lb]ERRORE] %s" % Bbcode.neutro(msg))
 	return _errore(msg)
 
 func _log(riga: String) -> void:

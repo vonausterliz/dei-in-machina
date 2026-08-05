@@ -10,6 +10,7 @@
 #   ./avvia.sh test       # esegue i test (dev)
 #   ./avvia.sh musica     # rigenera la musica della schermata d'apertura
 #   ./avvia.sh installa-menu   # mette il gioco nel menu applicazioni col suo nome
+#   ./avvia.sh --debugllm      # apre la finestra col tracciato delle chiamate al modello
 #   Aggiungi "-- ollama mistral-small3.2:latest" a 'console' per i dei reali.
 #
 # Scelta del modello Ollama (senza toccare il config):
@@ -155,6 +156,16 @@ ollama_preflight() {
   echo "[ok] Ollama pronto - modello '${model}' (attiva 'Ollama (dei reali)' nel gioco)."
 }
 
+# --debugllm: apre la finestra col tracciato delle chiamate al modello. Non e' una voce di
+# menu perche' non serve a chi gioca — serve a chi indaga, e una finestra di traffico HTTP
+# davanti alla narrazione e' rumore per tutti gli altri. Il tracciato su FILE, in
+# user://log/, si scrive comunque: la finestra e' solo una vetrina su quel flusso.
+for a in "$@"; do
+  case "$a" in
+    --debugllm) export DEI_DEBUG_LLM=1; shift ;;
+  esac
+done
+
 MODE="${1:-gui}"
 case "$MODE" in
   # NIENTE --audio-driver Dummy qui. C'era, con un commento che parlava del gioco testuale:
@@ -163,7 +174,18 @@ case "$MODE" in
   # solo un'apertura muta che sembra voluta.
   gui)     ollama_preflight; exec "$GODOT" --path "$DIR" ;;
   console) shift; ollama_preflight; exec "$GODOT" --headless --path "$DIR" --script res://tools/gioca.gd "$@" ;;
-  test)    exec "$GODOT" --headless --path "$DIR" -s addons/gut/gut_cmdln.gd -gconfig=res://.gutconfig.json ;;
+  # I TEST NON TOCCANO LE TUE PREFERENZE. Scrivono nel file indicato qui, usa-e-getta.
+  # Senza questa riga la suite cancellava provider_nome e spegneva il gateway nel file VERO:
+  # al riavvio il gioco ripiegava in silenzio sul primo provider dell'elenco, e sembrava che
+  # «OpenRouter fosse lentissimo» mentre stava girando su Ollama con un 24B.
+  test)
+    PROVE="$(mktemp -d)"
+    DEI_IMPOSTAZIONI="$PROVE/impostazioni.json" DEI_LOG="$PROVE/log" \
+      "$GODOT" --headless --path "$DIR" -s addons/gut/gut_cmdln.gd -gconfig=res://.gutconfig.json
+    ESITO=$?
+    rm -rf "$PROVE"
+    exit $ESITO
+    ;;
   # Fa comparire il gioco nel menu applicazioni COL SUO NOME. Nella barra si legge
   # «godot» perche' l'eseguibile in esecuzione e' il motore, non il gioco: il file .desktop
   # dice al desktop che quelle finestre sono nostre. Spiegazione intera nel file stesso.

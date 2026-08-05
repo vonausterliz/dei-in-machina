@@ -10,6 +10,21 @@ extends RefCounted
 
 const PERCORSO := "user://impostazioni.json"
 
+## LE PREFERENZE DEI TEST NON SONO LE TUE.
+##
+## I test scrivono qui dentro: scelgono un provider, ne dimenticano un altro, spengono il
+## gateway. Finche' scrivevano nello stesso file dell'utente, eseguire la suite voleva dire
+## CANCELLARE le sue scelte — e il gioco, al riavvio, ripiegava in silenzio sul primo
+## provider dell'elenco. Sintomo: «ho configurato OpenRouter e va lentissimo», perche' in
+## realta' stava girando su Ollama con un 24B.
+##
+## Non si e' rimediato test per test: la cura che dipende dalla disciplina di chi scrive il
+## prossimo test non e' una cura. `avvia.sh test` esporta DEI_IMPOSTAZIONI con un percorso
+## usa-e-getta, e da quel momento nessun test puo' toccare il file vero neanche volendo.
+static func percorso() -> String:
+	var alt := OS.get_environment("DEI_IMPOSTAZIONI")
+	return alt if alt != "" else PERCORSO
+
 static var _dati: Dictionary = {}
 static var _caricato := false
 
@@ -17,9 +32,9 @@ static func _carica() -> void:
 	if _caricato:
 		return
 	_caricato = true
-	if not FileAccess.file_exists(PERCORSO):
+	if not FileAccess.file_exists(percorso()):
 		return
-	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(PERCORSO))
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(percorso()))
 	if typeof(parsed) == TYPE_DICTIONARY:
 		_dati = parsed
 
@@ -41,9 +56,9 @@ static func dimentica(chiave: String) -> void:
 		salva()
 
 static func salva() -> void:
-	var f := FileAccess.open(PERCORSO, FileAccess.WRITE)
+	var f := FileAccess.open(percorso(), FileAccess.WRITE)
 	if f == null:
-		push_warning("Impostazioni: non riesco a scrivere %s" % PERCORSO)
+		push_warning("Impostazioni: non riesco a scrivere %s" % percorso())
 		return
 	f.store_string(JSON.stringify(_dati, "  "))
 	f.close()
