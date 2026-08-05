@@ -208,9 +208,11 @@ La chiave è tua, il piano è tuo, la spesa è tua: **tieni d'occhio il consumo*
 
 ## Comincia
 
+Su **Linux** e **macOS**, un comando solo:
+
 ```
-git clone <questo repo> dei_in_machina
-cd dei_in_machina
+git clone https://github.com/vonausterliz/dei-in-machina.git
+cd dei-in-machina
 ./avvia.sh
 ```
 
@@ -221,7 +223,12 @@ cd dei_in_machina
 ./avvia.sh installa-menu # (solo Linux) aggiunge il gioco al menu delle applicazioni
 ```
 
-Guida completa, Ollama compreso: **[COME_GIOCARE.md](https://github.com/vonausterliz/dei-in-machina/blob/main/COME_GIOCARE.md)**.
+Su **Windows** lo script d'avvio non funziona (è bash) e i suoi passi vanno rifatti a mano: la procedura c'è, ma **non è mai stata provata da nessuno**.
+
+| | |
+|---|---|
+| **Installare** — i tre sistemi, il motore di AI, come togliere tutto | **[INSTALLAZIONE.md](https://github.com/vonausterliz/dei-in-machina/blob/main/INSTALLAZIONE.md)** |
+| **Giocare** — le regole, il Gateway, il Log LLM, i problemi frequenti | **[COME_GIOCARE.md](https://github.com/vonausterliz/dei-in-machina/blob/main/COME_GIOCARE.md)** |
 
 ---
 

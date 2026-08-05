@@ -1,37 +1,30 @@
-# Come installare e far partire Dei in machina
+# Come giocare a Dei in machina
 
-Non c'è un "installer": è un **progetto Godot 4**. Il launcher `avvia.sh` rileva il sistema
-(Linux o macOS) e usa il Godot giusto, scaricandolo automaticamente al primo avvio se manca.
-Stesso comando su entrambi i sistemi.
+Questa è la guida al **gioco**: come si avvia, come si sceglie il motore di AI, come si legge
+quello che succede, e cosa fare quando qualcosa non va.
 
-Per giocare **serve un modello**: gli dèi, Omero e i compagni *sono* agenti LLM, e senza non
-c'è partita. Puoi usare un modello locale (Ollama, gratis, gira anche su un portatile) o un
-provider esterno con il tier gratuito. La scelta si fa nella finestra **Impostazioni**, in
-gioco — vedi sotto.
+Per **installarlo** — i tre sistemi, Windows compreso, e come togliere tutto — c'è un
+documento a parte: **[INSTALLAZIONE.md](INSTALLAZIONE.md)**.
+
+Per giocare **serve un motore di AI**: gli dèi, Omero e i compagni *sono* AI, e senza non c'è
+partita. Puoi usarne uno sul tuo computer (Ollama, gratis) o un servizio in rete col suo piano
+gratuito. La scelta si fa in gioco, dalla finestra **Impostazioni** — vedi sotto.
 
 ---
 
-## Avvio (Linux e macOS) — un solo comando
+## Avvio
 
-Dentro la cartella del progetto:
+Su Linux e macOS, dentro la cartella del progetto:
 
 ```bash
-./avvia.sh            # apre la finestra grafica (GUI)
-./avvia.sh console    # gioco testuale nel terminale (headless)
-./avvia.sh test       # esegue i test (dev)
+./avvia.sh            # apre la finestra di gioco
+./avvia.sh console    # il gioco nel terminale, senza finestra
+./avvia.sh test       # i test (sviluppo)
 ```
 
-- Al **primo** avvio, se Godot non è già presente, lo scarica in `tools/godot/` (una volta sola,
-  ~140 MB). Serve connessione internet solo quella prima volta.
-- Su macOS il launcher toglie anche la "quarantena" di Gatekeeper dal Godot scaricato.
-- Requisiti: `bash`, `curl`, `unzip` (già presenti sia su Linux sia su macOS).
-- Se il sistema si rifiuta di eseguire il launcher: `chmod +x avvia.sh`.
-- Il Godot in `tools/godot/` è quello del sistema su cui l'hai scaricato, e copiando la
-  cartella sull'altro sistema non serve toccare nulla: i due cercano in posti diversi
-  (`tools/godot/godot4` su Linux, `tools/godot/Godot.app` su macOS), quindi il launcher non
-  trova nulla e scarica il suo. Quello che non gli serve resta lì e non dà fastidio.
-
-Se preferisci fare a mano, vedi in fondo "Avvio manuale".
+Al primo avvio scarica Godot in `tools/godot/` (una volta sola, ~138 MB) e ne verifica
+l'impronta prima di eseguirlo. Su Windows lo script non funziona: vedi
+[INSTALLAZIONE.md](INSTALLAZIONE.md#windows--non-collaudata).
 
 ---
 
@@ -408,17 +401,10 @@ rispetto al volume generale. Quello che è scritto lì vince sempre sul nome del
 
 ---
 
-## Avvio manuale (senza launcher)
+## Avvio manuale, e installazione su altri sistemi
 
-Se hai già Godot 4.7.x installato:
-
-```bash
-# Linux/macOS, dal terminale:
-/percorso/di/Godot --path /percorso/della/cartella/dei_in_machina
-```
-
-Oppure apri Godot, "Import", scegli il file `project.godot`, premi ▶.
-Download di Godot: https://godotengine.org/download (macOS: build *universal*, ok su M1).
+Se hai già un Godot 4.7.x installato e non vuoi che il progetto se ne scarichi un altro, o se
+stai partendo da Windows: **[INSTALLAZIONE.md](INSTALLAZIONE.md)**.
 
 ---
 
