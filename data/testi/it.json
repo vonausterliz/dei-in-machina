@@ -164,7 +164,9 @@
     "tooltip_aiuto": "Cosa fa davvero questo limite, e quando conviene toglierlo",
     "gateway_chiave_ok": "· il Gateway ha la chiave per questo provider",
     "gateway_chiave_manca": "· il GATEWAY non ha la chiave: la tua non conta finché passi da lui",
-    "gateway_muto": "· Gateway acceso ma non risponde: avvialo con llm_gateway/gateway.sh start"
+    "gateway_muto": "· Gateway acceso ma non risponde: avvialo con llm_gateway/gateway.sh start",
+    "salvate_chiavi": "Salvate %d chiavi, e applicate subito.",
+    "chiavi_non_scritte": "NON salvate su disco: %s. Controlla spazio e permessi."
   },
   "ciurma": {
     "titolo": "Ciurma · i tuoi compagni",

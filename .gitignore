@@ -50,3 +50,10 @@ lavoro.sh
 # cioe' la home dell'utente col suo nome. Ne e' finito uno in un commit.
 __pycache__/
 *.pyc
+
+# GLI SCATTI MANDATI PER SEGNALARE UN PROBLEMA restano sul disco, non nel repository.
+# Sono fotografie della macchina di chi gioca — finestre, percorsi, a volte una chiave a
+# schermo — e servono per il tempo di una diagnosi. Non sono materiale del progetto.
+screenshot*.jpg
+screenshot*.png
+screenshot*.import

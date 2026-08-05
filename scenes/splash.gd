@@ -19,6 +19,13 @@ extends CanvasLayer
 ## mentre la musica sta ancora suonando e' peggio — taglia la frase a meta'.
 
 signal finito
+## L'apertura ha finito la sua parte e aspetta: chi trattiene il sipario puo' agire.
+## Distinto da `finito`, che vuol dire «me ne sono andata».
+signal pronto
+## Se vero, l'apertura non se ne va da sola: annuncia `pronto` e resta finche' non le si
+## dice `lascia_andare()`. Vedi `congeda()`.
+var trattieni := false
+var _annunciato := false
 
 const LIVELLO := 100         # sopra ogni cosa
 ## Quanto resta SENZA musica (headless, o se il file non c'e'): giusto il tempo di leggere
@@ -191,9 +198,26 @@ func _input(evento: InputEvent) -> void:
 func congeda() -> void:
 	if _uscita >= 0.0:
 		return
+	# TRATTENUTO: il sipario resta alzato finche' non gli si dice di calare.
+	#
+	# Serve alla SOGLIA — il dialogo «riprendi / nuova / impostazioni». Senza, la schermata
+	# d'apertura sfumava e sotto compariva una partita gia' cominciata, con la voce di Omero
+	# e i tre appigli, mentre il dialogo chiedeva ancora cosa fare: si vedeva il gioco
+	# rispondere a una domanda non ancora posta. Qui si annuncia soltanto (`pronto`), e chi
+	# ascolta decide quando lasciar calare il sipario.
+	if trattieni:
+		if not _annunciato:
+			_annunciato = true
+			pronto.emit()
+		return
 	_uscita = 0.0
 	if _in_onda and musica != null:
 		musica.ferma(DISSOLVENZA)
+
+## Chi tiene alzato il sipario lo cala con questo, quando ha finito.
+func lascia_andare() -> void:
+	trattieni = false
+	congeda()
 
 # --- il marchio ---
 

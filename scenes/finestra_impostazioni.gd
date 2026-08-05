@@ -99,12 +99,30 @@ func _ready() -> void:
 	_scheda_costi(schede)
 	_sincronizza()
 
-## All'apertura si rilegge l'hardware: fra una sessione e l'altra puoi aver scaricato o
-## cancellato modelli, o aggiornato Ollama.
+## All'apertura si rilegge TUTTO: l'hardware (fra una sessione e l'altra puoi aver scaricato
+## o cancellato modelli) e lo stato del motore.
+##
+## `_sincronizza()` era chiamata solo in `_ready()`, e li' era troppo presto. L'ordine
+## all'avvio e' questo:
+##
+##     _costruisci_ui()         → crea questa finestra → _ready() → _sincronizza()
+##     _ripristina_preferenze() → _ripristina_provider() → usa_gateway = <dal file>
+##
+## La spunta «Gateway» si fissava sul valore PRIMA che le preferenze fossero rilette. Sul Mac
+## dell'umano il file diceva `true` (ce l'aveva messo la migrazione silenziosa da
+## `provider_idx: 0`): il gioco andava al Gateway e la casella mostrava «no». Tre sintomi
+## — «Gateway acceso ma non risponde», «Non raggiungo localhost:8800», una casella vuota —
+## con una causa sola, e nessuno dei tre la lasciava indovinare.
+##
+## Sta QUI e non in un metodo `mostra()` perche' questo e' il punto OBBLIGATO: ci passa
+## qualunque strada apra la finestra, `popup_centered()` compreso. Un chiamante non puo'
+## dimenticarsene, ed e' proprio dimenticarsene che ha prodotto il difetto.
 func _on_apertura() -> void:
+	_sincronizza()
 	await _aggiorna_gateway()
 	await _aggiorna_taglie()
 	_sincronizza_modello()
+	_aggiorna_stato_chiave()
 
 # --- Scheda «Modelli» ---
 
@@ -498,16 +516,55 @@ static func _chiavi_salvate() -> Dictionary:
 static func applica_chiavi_salvate() -> void:
 	Impostazioni.applica_chiavi_all_ambiente()
 
+## «SALVA E APPLICA» — e stavolta lo fa davvero.
+##
+## Tre difetti in dodici righe, e tutti e tre finivano con lo stesso messaggio verde
+## «salvato». Un bottone che mente su cio' che ha fatto e' peggio di un bottone che fallisce:
+## il fallimento si vede.
+##
+## 1. LA CHIAVE NUOVA NON VENIVA APPLICATA se una vecchia era gia' nell'ambiente. La
+##    condizione era `if not (OS.has_environment(env) and ...)`: nata per non scavalcare una
+##    chiave esportata dalla shell, in pratica rendeva impossibile CORREGGERE una chiave
+##    sbagliata dalla finestra fatta per correggerla. Si incollava quella buona, il gioco
+##    diceva «salvato», e continuava a usare quella rotta. Nel pannello c'era scritto pure
+##    «gia' nell'ambiente», che sembrava una rassicurazione ed era la spiegazione del guasto.
+##    Ora chi la scrive qui vince: e' l'unico posto in cui l'ha chiesto qualcuno.
+##
+## 2. SALVARE A CAMPI VUOTI CANCELLAVA LE CHIAVI GIA' SALVATE. `chiavi` partiva vuoto e
+##    veniva scritto sopra il vecchio. Bastava riaprire le Impostazioni per un'altra ragione
+##    (la scala, il modello), premere «Salva», e le chiavi sparivano. Ora un campo vuoto vuol
+##    dire «non tocco quella», che e' ciò che si intende lasciando un campo vuoto.
+##
+## 3. DICEVA «SALVATO» ANCHE SE LA SCRITTURA FALLIVA. `Impostazioni.scrivi()` puo' non
+##    riuscire — disco pieno, permessi — e nessuno lo guardava.
 func _salva() -> void:
-	var chiavi: Dictionary = {}
+	var chiavi: Dictionary = Impostazioni.chiavi().duplicate()
+	var toccate: Array[String] = []
 	for env in _campi_chiave:
 		var v: String = _campi_chiave[env].text.strip_edges()
-		if v != "":
-			chiavi[env] = v
-			if not (OS.has_environment(env) and OS.get_environment(env) != ""):
-				OS.set_environment(env, v)
+		if v == "":
+			continue   # campo vuoto = «lascia com'è», non «cancella»
+		chiavi[env] = v
+		OS.set_environment(env, v)   # scritta qui = voluta qui: vince su quella d'ambiente
+		toccate.append(env)
 	Impostazioni.scrivi("chiavi", chiavi)
-	_stato.text = Testi.s("impostazioni/salvato")
+	# SI VERIFICA RILEGGENDO. È l'unico modo per poter dire «salvato» sapendo che è vero:
+	# `scrivi()` non torna niente, e il file può non essersi scritto.
+	var riletto: Dictionary = Impostazioni.chiavi()
+	var mancanti: Array[String] = []
+	for env in toccate:
+		if String(riletto.get(env, "")) != String(chiavi[env]):
+			mancanti.append(env)
+	if not mancanti.is_empty():
+		_stato.text = Testi.s("impostazioni/chiavi_non_scritte", [", ".join(mancanti)])
+		_stato.add_theme_color_override("font_color", C_OXBLOOD)
+		Registro.errore("impostazioni", "chiavi non scritte su disco: %s" % ", ".join(mancanti))
+	else:
+		_stato.text = Testi.s("impostazioni/salvato") if toccate.is_empty() \
+			else Testi.s("impostazioni/salvate_chiavi", [toccate.size()])
+		_stato.add_theme_color_override("font_color", C_VERDIGRIS)
+		Registro.info("impostazioni", "salvate %d chiavi: %s" % [
+			toccate.size(), ", ".join(toccate) if not toccate.is_empty() else "(nessuna modificata)"])
 	_aggiorna_stato_chiave()
 	applicate.emit()
 
@@ -549,6 +606,27 @@ func adegua_a_scala(f: float) -> void:
 	size = Vector2i(
 		mini(int(DIM_BASE.x * content_scale_factor), schermo.x - 60),
 		mini(int(DIM_BASE.y * content_scale_factor), schermo.y - 80))
+
+## SI RISINCRONIZZA A OGNI APERTURA, non solo quando nasce.
+##
+## E' il difetto che ha fatto sembrare acceso un Gateway spento — o meglio, che ha fatto
+## vedere una spunta SPENTA mentre il gioco ci passava attraverso.
+##
+## L'ordine all'avvio era questo:
+##
+##     _costruisci_ui()        → crea questa finestra → _sincronizza()   ← legge usa_gateway
+##     _ripristina_preferenze() → _ripristina_provider() → usa_gateway = <dal file>
+##
+## La spunta si fissava sul valore PRIMA che le preferenze fossero rilette. Sul Mac dell'umano
+## il file diceva `true` (ce l'aveva messo la migrazione silenziosa da `provider_idx: 0`), il
+## gioco andava al Gateway, e la casella mostrava «no». Tre sintomi — «Gateway acceso ma non
+## risponde», «Non raggiungo localhost:8800», e una casella vuota — con una causa sola, che
+## nessuno dei tre lasciava indovinare.
+##
+## Una vista che si sincronizza una volta sola e' una fotografia, non una vista: qui si
+## rilegge quando si apre, che e' l'unico momento in cui qualcuno la guarda.
+func mostra() -> void:
+	popup_centered()
 
 func _sincronizza() -> void:
 	if LLMManager.profili.is_empty():

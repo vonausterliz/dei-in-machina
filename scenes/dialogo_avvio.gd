@@ -48,8 +48,45 @@ func _init(stato: Dictionary, serif: Font, serif_bold: Font) -> void:
 	get_ok_button().hide()
 	exclusive = true
 	unresizable = true
+	# UNA COPIA, non il dizionario di chi chiama. `aggiungi_guaio()` scrive in `_stato`, e
+	# scrivere nella struttura di un altro e' un effetto collaterale che nessuno si aspetta
+	# passando un parametro. L'ha detto un test, che gliene ha passato uno costante: in
+	# GDScript le costanti sono di sola lettura, e il dialogo e' esploso invece di
+	# corrompere silenziosamente il chiamante — che e' il modo fortunato di scoprirlo.
+	_stato = stato.duplicate(true)
 	_costruisci(stato)
 	_vesti()
+	# ESC NON DEVE LASCIARE A META'. Senza l'«OK» il dialogo si chiude comunque con Esc, e
+	# dietro c'e' il sipario tenuto alzato apposta: si resterebbe davanti alla schermata
+	# d'apertura per sempre, senza gioco e senza domanda. Una via d'uscita che non porta da
+	# nessuna parte e' peggio di nessuna via d'uscita.
+	#
+	# Una lambda vuota su `close_requested` NON basta: il segnale e' un avviso, non una
+	# richiesta di permesso — la finestra si nasconde comunque. Si riapre.
+	close_requested.connect(_non_si_scappa)
+
+var _stato: Dictionary = {}
+
+## UN GUAIO ARRIVATO MENTRE LA SOGLIA E' APERTA finisce nel referto, non in un secondo
+## dialogo.
+##
+## Godot non permette due finestre esclusive figlie dello stesso genitore, e il tentativo
+## fallisce con un errore in console: l'avviso del motore veniva INGHIOTTITO. Ma il rimedio
+## giusto non e' togliere l'esclusivita': e' che al momento dell'avvio i problemi del motore
+## appartengano al referto — la soglia esiste anche per dire cosa c'e' da sistemare, e un
+## popup che ci litiga davanti direbbe la stessa cosa due volte e peggio.
+func aggiungi_guaio(testo: String) -> void:
+	var guai: Array = _stato.get("guai", [])
+	var breve := testo.strip_edges().replace("\n", " ")
+	if breve.length() > 160:
+		breve = breve.substr(0, 160) + "…"
+	if guai.has(breve):
+		return
+	guai.append(breve)
+	_stato["guai"] = guai
+	if _referto != null:
+		_referto.text = _testo_referto(_stato)
+	reset_size()
 
 ## SI VESTE DA SOLO, e non lo fa vestire a chi lo apre.
 ##
@@ -204,5 +241,14 @@ func _riga_sottile() -> Control:
 	r.custom_minimum_size.y = 1
 	return r
 
+## Chi chiude senza scegliere resta dov'era: si riapre al fotogramma dopo. Non è ostinazione
+## — è che le tre strade sono le uniche tre, e nasconderle non ne aggiunge una quarta.
+func _non_si_scappa() -> void:
+	if not _congedato:
+		show.call_deferred()
+
+var _congedato := false
+
 func _scegli(cosa: int) -> void:
+	_congedato = true   # da qui in poi la chiusura è voluta
 	scelto.emit(cosa)

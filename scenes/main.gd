@@ -15,7 +15,7 @@ extends Control
 ## Versione mostrata in Settings › Informazioni: bumpala a ogni cambiamento, così si vede
 ## a colpo d'occhio se la copia che sta girando è aggiornata (un'app già avviata NON
 ## ricarica i prompt: va rilanciata).
-const VERSIONE := "2.40"
+const VERSIONE := "2.41"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -121,8 +121,15 @@ func _ready() -> void:
 	Impostazioni.applica_chiavi_all_ambiente()  # chiavi utente -> ambiente
 	_ripristina_preferenze()
 	LLMManager.llm_log.connect(_on_llm_log)
+	# LA PARTITA SI COSTRUISCE, MA LA SCENA NON SI APRE.
+	#
+	# `nuova_partita()` serve subito: mezza interfaccia legge `GameManager.stato`, e senza
+	# sarebbe da rendere opzionale in venti punti. Ma `_apri_scena()` — che scrive la voce
+	# di Omero e genera i tre appigli — aspetta la scelta: e' cio' che si vedeva comparire
+	# dietro la soglia mentre la soglia chiedeva ancora cosa fare.
 	GameManager.nuova_partita(0)
-	_apri_scena()
+	if not _soglia_attiva():
+		_apri_scena()
 	_ripristina_finestre()
 	Registro.info("avvio", "audio: %s" % _musica.stato_audio())
 	Registro.sezione("in gioco")
@@ -139,7 +146,20 @@ func _apri_sipario() -> void:
 	# Il capitolo attacca quando il sipario e' calato, non prima: sotto la schermata
 	# d'apertura la partita e' gia' avviata, e senza questo le due musiche si sovrapporrebbero.
 	s.finito.connect(_musica_del_capitolo)
-	s.finito.connect(_chiedi_come_cominciare)
+	# IL SIPARIO RESTA ALZATO FINCHE' NON SI E' SCELTO.
+	#
+	# Prima no, e il risultato era quello sbagliato: l'apertura sfumava, sotto compariva una
+	# partita GIA' COMINCIATA — la voce di Omero, i tre appigli — e sopra il dialogo chiedeva
+	# ancora cosa fare. Si vedeva il gioco rispondere a una domanda non ancora posta, e
+	# «Comincia da Troia» dopo aver letto l'inizio di Troia non voleva piu' dire niente.
+	#
+	# La causa e' un'ottimizzazione buona diventata sbagliata: la partita si avviava SOTTO
+	# l'apertura per non far aspettare nessuno. Senza una scelta da fare era giusta; con la
+	# soglia, avviare prima di sapere cosa avviare e' esattamente il contrario.
+	if _soglia_attiva():
+		s.trattieni = true
+		s.pronto.connect(_chiedi_come_cominciare)
+	_splash = s
 	add_child(s)   # ultimo figlio: sta davanti a tutto il resto della schermata
 
 ## LA SOGLIA, fra il sipario e la prima mossa. Vedi `DialogoAvvio` per il perche'.
@@ -149,11 +169,36 @@ func _apri_sipario() -> void:
 ## davanti al gioco. Sarebbe la terza volta che uno scatto ritrae la cosa sbagliata.
 var _niente_dialoghi := false
 var _dlg_avvio: DialogoAvvio = null
+## L'apertura, tenuta alzata finche' non si e' scelto. Vedi `_apri_sipario()`.
+var _splash: Splash = null
+## I guai del motore arrivati prima che la soglia esistesse. Vedi `_guaio_motore()`.
+var _guai_in_attesa: Array[String] = []
+## Vero da quando si e' scelto come cominciare: da li' in poi i guai tornano a essere popup.
+var _scelta_fatta := false
+
+## LA SOGLIA COMPARIRA'? Una domanda sola, con una risposta sola.
+##
+## Era sparsa in tre condizioni diverse — `_senza_schermo()` qui, `_niente_dialoghi` la',
+## il contrario di entrambe piu' in su — e bastava che una divergesse. Ed e' divergita:
+## senza schermo il sipario non si alza, quindi la soglia non arriva mai, quindi la scena
+## non si apriva PIU' — il gioco testuale e i test sarebbero rimasti su una pagina vuota.
+func _soglia_attiva() -> bool:
+	return not _senza_schermo() and not _niente_dialoghi
 
 func _chiedi_come_cominciare() -> void:
-	if _senza_schermo() or _niente_dialoghi or _dlg_avvio != null:
+	if not _soglia_attiva() or _dlg_avvio != null:
 		return
-	_dlg_avvio = DialogoAvvio.new(_referto_avvio(), _serif, _serif_bold)
+	var referto := _referto_avvio()
+	# I guai arrivati mentre il sipario era alzato entrano nel referto adesso: e' il posto in
+	# cui questa schermata dice cosa c'e' da sistemare, ed e' la prima cosa che si legge.
+	if not _guai_in_attesa.is_empty():
+		var g: Array = referto.get("guai", [])
+		for x in _guai_in_attesa:
+			var breve := String(x).strip_edges().replace("\n", " ")
+			g.append(breve.substr(0, 160) + ("…" if breve.length() > 160 else ""))
+		referto["guai"] = g
+		_guai_in_attesa.clear()
+	_dlg_avvio = DialogoAvvio.new(referto, _serif, _serif_bold)
 	_dlg_avvio.scelto.connect(_su_scelta_avvio)
 	add_child(_dlg_avvio)
 	_veste_dialogo(_dlg_avvio)
@@ -222,7 +267,6 @@ func _su_scelta_avvio(cosa: int) -> void:
 			if GameManager.carica_partita():
 				Registro.info("partita", "ripresa: %s · turno %d" % [
 					_nome_tappa(), GameManager.stato.turno])
-				_ricostruisci_scena()
 			else:
 				# Il file c'era e sembrava buono, ma il caricamento e' fallito: non si finge
 				# che vada bene e non si resta fermi. Si dice, e si comincia da capo.
@@ -232,19 +276,26 @@ func _su_scelta_avvio(cosa: int) -> void:
 			Registro.info("partita", "nuova partita da Troia")
 	_chiudi_soglia()
 
+## Scelta fatta: si chiude la soglia, si apre la scena, e SOLO ALLORA cala il sipario.
+##
+## L'ordine conta. Se il sipario calasse per primo si vedrebbe per un istante la schermata
+## vuota — nessuna narrazione, nessun appiglio — e poi il gioco comparirci dentro: un
+## tremolio che sembra un difetto. Cosi' invece l'apertura sfuma su un gioco gia' pronto,
+## che e' esattamente cio' che faceva prima della soglia.
 func _chiudi_soglia() -> void:
+	_scelta_fatta = true
 	if _dlg_avvio != null:
 		_dlg_avvio.hide()
 		_dlg_avvio.queue_free()
 		_dlg_avvio = null
-	_input.grab_focus()
-
-## Ridisegna tutto dopo un cambio di partita. La narrazione si AZZERA: le righe della
-## partita nuova sotto quelle della vecchia sarebbero due storie in una colonna sola.
-func _ricostruisci_scena() -> void:
+	# La narrazione si AZZERA: le righe della partita scelta sotto quelle di un'altra
+	# sarebbero due storie in una colonna sola.
 	_narrazione.clear()
-	_musica_del_capitolo()
 	await _apri_scena()
+	if _splash != null:
+		_splash.lascia_andare()
+		_splash = null
+	_input.grab_focus()
 
 ## La musica della tappa in cui ci si trova. Il momento e' l'id del capitolo, lo stesso di
 ## `data/episodi.json`: chi aggiunge un brano non deve imparare un secondo vocabolario.
@@ -843,8 +894,11 @@ func _aggiorna_indicatore_motore() -> void:
 	if _btn_agisci:
 		_btn_agisci.disabled = bloccato
 
+## `mostra()` e non `popup_centered()`: la finestra si rilegge lo stato prima di farsi
+## vedere. Vedi `FinestraImpostazioni.mostra()` — una vista sincronizzata una volta sola e'
+## una fotografia, e mostrava una spunta «Gateway» diversa da quella vera.
 func _apri_impostazioni() -> void:
-	_fin_impostazioni.popup_centered()
+	_fin_impostazioni.mostra()
 
 func _riga_oro() -> Control:
 	var r := ColorRect.new()
@@ -1367,6 +1421,29 @@ func _guaio_motore(motivo: String) -> void:
 	# Il popup si chiude e sparisce; il diario resta. E' l'unico posto in cui, a partita
 	# finita, si puo' ancora sapere che c'e' stato un problema e quale.
 	Registro.errore("motore", motivo)
+	# CON LA SOGLIA APERTA, il guaio va nel suo referto e non in un secondo dialogo.
+	#
+	# Godot non permette due finestre esclusive figlie dello stesso genitore: il tentativo
+	# falliva con «parent window already has another exclusive child» e l'avviso veniva
+	# INGHIOTTITO — al primo avvio con una chiave sbagliata non compariva niente. L'ha
+	# trovato `tools/foto_soglia.gd`, non un test: e' un errore del motore grafico, non
+	# un'asserzione.
+	#
+	# E il posto giusto e' comunque quello: all'avvio i problemi del motore appartengono al
+	# referto della soglia, che esiste anche per dire cosa c'e' da sistemare.
+	if _dlg_avvio != null:
+		_dlg_avvio.aggiungi_guaio(motivo)
+		return
+	# …e se la soglia deve ancora nascere, il guaio ASPETTA lei.
+	#
+	# La verifica del motore parte all'avvio, mentre il sipario e' ancora alzato: il guaio
+	# arrivava PRIMA che la soglia esistesse, apriva il suo dialogo esclusivo, e poi era la
+	# soglia a non potersi fare esclusiva. Due finestre modali che si contendono lo stesso
+	# genitore, e in mezzo un giocatore che non ha ancora scelto niente.
+	if _soglia_attiva() and not _scelta_fatta:
+		if not _guai_in_attesa.has(motivo):
+			_guai_in_attesa.append(motivo)
+		return
 	if _dlg_guaio == null:
 		_dlg_guaio = AcceptDialog.new()
 		_dlg_guaio.title = Testi.s("motore/guaio_titolo")
