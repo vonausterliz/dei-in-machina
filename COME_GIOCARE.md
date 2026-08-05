@@ -20,7 +20,13 @@ Su Linux e macOS, dentro la cartella del progetto:
 ./avvia.sh            # apre la finestra di gioco
 ./avvia.sh console    # il gioco nel terminale, senza finestra
 ./avvia.sh test       # i test (sviluppo)
+./avvia.sh --help     # tutti i modi e tutte le opzioni, con esempi
 ```
+
+Alle opzioni diagnostiche (`--debugllm`, `--tracellm`, `--logdei`) sono dedicate le sezioni
+[Il tracciato delle chiamate al modello](#il-tracciato-delle-chiamate-al-modello) e
+[Il diario dell'applicazione](#il-diario-dellapplicazione). Si combinano con qualunque modo:
+`./avvia.sh console --tracellm`.
 
 Al primo avvio scarica Godot in `tools/godot/` (una volta sola, ~138 MB) e ne verifica
 l'impronta prima di eseguirlo. Su Windows lo script non funziona: vedi

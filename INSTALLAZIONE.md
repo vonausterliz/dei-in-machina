@@ -45,6 +45,7 @@ Servono `bash`, `curl`, `unzip` e `sha512sum` — già presenti su qualunque dis
 ./avvia.sh test           # i test: 493 controlli su 49 script
 ./avvia.sh console        # il gioco nel terminale, senza finestra
 ./avvia.sh installa-menu  # aggiunge «Dei in machina» al menu delle applicazioni
+./avvia.sh --help         # tutti i modi e tutte le opzioni, con esempi
 ```
 
 L'ultimo comando lo devi lanciare tu: scrive un file `.desktop` in
@@ -239,4 +240,5 @@ I messaggi d'errore del gioco, uno per uno, e cosa provare per ciascuno: **[COME
 
 Per guardare cosa succede davvero sotto — quale AI è stata chiamata, cosa ha risposto, quanto
 ci ha messo — c'è il **tracciato**: si scrive sempre in `user://log/`, e con
-`./avvia.sh --debugllm` compare anche a schermo.
+`./avvia.sh --debugllm` compare anche a schermo (`--tracellm` aggiunge il dettaglio HTTP,
+`--logdei` apre il diario dell'applicazione). `./avvia.sh --help` le elenca tutte.

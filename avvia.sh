@@ -21,6 +21,77 @@
 set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+## L'AIUTO E LE OPZIONI, PRIMA DI QUALUNQUE LAVORO.
+##
+## Stavano in fondo, dopo l'importazione del progetto: `./avvia.sh --help` impiegava
+## QUATTRO SECONDI E MEZZO — due passate di `godot --import` — per stampare venti righe di
+## testo. E un'opzione scritta male le pagava tutte prima di essere rifiutata.
+##
+## Chi chiede aiuto o sbaglia a scrivere dev'essere servito subito: qui non serve Godot, non
+## serve il progetto, non serve niente. Le uniche righe che devono precedere sono quelle che
+## dicono DOVE siamo.
+mostra_uso() {
+  cat <<'AIUTO'
+Uso: ./avvia.sh [modo] [opzioni]
+
+Modi:
+  gui              la finestra di gioco (predefinito, si puo' omettere)
+  console          il gioco nel terminale, senza finestra
+  test             esegue i test
+  musica           rigenera la musica della schermata d'apertura
+  installa-menu    mette il gioco nel menu applicazioni col suo nome
+
+Opzioni (si possono combinare con qualunque modo):
+  --debugllm       finestra col tracciato delle chiamate al modello: per ogni chiamata
+                   agente, latenza, token, errori. Serve a scoprire QUALE e' lenta.
+  --tracellm       come sopra, piu' il dettaglio HTTP di ogni richiesta e risposta —
+                   verbo, indirizzo, intestazioni, corpo. Serve a scoprire PERCHE'.
+                   Implica --debugllm. Le credenziali restano oscurate.
+  --logdei         finestra col diario dell'applicazione: cosa fa il gioco e cosa gli
+                   va storto (avvio, preferenze, partita, motore, audio, guai).
+
+I tracciati si scrivono SEMPRE su file, in user://log/, anche senza queste opzioni:
+le finestre sono solo una vetrina su quel flusso.
+
+Esempi:
+  ./avvia.sh --tracellm
+  ./avvia.sh console --debugllm
+  MODELLO=llama3.1:8b ./avvia.sh
+AIUTO
+}
+
+# LE OPZIONI SI TOLGONO DI MEZZO PRIMA, e i modi restano.
+#
+# Qui c'era `for a in "$@"; do ... shift ... done`, che e' rotto in un modo silenzioso: il
+# ciclo scorre una COPIA degli argomenti mentre `shift` modifica quelli veri, e i due si
+# disallineano. Con una sola opzione funzionava per caso; `./avvia.sh console --debugllm`
+# no — lo shift si mangiava «console», MODE diventava «--debugllm», e il launcher rispondeva
+# col messaggio d'uso come se non si fosse capito niente. Non si poteva combinare un modo
+# con un'opzione, e nessuno l'aveva mai provato.
+#
+# Le grafie si accettano tutte, singolo trattino compreso: e' un launcher, non un compilatore,
+# e far fallire un avvio per un trattino e' una scortesia gratuita.
+ARGOMENTI=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --debugllm|-debugllm)              export DEI_DEBUG_LLM=1 ;;
+    --tracellm|-tracellm)              export DEI_DEBUG_LLM=1; export DEI_TRACE_LLM=1 ;;
+    --logdei|-logdei|--logDei|-logDei|--logDEI) export DEI_LOG_APP=1 ;;
+    -h|--help|-help|aiuto)             mostra_uso; exit 0 ;;
+    --) shift; ARGOMENTI+=("$@"); break ;;   # tutto il resto va al gioco, non a noi
+    -*)
+      # Un'opzione che non conosciamo NON diventa un modo. Prima ci diventava, e il
+      # messaggio d'errore parlava dei modi: si cercava il refuso nel posto sbagliato.
+      echo "Opzione sconosciuta: $1" >&2
+      echo >&2
+      mostra_uso >&2
+      exit 1 ;;
+    *) ARGOMENTI+=("$1") ;;
+  esac
+  shift
+done
+set -- "${ARGOMENTI[@]+"${ARGOMENTI[@]}"}"
 GODOT_VER="4.7.1-stable"
 BASE_URL="https://github.com/godotengine/godot/releases/download/${GODOT_VER}"
 
@@ -124,8 +195,38 @@ _leggi_modello() {
 # Nota: solo ASCII e variabili tra ${...}. Il bash 3.2 di macOS, sotto 'set -u',
 # ingloba un carattere multibyte attaccato a una variabile ("<<${model}>>") nel nome
 # e va in errore "unbound variable". Meglio tenerlo semplice e portabile.
+# IL PROVIDER SCELTO L'ULTIMA VOLTA, letto dalle preferenze dell'utente.
+#
+# Serve a una domanda sola: vale la pena scaldare Ollama? Le preferenze stanno sotto la
+# cartella dati dell'utente, che cambia con il sistema. Se non si riesce a leggerle si
+# ritorna vuoto, e chi chiama si comporta come prima — nel dubbio si scalda.
+_provider_scelto() {
+  local base
+  case "$(uname -s)" in
+    Darwin) base="$HOME/Library/Application Support/Godot/app_userdata" ;;
+    *)      base="${XDG_DATA_HOME:-$HOME/.local/share}/godot/app_userdata" ;;
+  esac
+  grep -o '"provider_nome"[[:space:]]*:[[:space:]]*"[^"]*"' \
+    "$base/Dei in machina/impostazioni.json" 2>/dev/null \
+    | head -1 | sed -E 's/.*:[[:space:]]*"([^"]*)"/\1/'
+}
+
 ollama_preflight() {
-  local url="http://localhost:11434" model base
+  local url="http://localhost:11434" model base scelto
+  # SI SCALDA OLLAMA SOLO SE SI GIOCHERA' CON OLLAMA.
+  #
+  # Girava sempre: con OpenRouter selezionato, il launcher avviava il server locale e
+  # caricava in RAM un modello da 24 miliardi di parametri che nessuno avrebbe interrogato —
+  # e lo annunciava pure, due righe di «[ok] Ollama pronto» in cima a una partita che sarebbe
+  # andata tutta in rete. Rumore che somiglia a un'informazione, e qualche gigabyte di RAM.
+  #
+  # Se le preferenze non si leggono (primo avvio, percorso inatteso) si scalda comunque: il
+  # caso in cui non si sa e' quello in cui conviene fare la cosa di prima.
+  scelto="$(_provider_scelto)"
+  if [ -n "${scelto}" ] && [ "${scelto}" != "Ollama locale" ]; then
+    echo "[i] Provider scelto: ${scelto}. Non scaldo Ollama (serve solo se giochi in locale)."
+    return 0
+  fi
   # Scelta del modello: MODELLO=... ha precedenza sul config. Lo propago all'app via
   # DEI_MODELLO, cosi' preflight e gioco usano lo stesso. In gioco puoi cambiarlo dal menu.
   model="${MODELLO:-$(_leggi_modello)}"; [ -z "${model}" ] && model="mistral-small3.2:latest"
@@ -174,14 +275,6 @@ ollama_preflight() {
 # E' un log separato da quello del modello perche' risponde a una domanda diversa, e cercare
 # «perche' non ho la musica» in mezzo a settemila righe di prompt e' peggio che non cercarla.
 # Anche questo si scrive SEMPRE su file, in user://log/app-*.log.
-for a in "$@"; do
-  case "$a" in
-    --debugllm) export DEI_DEBUG_LLM=1; shift ;;
-    --tracellm) export DEI_DEBUG_LLM=1; export DEI_TRACE_LLM=1; shift ;;
-    # Accettate tutte le grafie: e' un'opzione da riga di comando, non un indovinello.
-    --logdei|--logDei|--logDEI) export DEI_LOG_APP=1; shift ;;
-  esac
-done
 
 MODE="${1:-gui}"
 case "$MODE" in
@@ -218,5 +311,5 @@ case "$MODE" in
     echo "(Su alcuni desktop serve un logout, o 'killall plasmashell && plasmashell &'.)"
     ;;
   musica)  exec python3 "$DIR/tools/musica/genera_proemio.py" ;;
-  *)       echo "Uso: ./avvia.sh [gui|console|test|musica|installa-menu]"; exit 1 ;;
+  *)       echo "Modo sconosciuto: $MODE" >&2; echo >&2; mostra_uso >&2; exit 1 ;;
 esac

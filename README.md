@@ -221,6 +221,7 @@ cd dei-in-machina
 ```
 ./avvia.sh test          # esegue tutti i test: 493 controlli su 49 script
 ./avvia.sh installa-menu # (solo Linux) aggiunge il gioco al menu delle applicazioni
+./avvia.sh --help        # tutti i modi e tutte le opzioni diagnostiche, con esempi
 ```
 
 Su **Windows** lo script d'avvio non funziona (è bash) e i suoi passi vanno rifatti a mano: la procedura c'è, ma **non è mai stata provata da nessuno**.
