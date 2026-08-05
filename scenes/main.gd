@@ -15,7 +15,7 @@ extends Control
 ## Versione mostrata in Settings › Informazioni: bumpala a ogni cambiamento, così si vede
 ## a colpo d'occhio se la copia che sta girando è aggiornata (un'app già avviata NON
 ## ricarica i prompt: va rilanciata).
-const VERSIONE := "2.42"
+const VERSIONE := "2.43"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -156,6 +156,12 @@ func _apri_sipario() -> void:
 	# La causa e' un'ottimizzazione buona diventata sbagliata: la partita si avviava SOTTO
 	# l'apertura per non far aspettare nessuno. Senza una scelta da fare era giusta; con la
 	# soglia, avviare prima di sapere cosa avviare e' esattamente il contrario.
+	#
+	# «ALZATO» VUOL DIRE IL FONDALE, NON L'EMBLEMA. Al primo tentativo trattenere il sipario
+	# fermava tutta l'uscita, e la soglia compariva sopra la schermata d'apertura ancora
+	# intera — marchio, titolo, «un tasto, e il viaggio comincia». La sequenza chiesta e'
+	# un'altra: l'apertura si dissolve, POI compare il popup, e solo dietro il popup resta il
+	# buio. Adesso `Splash` esce in due tempi e `pronto` arriva a dissolvenza finita.
 	if _soglia_attiva():
 		s.trattieni = true
 		s.pronto.connect(_chiedi_come_cominciare)

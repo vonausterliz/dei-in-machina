@@ -136,17 +136,34 @@ func _costruisci(stato: Dictionary) -> void:
 	occhiello.custom_minimum_size.x = 520
 	v.add_child(occhiello)
 
-	# --- le scelte ---
+	# --- le scelte: TRE, SEMPRE, E IN QUEST'ORDINE ---
+	#
+	# L'ordine e le voci sono quelli chiesti, alla lettera: «creare nuova partita», «caricare
+	# partita salvata», «settings». Non e' un dettaglio di gusto — e' la terza volta che
+	# vengono chiesti, e le due volte precedenti ho consegnato qualcos'altro:
+	#
+	# - «Comincia da Troia» al posto di «Nuova partita». Piu' evocativo, e sbagliato: in un
+	#   menu d'avvio la voce deve dire COSA FA, non dove porta. Chi ha un salvataggio a
+	#   Ogigia legge «Troia» e non sa se stia per perdere la partita.
+	# - «Carica partita salvata» COMPARIVA SOLO SE c'era un salvataggio. L'avevo deciso io,
+	#   con un argomento che sembra buono — un bottone che a volte non fa niente insegna a
+	#   non fidarsi degli altri — e ci avevo perfino scritto un test intorno, che e' il modo
+	#   piu' efficace di rendere permanente uno sbaglio. Ma nascondere la voce non risponde
+	#   alla domanda «e i miei salvataggi?»: la lascia senza posto dove essere fatta. La voce
+	#   c'e' sempre; quando non c'e' niente da caricare e' SPENTA e dice perche'.
 	var ripresa: Dictionary = stato.get("ripresa", {})
-	if not ripresa.is_empty():
-		# IL PRIMO BOTTONE E' RIPRENDERE, e porta con se' i dettagli. «Riprendi la partita»
-		# da solo obbliga a fidarsi: quale partita? di quando? Con capitolo, turno e data la
-		# scelta si fa guardando, senza doverla provare per scoprirlo.
-		v.add_child(_bottone(Testi.s("avvio/riprendi"), C_GOLD, func(): _scegli(RIPRENDI),
-			Testi.s("avvio/riprendi_dett", [ripresa.get("episodio", "?"),
-				int(ripresa.get("turno", 0)), ripresa.get("quando", "?")])))
-	v.add_child(_bottone(Testi.s("avvio/nuova"), C_BONE, func(): _scegli(NUOVA)))
-	v.add_child(_bottone(Testi.s("avvio/impostazioni"), C_BONE_DIM, func(): _scegli(IMPOSTAZIONI)))
+	var c_e_salvataggio := not ripresa.is_empty()
+	v.add_child(_bottone(Testi.s("avvio/nuova"), C_BONE, func(): _scegli(NUOVA),
+		Testi.s("avvio/nuova_dett")))
+	v.add_child(_bottone(Testi.s("avvio/riprendi"),
+		C_GOLD if c_e_salvataggio else C_BONE_DIM,
+		func(): _scegli(RIPRENDI),
+		Testi.s("avvio/riprendi_dett", [ripresa.get("episodio", "?"),
+			int(ripresa.get("turno", 0)), ripresa.get("quando", "?")])
+			if c_e_salvataggio else Testi.s("avvio/senza_salvataggio"),
+		c_e_salvataggio))
+	v.add_child(_bottone(Testi.s("avvio/impostazioni"), C_BONE_DIM, func(): _scegli(IMPOSTAZIONI),
+		Testi.s("avvio/impostazioni_dett")))
 
 	v.add_child(_riga_sottile())
 
@@ -189,32 +206,48 @@ func _testo_referto(stato: Dictionary) -> String:
 
 ## Un bottone alto, con un sottotitolo facoltativo. Non sono voci di menu: sono le tre
 ## strade, e devono avere il peso visivo di una decisione.
-func _bottone(etichetta: String, colore: Color, azione: Callable, sotto: String = "") -> Control:
+func _bottone(etichetta: String, colore: Color, azione: Callable, sotto: String = "",
+		attivo: bool = true) -> Control:
 	var b := Button.new()
+	b.disabled = not attivo
 	b.add_theme_font_override("font", _serif_bold)
 	b.add_theme_font_size_override("font_size", 18)
 	b.add_theme_color_override("font_color", colore)
 	b.add_theme_color_override("font_hover_color", C_BONE)
+	# Spenta si vede che è spenta, e resta LEGGIBILE: è la voce che dice «di salvataggi non
+	# ce n'è», e un testo troppo pallido per leggersi non lo direbbe a nessuno.
+	var smorto := colore
+	smorto.a = 0.45
+	b.add_theme_color_override("font_disabled_color", smorto)
 	b.custom_minimum_size = Vector2(520, 0)
-	# Il primo bottone — quello dorato, «Riprendi» — porta anche un contorno: fra tre scelte
-	# ce n'è una che è quasi sempre quella giusta, e la schermata può dirlo senza toglierne
-	# nessuna. Gli altri due restano leggibili come scelte piene, non come ripieghi.
+	# Il contorno dorato va a «Carica partita salvata» QUANDO c'è davvero qualcosa da
+	# caricare: fra tre scelte quella è quasi sempre l'intenzione, e la schermata può dirlo
+	# senza spostare né togliere nessuna voce. Le altre restano scelte piene, non ripieghi.
 	var spicca := 0.28 if colore == C_GOLD else 0.0
 	b.add_theme_stylebox_override("normal", _fondo_bottone(0.06, spicca))
 	b.add_theme_stylebox_override("hover", _fondo_bottone(0.13, maxf(spicca, 0.18)))
 	b.add_theme_stylebox_override("pressed", _fondo_bottone(0.03, spicca))
 	b.add_theme_stylebox_override("focus", _fondo_bottone(0.10, 0.35))
+	# Spenta CONSERVA LA FORMA: senza questo la voce perde il suo riquadro e le tre scelte
+	# non si leggono piu' come un elenco di tre — la riga di mezzo diventa un buco.
+	b.add_theme_stylebox_override("disabled", _fondo_bottone(0.03))
 	b.pressed.connect(azione)
 	if sotto == "":
 		b.text = etichetta
 		return b
-	# Il dettaglio va DENTRO il bottone, non accanto: altrimenti si puo' leggere «turno 34»
-	# e premere «Comincia da Troia», che e' l'unico errore irreparabile di questa schermata.
+	# Il dettaglio va DENTRO il bottone, non accanto: altrimenti si puo' leggere «turno 34» e
+	# premere «Nuova partita», che e' l'unico errore irreparabile di questa schermata.
+	#
+	# Le due righe sono Label, non il `text` del bottone: quindi lo scolorimento da bottone
+	# spento (`font_disabled_color`) non le tocca, e va applicato a mano — altrimenti la voce
+	# «Carica partita salvata» sembrerebbe accesa mentre non lo e'.
 	b.text = ""
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 2)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE   # i clic passano al bottone sotto
 	v.set_anchors_preset(Control.PRESET_FULL_RECT)
+	if not attivo:
+		v.modulate.a = 0.55
 	var t := Label.new()
 	t.text = etichetta
 	t.add_theme_font_override("font", _serif_bold)

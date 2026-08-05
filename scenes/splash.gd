@@ -17,6 +17,19 @@ extends CanvasLayer
 ## Si toglie al primo tasto/clic, oppure tre secondi dopo che la musica e' finita: una
 ## schermata d'apertura che non si puo' saltare diventa un pedaggio, ma una che sparisce
 ## mentre la musica sta ancora suonando e' peggio — taglia la frase a meta'.
+##
+## ESCE IN DUE TEMPI, e questa e' la parte che era sbagliata.
+##
+## 1. **Il velo**: l'emblema, il nome e l'invito sfumano. Il FONDALE resta — uno schermo
+##    scuro e nient'altro. Qui si annuncia `pronto`, ed e' il momento in cui la soglia
+##    («nuova partita / carica / impostazioni») compare: davanti al buio, da sola.
+## 2. **Il sipario**: su `lascia_andare()` sfuma anche il fondale, e sotto c'e' la partita
+##    scelta, gia' costruita.
+##
+## Prima era uno solo, e con `trattieni` acceso non partiva affatto: la soglia compariva
+## SOPRA la schermata d'apertura ancora intera — marchio, titolo, «un tasto e il viaggio
+## comincia» — cioe' sopra un invito a premere un tasto che non serviva piu' a niente.
+## L'umano l'ha visto nel suo screenshot prima che lo vedessi io.
 
 signal finito
 ## L'apertura ha finito la sua parte e aspetta: chi trattiene il sipario puo' agire.
@@ -63,11 +76,17 @@ var solo_marchio := false
 var musica: ColonnaSonora
 
 var _t := 0.0
+## Le due sfumature, in secondi da quando sono partite; -1 = non partita.
+## `_uscita` e' il velo (l'emblema); `_sipario` e' il fondale. Vedi la nota in testa.
 var _uscita := -1.0
+var _sipario := -1.0
 var _in_onda := false
 ## Da quando la musica e' finita, o -1 se sta ancora suonando (o se non c'e' musica).
 var _muto_da := -1.0
-var _tela: Control          # dove si disegna, e cio' che sfuma all'uscita
+## Il buio, sotto tutto: sopravvive al velo e se ne va col sipario. E' cio' che sta dietro
+## la soglia, e il motivo per cui dietro la soglia non si vede mai mezza partita.
+var _fondale: ColorRect
+var _tela: Control          # dove si disegna, e cio' che sfuma col velo
 var _posto_marchio: Control # riserva lo spazio: il marchio si disegna esattamente qui
 var _titolo: Label
 var _sottotitolo: Label
@@ -78,6 +97,13 @@ func _ready() -> void:
 	var serif: FontFile = load("res://fonts/Cardo-Regular.ttf")
 	var serif_bold: FontFile = load("res://fonts/Cardo-Bold.ttf")
 	var serif_italic: FontFile = load("res://fonts/Cardo-Italic.ttf")
+
+	# Il fondale per primo, cosi' sta sotto tutto il resto.
+	_fondale = ColorRect.new()
+	_fondale.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_fondale.color = C_SEA_DEEP
+	_fondale.mouse_filter = Control.MOUSE_FILTER_STOP  # niente clic di sfuggita sul gioco sotto
+	add_child(_fondale)
 
 	_tela = Control.new()
 	_tela.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -145,10 +171,19 @@ func _process(delta: float) -> void:
 	_aggiorna_opacita()
 	if _uscita < 0.0 and _t >= _quando_congedarsi(delta):
 		congeda()
+	# 1. Il velo: sfuma l'emblema. Quando e' sparito del tutto — e non un istante prima — si
+	#    annuncia `pronto`, che e' il momento in cui la soglia puo' comparire.
 	if _uscita >= 0.0:
 		_uscita += delta
 		_tela.modulate.a = maxf(0.0, 1.0 - _uscita / DISSOLVENZA)
-		if _uscita >= DISSOLVENZA:
+		if _uscita >= DISSOLVENZA and trattieni and not _annunciato:
+			_annunciato = true
+			pronto.emit()
+	# 2. Il sipario: sfuma il buio, e sotto c'e' il gioco. Parte solo quando nessuno trattiene.
+	if _sipario >= 0.0:
+		_sipario += delta
+		_fondale.modulate.a = maxf(0.0, 1.0 - _sipario / DISSOLVENZA)
+		if _sipario >= DISSOLVENZA:
 			set_process(false)
 			finito.emit()
 			queue_free()
@@ -198,26 +233,26 @@ func _input(evento: InputEvent) -> void:
 func congeda() -> void:
 	if _uscita >= 0.0:
 		return
-	# TRATTENUTO: il sipario resta alzato finche' non gli si dice di calare.
-	#
-	# Serve alla SOGLIA — il dialogo «riprendi / nuova / impostazioni». Senza, la schermata
-	# d'apertura sfumava e sotto compariva una partita gia' cominciata, con la voce di Omero
-	# e i tre appigli, mentre il dialogo chiedeva ancora cosa fare: si vedeva il gioco
-	# rispondere a una domanda non ancora posta. Qui si annuncia soltanto (`pronto`), e chi
-	# ascolta decide quando lasciar calare il sipario.
-	if trattieni:
-		if not _annunciato:
-			_annunciato = true
-			pronto.emit()
-		return
 	_uscita = 0.0
 	if _in_onda and musica != null:
 		musica.ferma(DISSOLVENZA)
+	# TRATTENUTO: il velo parte comunque — l'emblema sfuma, e questo l'umano lo chiede
+	# esplicitamente («quando lo splash screen si dissolve deve apparire solo un popup»). E'
+	# il FONDALE che resta, e con lui il buio dietro la soglia. Prima usciva da questa
+	# funzione senza sfumare niente: la soglia compariva sopra la schermata d'apertura
+	# ancora intera, invito a premere un tasto compreso.
+	if not trattieni:
+		_sipario = 0.0
 
-## Chi tiene alzato il sipario lo cala con questo, quando ha finito.
+## Chi tiene alzato il sipario lo cala con questo, quando ha finito: sfuma il fondale, e
+## sotto c'e' la partita che intanto e' stata costruita.
 func lascia_andare() -> void:
 	trattieni = false
-	congeda()
+	if _uscita < 0.0:
+		congeda()      # nessuno l'aveva ancora congedata: velo e sipario partono insieme
+		return
+	if _sipario < 0.0:
+		_sipario = 0.0
 
 # --- il marchio ---
 

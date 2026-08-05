@@ -27,24 +27,56 @@ func _dialogo(stato: Dictionary) -> DialogoAvvio:
 	return d
 
 const SANO := {"ripresa": {}, "motore": "Ollama locale · mistral-small3.2", "audio": "", "guai": []}
+const CON_SALVATAGGIO := {"ripresa": {"episodio": "L'isola del ciclope", "turno": 34,
+	"quando": "2026-08-05 09:12"}, "motore": "Ollama locale · mistral-small3.2",
+	"audio": "", "guai": []}
 
-## Il bottone «Riprendi» esiste SOLO se c'e' qualcosa da riprendere. Offrirlo sempre
-## vorrebbe dire un bottone che a volte non fa niente, e un bottone che a volte non fa
-## niente insegna a non fidarsi degli altri due.
-func test_senza_salvataggio_non_si_offre_di_riprendere():
+## LE VOCI SONO TRE, SEMPRE, E IN QUEST'ORDINE.
+##
+## Chieste tre volte, alla lettera: «nuova partita / carica partita salvata / settings».
+## Le prime due volte ho consegnato altro, e la seconda ci avevo messo intorno un test —
+## `test_senza_salvataggio_non_si_offre_di_riprendere` — che pretendeva che «Carica» NON
+## comparisse senza salvataggio. Era una mia decisione travestita da requisito, e un test
+## che sorveglia la decisione sbagliata la rende permanente: e' sopravvissuta a una
+## segnalazione perche' la suite restava verde.
+##
+## Questo test e' il suo contrario, e la sostituisce.
+func test_le_tre_voci_ci_sono_sempre_e_in_ordine():
+	for caso in [SANO, CON_SALVATAGGIO]:
+		var d := _dialogo(caso)
+		var voci := _etichette(d)
+		assert_eq(voci, [Testi.s("avvio/nuova"), Testi.s("avvio/riprendi"),
+			Testi.s("avvio/impostazioni")],
+			"le tre voci d'avvio non sono quelle chieste, o non in quell'ordine")
+
+## Nessuna delle tre voci nomina una TAPPA. «Comincia da Troia» era la voce «nuova partita»,
+## ed e' il genere di sbaglio che sembra colore: in un menu d'avvio la voce deve dire cosa
+## fa, non dove porta. Chi ha un salvataggio a Ogigia legge «Troia» e non sa se stia per
+## perdere la partita.
+func test_nessuna_voce_promette_una_tappa():
+	var voci := "\n".join(_etichette(_dialogo(CON_SALVATAGGIO)))
+	for tappa in ["Troia", "Itaca", "Ogigia", "Circe"]:
+		assert_false(voci.contains(tappa),
+			"la voce d'avvio nomina «%s»: dice dove porta invece di dire cosa fa" % tappa)
+
+## Senza salvataggio la voce c'e' lo stesso, ma e' SPENTA e dice perche'. Nasconderla non
+## risponde alla domanda «e i miei salvataggi?»: la lascia senza posto dove essere fatta.
+func test_senza_salvataggio_la_voce_ce_ma_e_spenta():
 	var d := _dialogo(SANO)
-	assert_false(_testo_bottoni(d).contains(Testi.s("avvio/riprendi")),
-		"offre di riprendere una partita che non c'e'")
-	assert_true(_testo_bottoni(d).contains(Testi.s("avvio/nuova")))
-	assert_true(_testo_bottoni(d).contains(Testi.s("avvio/impostazioni")))
+	assert_true(_spento(d, Testi.s("avvio/riprendi")),
+		"offre di caricare una partita che non c'e'")
+	assert_true(_testo_bottoni(d).contains(Testi.s("avvio/senza_salvataggio")),
+		"la voce e' spenta e non dice perche'")
+	assert_false(_spento(d, Testi.s("avvio/nuova")), "«Nuova partita» non si puo' premere")
+	assert_false(_spento(d, Testi.s("avvio/impostazioni")), "«Impostazioni» non si puo' premere")
 
-## …e quando c'e', porta con se' i DETTAGLI. «Riprendi la partita» da solo obbliga a
-## fidarsi: quale partita, di quando? Con capitolo, turno e data la scelta si fa guardando.
-func test_riprendere_dice_quale_partita():
-	var d := _dialogo({"ripresa": {"episodio": "L'isola del ciclope", "turno": 34,
-		"quando": "2026-08-05 09:12"}, "motore": "x", "audio": "", "guai": []})
+## …e quando il salvataggio c'e', la voce si accende e porta con se' i DETTAGLI. «Carica
+## partita salvata» da solo obbliga a fidarsi: quale partita, di quando? Con capitolo, turno
+## e data la scelta si fa guardando.
+func test_caricare_dice_quale_partita():
+	var d := _dialogo(CON_SALVATAGGIO)
 	var t := _testo_bottoni(d)
-	assert_true(t.contains(Testi.s("avvio/riprendi")))
+	assert_false(_spento(d, Testi.s("avvio/riprendi")), "c'e' un salvataggio e la voce e' spenta")
 	assert_true(t.contains("L'isola del ciclope"), "non dice a che punto si era")
 	assert_true(t.contains("34"), "non dice il turno")
 
@@ -93,6 +125,38 @@ func test_lo_stesso_guaio_non_si_accumula():
 	assert_eq(_referto(d).count("sempre lo stesso"), 1, "il referto si è riempito di doppioni")
 
 # --- lettura ---
+
+## Le tre scelte, in ordine di schermata. L'«OK» di AcceptDialog e' nascosto ma resta un
+## figlio del dialogo: senza escluderlo l'elenco avrebbe una voce in piu' che nessuno vede.
+func _scelte(dlg: DialogoAvvio) -> Array:
+	var fuori: Array = []
+	var ok := dlg.get_ok_button()
+	for n in dlg.find_children("*", "Button", true, false):
+		if n != ok:
+			fuori.append(n)
+	return fuori
+
+## L'etichetta di un bottone: o il suo `text`, o la prima Label che ha dentro — i bottoni
+## col sottotitolo hanno `text` vuoto e due Label figlie.
+func _etichetta(b: Button) -> String:
+	if String(b.text) != "":
+		return String(b.text)
+	for n in b.find_children("*", "Label", true, false):
+		return String((n as Label).text)
+	return ""
+
+func _etichette(dlg: DialogoAvvio) -> Array:
+	var fuori: Array = []
+	for b in _scelte(dlg):
+		fuori.append(_etichetta(b))
+	return fuori
+
+func _spento(dlg: DialogoAvvio, etichetta: String) -> bool:
+	for b in _scelte(dlg):
+		if _etichetta(b) == etichetta:
+			return (b as Button).disabled
+	fail_test("nel dialogo non c'e' nessuna voce «%s»" % etichetta)
+	return false
 
 func _testo_bottoni(d: DialogoAvvio) -> String:
 	var fuori: Array[String] = []

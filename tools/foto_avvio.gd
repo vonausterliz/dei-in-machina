@@ -10,7 +10,8 @@ extends SceneTree
 ##
 ## Si ritraggono TRE casi, perche' sono tre impaginazioni diverse:
 ##   1. con una partita da riprendere e tutto a posto (il caso normale);
-##   2. senza salvataggio (un bottone in meno: il riquadro si accorcia);
+##   2. senza salvataggio (la voce «carica» c'e' lo stesso, spenta e col motivo: e' la riga
+##      che cambia aspetto senza cambiare posto);
 ##   3. con audio muto e una chiave mancante (il referto si allunga, ed e' il caso in cui
 ##      serve di piu' che si legga).
 ##

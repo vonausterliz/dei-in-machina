@@ -40,13 +40,18 @@ func _scatta() -> void:
 
 	# L'apertura dura qualche secondo e la soglia arriva alla sua fine. Invece di indovinare
 	# un'attesa, si CHIEDE allo splash di finire subito: `congeda()` su un sipario trattenuto
-	# non lo fa sparire — annuncia «pronto», che e' esattamente l'istante da ritrarre.
+	# avvia il velo — l'emblema sfuma — e a velo finito annuncia «pronto», che e' l'istante
+	# da ritrarre. L'attesa dev'essere piu' lunga della dissolvenza, o si fotografa la
+	# schermata a meta' sfumatura e si crede che sia cosi' che appare.
 	for i in 40:
 		await process_frame
+	var sipario_nodo: Splash = null
 	for c in ui.get_children():
 		if c is Splash:
+			sipario_nodo = c
 			c.congeda()
-	for i in 40:
+	var attesa := int(ceil(Splash.DISSOLVENZA * 60.0)) + 40
+	for i in attesa:
 		await process_frame
 
 	if ui._dlg_avvio == null:
@@ -75,6 +80,20 @@ func _scatta() -> void:
 			sipario = true
 	if not sipario:
 		guai.append("il sipario e' gia' calato: si vede la schermata vuota sotto la soglia")
+	# LA SCHERMATA D'APERTURA DEVE ESSERSI DISSOLTA, e il buio dietro dev'essere rimasto.
+	#
+	# E' la relazione che era sbagliata e che nessuno strumento guardava: il popup compariva
+	# sopra il marchio e sopra la scritta «un tasto, e il viaggio comincia» — un invito a
+	# premere un tasto che non serviva piu' a niente. Tutti i controlli logici passavano.
+	if sipario_nodo != null:
+		var velo: float = sipario_nodo._tela.modulate.a
+		var fondo: float = sipario_nodo._fondale.modulate.a
+		print("  apertura: emblema %.2f · fondale %.2f  (atteso 0.00 e 1.00)" % [velo, fondo])
+		if velo > 0.02:
+			guai.append("l'emblema e' ancora visibile (%.2f): il popup compare sopra la "
+				% velo + "schermata d'apertura invece che dopo")
+		if fondo < 0.98:
+			guai.append("il fondale sta sfumando (%.2f): dietro il popup si vedra' il gioco" % fondo)
 
 	_png("soglia_intera", ui.get_window())
 	_png("soglia_dialogo", ui._dlg_avvio)

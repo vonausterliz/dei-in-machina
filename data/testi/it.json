@@ -184,18 +184,20 @@
   "avvio": {
     "titolo": "Dei in machina",
     "sottotitolo": "Sei Ulisse. Gli dèi discutono sopra di te, e non li vedrai mai.",
-    "riprendi": "Riprendi la partita",
+    "riprendi": "Carica partita salvata",
     "riprendi_dett": "%s · turno %d · salvata %s",
-    "nuova": "Comincia da Troia",
+    "nuova": "Nuova partita",
     "impostazioni": "Impostazioni…",
     "motore": "Motore",
     "audio": "Audio",
     "audio_ok": "attivo",
     "audio_muto": "MUTO — il driver di sistema non è partito. Il gioco funziona lo stesso.",
     "salvataggio_rotto": "C'è un salvataggio ma non si riesce a leggerlo: si può solo ricominciare.",
-    "senza_salvataggio": "Nessuna partita salvata.",
+    "senza_salvataggio": "Nessuna partita salvata: non c’è ancora niente da caricare.",
     "pronto": "Tutto pronto.",
-    "da_sistemare": "Da sistemare prima di giocare — apri Impostazioni."
+    "da_sistemare": "Da sistemare prima di giocare — apri Impostazioni.",
+    "nuova_dett": "Si riparte da Troia, dal principio del viaggio.",
+    "impostazioni_dett": "Provider, modello, chiavi API, dimensione dell’interfaccia."
   },
   "olimpo": {
     "zeus_chiude": "E così sia. La volontà di %s si compie.",

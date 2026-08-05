@@ -42,7 +42,7 @@ parte subito.
 Servono `bash`, `curl`, `unzip` e `sha512sum` — già presenti su qualunque distribuzione.
 
 ```bash
-./avvia.sh test           # i test: 493 controlli su 49 script
+./avvia.sh test           # i test: 501 controlli su 50 script
 ./avvia.sh console        # il gioco nel terminale, senza finestra
 ./avvia.sh installa-menu  # aggiunge «Dei in machina» al menu delle applicazioni
 ./avvia.sh --help         # tutti i modi e tutte le opzioni, con esempi
@@ -211,7 +211,7 @@ Download del motore: [godotengine.org/download](https://godotengine.org/download
 ./avvia.sh test      # su Windows, vedi la tabella qui sopra
 ```
 
-Devi leggere **493 test, 493 passati, 49 script**. Se il numero di script è inferiore a 45,
+Devi leggere **501 test, 501 passati, 50 script**. Se il numero di script è inferiore a 45,
 qualcosa non compila: la suite resterebbe verde su meno test, ed è una trappola nota — c'è un
 controllo apposta che la denuncia.
 
