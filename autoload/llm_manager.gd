@@ -69,6 +69,10 @@ func _ready() -> void:
 	# a quel punto o e' stato scritto o non c'e' piu'. La finestra e' solo una vetrina sul
 	# medesimo flusso, e si chiede all'avvio con --debugllm.
 	tracciato.su_riga = func(riga: String) -> void: llm_log.emit(riga)
+	# Il dettaglio HTTP si decide PRIMA di aprire, cosi' l'intestazione del file dice a chi lo
+	# legge in che modalita' e' stato scritto: un log senza righe HTTP e uno preso senza
+	# --tracellm si somigliano troppo per lasciarlo indovinare.
+	tracciato.dettaglio = traccia_http()
 	tracciato.apri(ProjectSettings.get_setting("application/config/name", "Dei in machina"))
 	config = _carica_config()
 	profili = _carica_profili()
@@ -76,6 +80,13 @@ func _ready() -> void:
 	mock_mode = config.get("mock", true)
 	if not mock_mode:
 		_inizializza_reale()
+
+## Vero se il gioco e' stato avviato con --tracellm: nel tracciato finisce anche il dettaglio
+## HTTP di ogni richiesta e di ogni risposta. E' una variabile d'ambiente e non un'opzione in
+## Impostazioni perche' va decisa PRIMA che il gioco parta — le chiamate piu' interessanti da
+## guardare sono quelle dell'avvio, e a menu aperto sono gia' passate.
+static func traccia_http() -> bool:
+	return OS.get_environment("DEI_TRACE_LLM") != ""
 
 ## Profilo del provider selezionato, con il trasporto applicato. I punti di chiamata non
 ## cambiano: il client è provider-agnostico (formato chat-completions OpenAI).

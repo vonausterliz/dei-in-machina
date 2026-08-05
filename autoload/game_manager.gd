@@ -262,6 +262,13 @@ func esegui_turno(input_testo: String, eventi: Array = [], rischio: bool = false
 	# Il confine fra un turno e l'altro nel tracciato. Senza, un file di mille righe e' una
 	# colata continua: con questo, si scorre fino al turno che interessa e si legge da li'.
 	LLMManager.tracciato.apre_turno(stato.turno + 1, input_testo)
+	# COSA ENTRA. Un tracciato di sole chiamate HTTP racconta come ha risposto il modello, non
+	# che cosa il gioco gli ha chiesto ne' con quale stato in mano — e fra le due cose c'e'
+	# tutto il codice che abbiamo scritto noi, che e' anche quello che sbaglia piu' spesso.
+	LLMManager.tracciato.entra("azione del giocatore", input_testo)
+	var _stat: Dictionary = stato.ulisse.get("stat", {})
+	LLMManager.tracciato.entra("scena", "%s · turno %d · stat %s" % [
+		_episodio_corrente(), stato.turno + 1, str(_stat)])
 
 	var percorso: Array[String] = []
 	stato.turno += 1
@@ -424,6 +431,21 @@ func esegui_turno(input_testo: String, eventi: Array = [], rischio: bool = false
 		congedo = await _congedo(esito)
 	else:
 		await _aggiorna_cronaca_se_serve()  # memoria della vicenda, ogni N turni
+
+	# COSA ESCE. Il risultato che il giocatore vede, e il segno lasciato sugli dei: e' il
+	# lato del confine che nessuna riga HTTP racconta. Poi il consuntivo — quanto e' durato
+	# il turno e chi se l'e' preso — che e' la riga per cui il tracciato esiste.
+	var t := LLMManager.tracciato
+	t.esce("narrazione", "%d caratteri" % narrazione.length() if narrazione != "" else "(nessuna)")
+	t.esce("spunti", "%d" % spunti.size())
+	t.esce("dei svegliati", ", ".join(svegli) if not svegli.is_empty() else "(nessuno)")
+	if not delta.is_empty():
+		t.esce("delta", str(delta))
+	if not verdetto.is_empty():
+		t.esce("verdetto", "%s → %s" % [verdetto.get("attore", "?"), verdetto.get("registro", "?")])
+	if esito != "continua":
+		t.esce("esito", esito)
+	t.chiude_turno()
 
 	return {
 		"voce": voce,

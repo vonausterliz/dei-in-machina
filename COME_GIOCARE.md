@@ -207,7 +207,7 @@ chiude con `Esc` o cliccando fuori.
 In fondo alla pagina, su una riga: astuzia, animo, ciurma, tracotanza — e il capitolo in
 corso. Sotto **Settings** ci sono motore, provider, modello, chiavi — e le *Informazioni*,
 con la versione. Il tracciato delle chiamate al modello si scrive su file, e si vede a
-schermo con `./avvia.sh --debugllm`: vedi sotto.
+schermo con `./avvia.sh --debugllm` (o `--tracellm`, col dettaglio HTTP): vedi sotto.
 
 Il menu **Aiuto** ha le regole in breve e i problemi più comuni, più un collegamento a questi
 documenti. Nel gioco c'è il minimo che serve a giocare; il resto sta qui.
@@ -294,15 +294,17 @@ rilancia. Tutto il resto funziona lo stesso.
 tengono, i più vecchi si buttano. È il file da allegare quando qualcosa non torna: la
 finestra si chiude, il file resta.
 
-**La finestra si chiede all'avvio**, e solo così:
+**La finestra si chiede all'avvio**, e solo così — in due livelli:
 
 ```bash
-./avvia.sh --debugllm
+./avvia.sh --debugllm    # l'esito di ogni chiamata: QUALE è lenta
+./avvia.sh --tracellm    # + il dettaglio HTTP di ogni richiesta e risposta: PERCHÉ
 ```
 
-Non è più una voce di menu. Non serve a chi gioca — serve a chi indaga — e una finestra di
+Non sono voci di menu. Non servono a chi gioca — servono a chi indaga — e una finestra di
 traffico HTTP fra le voci di un menu invita ad aprirla per curiosità e a ritrovarsela davanti
-alla narrazione.
+alla narrazione. `--tracellm` implica `--debugllm`: chiedere il dettaglio e non vederlo a
+schermo sarebbe una trappola.
 
 ### Come si legge
 
@@ -313,43 +315,108 @@ alla narrazione.
 12:21:27.114       CONN  gateway=no (diretto al provider)
 12:21:27.114       CONN  chiave=presente (variabile OPENROUTER_API_KEY)
 12:21:28.001  ── turno 12 — Grido al ciclope il mio vero nome: sono io, Odisseo! ──
+12:21:28.001       GIOCO  ↘ ENTRA  azione del giocatore: Grido al ciclope il mio vero nome…
 12:21:28.010  #001 REQ   turno=12  agente=Interprete  msg=2  in≈1.9k tok  temp=0.2  json
 12:21:28.010  #001       ↑ Grido al ciclope il mio vero nome: sono io, Odisseo!
-12:21:30.870  #001 RES   HTTP 200  2860 ms  token in=1842 out=96 tot=1938  fine=stop
+12:21:30.870  #001 RES   HTTP 200  2860 ms  token in=1842 out=96 tot=1938  cache=1780 (97%)  fine=stop
+12:21:30.870  #001       servito da: DeepInfra  id=gen-abc123
 12:21:30.871  #001       ↓ {"plausibilita":"in_mondo","tag":["vanto","tracotanza"],…}
+12:21:30.871  #001 TEMPI  preparazione 1 ms · rete 2860 ms · lettura 2 ms · totale 2863 ms
 12:21:30.880  #002 REQ   turno=12  agente=Poseidone  msg=3  in≈3.2k tok  temp=0.9
 12:21:38.880  #002 WAIT  in corso da 8 s…
 12:21:39.880  #002 RETRY  tentativo 2/5 fra 1.0 s — HTTP 429 rate limit
-12:21:45.090  #002 RES   HTTP 200  14210 ms  token in=3204 out=512 tot=3716  fine=length  ⚠ TRONCATA
+12:21:45.090  #002 RES   HTTP 200  14210 ms  token in=3204 out=512 tot=3716  ⚠ ragionamento=980 tok (invisibili nella risposta)  fine=length  ⚠ TRONCATA
 12:21:45.100  #003 ERR   HTTP 402: chiave rifiutata. La chiede il provider — Insufficient credits
+12:21:45.900       GIOCO  ↗ ESCE   narrazione: 612 caratteri
+12:21:45.900  ── consuntivo turno 12 — 21.4 s ──
+12:21:45.900       BILANCIO  6 chiamate · 21.2 s in rete (99%) · 0.2 s nel gioco
+12:21:45.900       BILANCIO    Poseidone         2 ×   14.2 s   ← il più lento
+12:21:45.900       BILANCIO    Omero             1 ×    4.1 s
+12:21:45.900       BILANCIO    token  in=12258  (di cui 10680 dalla cache, 87%)  out=576  ·  costo $0.00126
 ```
 
 | | |
 |---|---|
 | **`── connessione ──`** | dove si sta parlando *davvero*. È la prima riga da guardare quando il gioco è lento: dice provider, modello, se passi dal Gateway e se una chiave c'è |
 | **`── turno N ──`** | il confine fra un turno e l'altro, con quello che hai scritto |
+| **`GIOCO ↘ ENTRA` / `↗ ESCE`** | il **confine del gioco**: cosa gli hai chiesto e cosa ne è uscito. Le righe HTTP dicono come ha risposto il modello; queste dicono cosa il gioco ne ha fatto — ed è lì che sta il codice nostro |
 | **`#001`** | il numero della chiamata. Le chiamate di un turno partono quasi insieme e tornano in ordine sparso: è questo che ricuce una risposta alla sua domanda |
-| **`REQ`** | chi chiama, quanti messaggi, quanti token stimati (`≈`), temperatura, se pretende JSON |
+| **`REQ`** | chi chiama, quanti messaggi, quanti token stimati (`≈`), temperatura, tetto in uscita, se pretende JSON |
 | **`RES`** | codice, **millisecondi**, e i token **dichiarati dal provider** — quelli fatturati |
+| **`cache=N (x%)`** | quanti token in ingresso sono arrivati **dalla cache** invece di essere riletti da capo. Vedi [più sotto](#la-cache-dei-prompt-conviene) |
+| **`⚠ ragionamento=N`** | token che il modello ha **pensato e non mostrato**. Si pagano in secondi e in denaro e non compaiono nella risposta: sono la spiegazione più frequente di «lento senza scrivere molto» |
+| **`servito da`** | chi ha eseguito la richiesta **a monte**. Su OpenRouter dietro un nome di modello ci sono più fornitori, e la scelta cambia a ogni chiamata: due chiamate identiche possono differire di dieci volte in latenza solo per questo |
+| **`TEMPI`** | in che cosa se n'è andato il tempo. Se `rete` è quasi tutto il `totale`, il collo di bottiglia non siamo noi |
 | **`fine=length`** | la risposta è stata **troncata** dal tetto di token, non conclusa dal modello. È la spiegazione di un JSON che arriva a metà |
 | **`WAIT`** | la richiesta è ancora in volo. Senza, un modello lento e un modello morto si somigliano |
 | **`RETRY`** | un ritentativo. Se non si vedesse, un turno lento sembrerebbe una chiamata lenta |
 | **`ERR`** | il messaggio **del provider**, non la nostra parafrasi |
+| **`BILANCIO`** | il **consuntivo del turno**: quanto è durato, quanta parte in rete, e **quale agente se l'è preso**. È la riga per cui il tracciato esiste |
 | **`···`** | le righe degli agenti: cosa ha estratto l'Interprete, cosa ha proposto un dio |
 
-**Il valore di una chiave non compare mai** — solo se c'è e da quale variabile verrebbe. Un
-log si incolla in una segnalazione, e non deve costare un segreto.
+**Il valore di una chiave non compare mai** — solo se c'è e da quale variabile verrebbe.
+Vale anche con `--tracellm`, che stampa *tutte* le intestazioni HTTP: di `Authorization`,
+`x-api-key` e simili resta la coda di quattro caratteri. Un log si incolla in una
+segnalazione, e non deve costare un segreto.
+
+### Il dettaglio HTTP (`--tracellm`)
+
+Con questo livello ogni chiamata porta anche il traffico grezzo:
+
+```
+#002 HTTP  → POST https://openrouter.ai/api/v1/chat/completions
+#002 HTTP      Content-Type: application/json
+#002 HTTP      Authorization: ····cdef… (48 caratteri, oscurata)
+#002 HTTP      corpo 7211 byte:
+#002 HTTP      {"messages":[{"content":"Sei Poseidone…
+#002 HTTP  ← HTTP 200  in 14210 ms
+#002 HTTP      x-ratelimit-remaining-requests: 18
+#002 HTTP      corpo 2043 byte:
+#002 HTTP      {"id":"gen-abc123","provider":"DeepInfra","usage":{…
+```
+
+Le **intestazioni della risposta** contano quanto il corpo: `x-ratelimit-remaining-*` dice
+se stai per essere strozzato, `retry-after` di quanto.
+
+Sono tracciate anche le `GET` — l'elenco dei modelli, lo `/stato` del Gateway, il ping
+d'avvio. Erano metà del traffico del gioco e non comparivano da nessuna parte.
 
 ### Quando aprirlo
 
 | Cosa vedi nel gioco | Cosa cercare nel tracciato |
 |---|---|
-| Tutto lentissimo | la riga `CONN`: stai parlando con chi credi? Poi i `ms` di ogni `RES` |
-| Un turno lento, gli altri no | una `RES` con molti ms, o dei `RETRY` |
+| Tutto lentissimo | la riga `CONN`: stai parlando con chi credi? Poi il `BILANCIO` di un turno |
+| Un turno lento, gli altri no | il `BILANCIO`: dice subito quale agente se l'è preso |
+| Un *agente* lento | `⚠ ragionamento=` (pensa e non lo mostra) e `servito da` (chi lo esegue a monte) |
 | Gli dèi non reagiscono | la `RES` dell'Interprete: che etichette ha estratto |
 | Una risposta finisce a metà | `fine=length` |
 | «Il provider non risponde» | la riga `ERR`, col messaggio vero |
-| Consumo più alto del previsto | i `token` per chiamata, sommati per turno |
+| Consumo più alto del previsto | la riga `token` del `BILANCIO`, e la quota `dalla cache` |
+| Sospetti che il gioco sbagli, non il modello | le righe `GIOCO ↘ ENTRA` / `↗ ESCE` |
+
+### La cache dei prompt: conviene?
+
+**Sì, e nella maggior parte dei casi è già attiva senza fare niente.**
+
+Il gioco rilegge molto: il *system prompt* di ogni agente è identico a ogni chiamata, e su
+una partita intera **721.946 token su 892.684 in ingresso (81%) sono prefisso ripetuto
+identico** (`tools/stima_costo`). La parte fissa di ogni agente va da 1.059 a 2.330 token —
+sopra la soglia minima di tutti i provider che offrono la cache.
+
+| Provider | Come |
+|---|---|
+| DeepSeek, OpenAI, Gemini 2.5 (anche via OpenRouter) | **automatica**: nessuna modifica al gioco. Si verifica dal campo `cache=` nel tracciato |
+| Mistral | non offerta |
+| Anthropic | richiede `cache_control`, che il suo **layer OpenAI-compatibile non supporta** — ed è la strada che il gioco usa. Servirebbe l'API nativa `/v1/messages`, cioè un secondo client. Non fatto: Anthropic è il provider meno collaudato e il costo/beneficio non regge |
+
+Quindi la cosa che mancava non era la cache: era **la prova che stesse funzionando**. Ora
+c'è, nel campo `cache=` di ogni `RES` e nel `BILANCIO` di ogni turno. Se leggi `cache=0`
+turno dopo turno con un provider che dovrebbe averla, allora c'è qualcosa da indagare.
+
+> **Nota su Anthropic.** Il suo layer OpenAI-compatibile ignora in silenzio anche
+> `response_format` (il JSON obbligatorio, che sei agenti su otto usano) e `seed` (la
+> riproducibilità). Non è un difetto nostro, ma spiega perché quell'integrazione resta
+> segnata come non collaudata.
 
 ---
 

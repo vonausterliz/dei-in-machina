@@ -43,8 +43,13 @@ var logger: Callable = Callable()
 ## finestra sia nel file senza che il client sappia dell'esistenza di nessuno dei due.
 var tracciato: Tracciato = null
 ## Chi sta chiamando, per la riga di richiesta: «Interprete», «Poseidone», «Omero».
+##
+## E' un campo CONDIVISO, scritto da `LLMManager._per()` un attimo prima di consegnare la
+## Callable. `chat()` lo copia in una variabile locale alla PRIMA riga e poi non lo rilegge
+## piu': oggi le chiamate di un turno sono in fila indiana e la differenza non si vedrebbe,
+## ma l'elenco dei modelli in Impostazioni parte mentre una chat e' in volo — e da li' a
+## trovarsi la risposta di Omero attribuita al «Vaglio» ci vuole poco.
 var agente: String = "?"
-var _n_chiamata: int = 0
 
 ## UN HTTPRequest PER RICHIESTA, non uno per client.
 ##
@@ -58,25 +63,35 @@ var _n_chiamata: int = 0
 ## La guardia curava il sintomo. La causa e' che due domande indipendenti — «quali modelli
 ## hai?» e «rispondi a questo turno?» — si contendevano un tubo solo. Un nodo per richiesta,
 ## creato e buttato: si sovrappongono quante ne servono, e nessuna aspetta l'altra.
-var _hb: Timer          # battito d'attesa: mostra nel log che la richiesta e' viva
-var _t_inizio: int = 0
+##
+## (Il nodo lo creano `_apri()` e `_chiudi()`, qui sotto: questo commento sta in cima perche'
+## e' la decisione di fondo del trasporto, non un dettaglio di due funzioni.)
 
-func _ready() -> void:
-	_hb = Timer.new()
-	_hb.wait_time = 8.0
-	_hb.one_shot = false
-	add_child(_hb)
-	_hb.timeout.connect(_battito)
+## Ogni quanto il battito d'attesa dice che una richiesta e' ancora viva.
+const BATTITO_S := 8.0
 
-## Diceva «in attesa di Ollama» qualunque fosse il provider — copiato da quando ce n'era
-## uno solo. E ora dice anche quanto manca al tetto: un'attesa con un termine si sopporta,
-## una senza sembra un blocco.
-func _battito() -> void:
-	var passati := int((Time.get_ticks_msec() - _t_inizio) / 1000)
-	if tracciato != null:
-		tracciato.attesa(_n_chiamata, passati)
-	else:
-		_log("    … in attesa (%d s di %d)…" % [passati, int(timeout_sec)])
+## IL BATTITO E' PER CHIAMATA, non per client.
+##
+## C'era un Timer solo, e con lui due campi condivisi (`_n_chiamata`, `_t_inizio`) da cui il
+## battito leggeva numero e istante d'inizio. Finche' le chiamate sono in fila indiana funziona;
+## appena due si sovrappongono, la seconda sovrascrive i campi e il battito della prima
+## comincia a raccontare i secondi dell'altra — sotto il numero sbagliato. E' lo stesso difetto
+## che aveva l'HTTPRequest condiviso (vedi sopra), e ha la stessa cura: un tubo per richiesta.
+##
+## Il Timer nasce figlio dell'HTTPRequest, cosi' `_chiudi()` se lo porta via da solo e non
+## resta un battito orfano a scrivere nel log di una chiamata gia' finita.
+func _battito_per(h: HTTPRequest, n: int, t0: int) -> void:
+	var t := Timer.new()
+	t.wait_time = BATTITO_S
+	t.one_shot = false
+	h.add_child(t)
+	t.timeout.connect(func() -> void:
+		var passati := int((Time.get_ticks_msec() - t0) / 1000)
+		if tracciato != null:
+			tracciato.attesa(n, passati)
+		else:
+			_log("    … in attesa (%d s di %d)…" % [passati, int(timeout_sec)]))
+	t.start()
 
 func configura(config: Dictionary, chiave: String = "") -> void:
 	base_url = config.get("base_url", base_url)
@@ -117,11 +132,19 @@ func intestazioni() -> PackedStringArray:
 		h.append("%s: %s" % [nome, valore])
 	return h
 
-## messaggi: Array di {role, content}. opzioni: {temperature, seed, json_mode}.
-func chat(messaggi: Array, opzioni: Dictionary = {}) -> Dictionary:
-	if not is_inside_tree():
-		return _errore("client non nell'albero della scena")
-
+## IL CORPO CHE PARTE DAVVERO, costruito a parte per poterlo GUARDARE senza rete.
+##
+## Stava dentro `chat()`, e per sapere che cosa il gioco spedisse bisognava spedirlo. Da li'
+## e' venuto un difetto silenzioso: `max_tokens` era fra le opzioni — `LLMManager` lo passa a
+## 1 per la «prova del modello» — e `chat()` lo BUTTAVA. La prova chiedeva un token e ne
+## generava centinaia, e nessuno poteva accorgersene perche' nessuno vedeva il corpo. Peggio:
+## senza tetto, un modello che «ragiona» prima di rispondere si prende decine di secondi e
+## mille token che nella battuta non compaiono, e nessuno gli dice mai di smettere.
+##
+## Ora e' una funzione pubblica e pura: `test_llm_client.gd` le chiede il corpo e controlla
+## che ogni opzione dichiarata ci sia dentro. Un'opzione che non arriva al provider e'
+## indistinguibile da un'opzione ignorata dal provider, e le due cose si curano in modi opposti.
+func corpo_richiesta(messaggi: Array, opzioni: Dictionary = {}) -> Dictionary:
 	var corpo := {
 		"model": model,
 		"messages": messaggi,
@@ -134,73 +157,115 @@ func chat(messaggi: Array, opzioni: Dictionary = {}) -> Dictionary:
 	# Forza output JSON quando serve (Interprete): supportato da Ollama /v1 e OpenAI.
 	if opzioni.get("json_mode", false):
 		corpo["response_format"] = {"type": "json_object"}
+	if opzioni.has("max_tokens"):
+		corpo["max_tokens"] = opzioni["max_tokens"]
+	return corpo
+
+## messaggi: Array di {role, content}. opzioni: {temperature, seed, json_mode, max_tokens}.
+func chat(messaggi: Array, opzioni: Dictionary = {}) -> Dictionary:
+	# `agente` e' condiviso e cambia sotto i piedi: si copia qui, una volta, e da qui in giu'
+	# si usa solo `chi`. Vedi il commento sul campo.
+	var chi := agente
+	if not is_inside_tree():
+		return _errore("client non nell'albero della scena")
+
+	var t_prep := Time.get_ticks_msec()
+	var corpo := corpo_richiesta(messaggi, opzioni)
 
 	var headers := PackedStringArray(["Content-Type: application/json"])
 	headers.append_array(intestazioni())
 
 	var url := base_url.trim_suffix("/") + chat_path
+	var carico := JSON.stringify(corpo)
+	var n := 0
 	if tracciato != null:
 		var caratteri := 0
 		for m in messaggi:
 			if typeof(m) == TYPE_DICTIONARY:
 				caratteri += String(m.get("content", "")).length()
-		_n_chiamata = tracciato.richiesta(agente, {
+		var dati := {
 			"modello": model, "messaggi": messaggi.size(), "caratteri_in": caratteri,
 			"temperatura": corpo["temperature"], "json": opzioni.get("json_mode", false),
 			"prompt": _ultimo_utente(messaggi),
-		})
+		}
+		if corpo.has("max_tokens"):
+			dati["max_tokens"] = corpo["max_tokens"]
+		n = tracciato.richiesta(chi, dati)
+		tracciato.http_richiesta(n, "POST", url, headers, carico)
 	else:
 		_log("  ⇢ POST %s · model=%s · temp=%s%s" % [url, model, corpo["temperature"], " · json" if opzioni.get("json_mode", false) else ""])
 		_log("    ⇡ invio: %s" % Bbcode.neutro(_tronca(_ultimo_utente(messaggi), 240)))
 	var h := _apri()
-	var err := h.request(url, headers, HTTPClient.METHOD_POST, JSON.stringify(corpo))
+	var t_rete := Time.get_ticks_msec()
+	var err := h.request(url, headers, HTTPClient.METHOD_POST, carico)
 	if err != OK:
 		_chiudi(h)
-		return _fallita("richiesta HTTP fallita in partenza: %s" % error_string(err))
+		return _fallita(n, "richiesta HTTP fallita in partenza: %s" % error_string(err))
 
-	_t_inizio = Time.get_ticks_msec()
-	_hb.start()
+	_battito_per(h, n, t_rete)
 	var risultato: Array = await h.request_completed
-	_hb.stop()
 	_chiudi(h)
 	# risultato = [result, response_code, headers, body]
 	var result_code: int = risultato[0]
 	var status: int = risultato[1]
+	var teste: PackedStringArray = risultato[2]
 	var body: PackedByteArray = risultato[3]
 
-	var ms := Time.get_ticks_msec() - _t_inizio
+	var ms := Time.get_ticks_msec() - t_rete
+	var t_lettura := Time.get_ticks_msec()
+	var testo := body.get_string_from_utf8()
+	if tracciato != null:
+		tracciato.http_risposta(n, status, teste, testo, ms)
 
 	if result_code != HTTPRequest.RESULT_SUCCESS:
 		if result_code == HTTPRequest.RESULT_TIMEOUT:
-			return _fallita("timeout: nessuna risposta entro %d s (modello troppo lento su questa macchina?)" % int(timeout_sec))
-		return _fallita("trasporto HTTP fallito (result=%d) — il provider non risponde?" % result_code)
+			return _fallita(n, "timeout: nessuna risposta entro %d s (modello troppo lento su questa macchina?)" % int(timeout_sec))
+		return _fallita(n, "trasporto HTTP fallito (result=%d) — il provider non risponde?" % result_code)
 	if status < 200 or status >= 300:
 		# `_perche()` conosce i casi che si spiegano da soli (401 col Gateway acceso) e
 		# tiene il messaggio del provider. Prima chat() lo buttava e teneva solo il codice.
-		return _fallita(_perche(status, body))
+		return _fallita(n, _perche(status, body))
 
-	var testo := body.get_string_from_utf8()
 	var parsed = JSON.parse_string(testo)
 	if typeof(parsed) != TYPE_DICTIONARY:
-		return _fallita("risposta non-JSON dal provider")
+		return _fallita(n, "risposta non-JSON dal provider")
 
 	var contenuto := _estrai_contenuto(parsed)
 	if contenuto == "":
-		return _fallita("nessun contenuto nella risposta del provider")
+		return _fallita(n, "nessun contenuto nella risposta del provider")
 
 	if tracciato != null:
 		# I token li dichiara il PROVIDER, in `usage`: sono quelli fatturati. La nostra stima
 		# in partenza serve solo a non restare al buio prima della risposta.
 		var uso: Dictionary = parsed.get("usage", {}) if typeof(parsed.get("usage")) == TYPE_DICTIONARY else {}
-		tracciato.risposta(_n_chiamata, {
-			"stato": status, "ms": ms, "usage": uso,
+		tracciato.risposta(n, {
+			"stato": status, "ms": ms, "usage": uso, "agente": chi,
 			"fine": _motivo_fine(parsed), "contenuto": contenuto,
+			"servito_da": _servito_da(parsed),
 		})
+		tracciato.tempi(n, t_rete - t_prep, ms, Time.get_ticks_msec() - t_lettura)
 	else:
 		# Il corpo della risposta e' testo del modello, e la finestra del Log lo mostra in
 		# BBCode: senza neutralizzarlo una quadra generata dal modello colorerebbe il log.
 		_log("    ⇣ HTTP %d · %s" % [status, Bbcode.neutro(_tronca(contenuto, 320))])
 	return {"ok": true, "content": contenuto, "error": "", "grezzo": parsed}
+
+## CHI HA SERVITO LA RICHIESTA A MONTE, quando il provider lo dichiara.
+##
+## OpenRouter e' un intermediario: dietro un solo nome di modello ci sono piu' fornitori di
+## calcolo, e ne sceglie uno per chiamata. Due chiamate identiche possono differire di un
+## ordine di grandezza in latenza solo per questo, e senza questa riga la differenza resta
+## inspiegabile. Gli altri provider il campo non ce l'hanno: si ritorna "" e non si stampa
+## nulla, invece di inventare un valore.
+func _servito_da(risposta: Dictionary) -> String:
+	var pezzi: Array[String] = []
+	var p := String(risposta.get("provider", ""))
+	if p != "":
+		pezzi.append(p)
+	var id := String(risposta.get("id", ""))
+	if id != "":
+		pezzi.append("id=%s" % id)   # serve a chiedere conto al provider di UNA chiamata
+	return "  ".join(pezzi)
 
 ## Perche' la risposta e' finita: «stop» (il modello ha concluso), «length» (l'ha troncata il
 ## tetto di token), «content_filter»… Un JSON che arriva a meta' si spiega quasi sempre qui.
@@ -238,10 +303,12 @@ func _perche(stato: int, corpo: PackedByteArray) -> String:
 func _errore(msg: String) -> Dictionary:
 	return {"ok": false, "content": "", "error": msg, "grezzo": {}}
 
-## Come _errore ma lo rende visibile (percorso di chat()).
-func _fallita(msg: String) -> Dictionary:
+## Come _errore ma lo rende visibile (percorso di chat()). `n` e' il numero della chiamata
+## che sta fallendo: si passa invece di leggerlo da un campo, cosi' l'errore finisce sempre
+## sotto la richiesta giusta anche quando ce n'e' piu' d'una in volo.
+func _fallita(n: int, msg: String) -> Dictionary:
 	if tracciato != null:
-		tracciato.errore(_n_chiamata, msg)
+		tracciato.errore(n, msg)
 	else:
 		_log("    ⇣ [lb]ERRORE] %s" % Bbcode.neutro(msg))
 	return _errore(msg)
@@ -276,23 +343,54 @@ func elenca_modelli() -> Dictionary:
 		return await _elenca(models_path.get_slice("?", 0))
 	return r
 
-func _elenca(percorso: String) -> Dictionary:
+## UNA GET, TRACCIATA, in un posto solo.
+##
+## L'elenco dei modelli, l'elenco dettagliato, lo /stato del Gateway e il ping erano quattro
+## copie della stessa danza: apri, chiedi, aspetta, chiudi, controlla due codici. Quattro copie
+## vogliono dire quattro punti in cui aggiungere il tracciato — e infatti nessuno dei quattro
+## ce l'aveva, cosi' meta' del traffico del gioco (tutto quello all'avvio e in Impostazioni)
+## restava fuori dal log. La domanda «quali chiamate HTTP fa questo gioco?» non aveva risposta.
+##
+## Ritorna {ok, stato, corpo: String, errore}. Chi chiama interpreta il corpo come sa.
+func _chiedi(percorso: String, etichetta: String) -> Dictionary:
 	if not is_inside_tree():
-		return {"ok": false, "modelli": [], "errore": "client non nell'albero della scena"}
+		return {"ok": false, "stato": 0, "corpo": "", "errore": "client non nell'albero della scena"}
 	var url := base_url.trim_suffix("/") + percorso
+	var teste := intestazioni()
+	var n := 0
+	if tracciato != null:
+		n = tracciato.richiesta(etichetta, {"modello": model, "metodo": "GET"})
+		tracciato.http_richiesta(n, "GET", url, teste, "")
 	var h := _apri()
-	var err := h.request(url, intestazioni(), HTTPClient.METHOD_GET)
+	var t0 := Time.get_ticks_msec()
+	var err := h.request(url, teste, HTTPClient.METHOD_GET)
 	if err != OK:
 		_chiudi(h)
-		return {"ok": false, "modelli": [], "errore": "connessione fallita: %s" % error_string(err)}
+		return _chiedi_fallita(n, "connessione fallita: %s" % error_string(err))
 	var r: Array = await h.request_completed
 	_chiudi(h)
+	var ms := Time.get_ticks_msec() - t0
+	var corpo := (r[3] as PackedByteArray).get_string_from_utf8()
+	if tracciato != null:
+		tracciato.http_risposta(n, int(r[1]), r[2], corpo, ms)
 	if int(r[0]) != HTTPRequest.RESULT_SUCCESS:
-		return {"ok": false, "modelli": [], "errore": "server non raggiungibile (result=%d)" % int(r[0])}
+		return _chiedi_fallita(n, "server non raggiungibile (result=%d)" % int(r[0]))
 	if int(r[1]) < 200 or int(r[1]) >= 300:
-		return {"ok": false, "modelli": [], "errore": _perche(int(r[1]), r[3])}
-	var body: PackedByteArray = r[3]
-	var parsed = JSON.parse_string(body.get_string_from_utf8())
+		return _chiedi_fallita(n, _perche(int(r[1]), r[3]))
+	if tracciato != null:
+		tracciato.risposta(n, {"stato": int(r[1]), "ms": ms, "agente": etichetta})
+	return {"ok": true, "stato": int(r[1]), "corpo": corpo, "errore": ""}
+
+func _chiedi_fallita(n: int, msg: String) -> Dictionary:
+	if tracciato != null:
+		tracciato.errore(n, msg)
+	return {"ok": false, "stato": 0, "corpo": "", "errore": msg}
+
+func _elenca(percorso: String) -> Dictionary:
+	var r := await _chiedi(percorso, "elenco modelli")
+	if not bool(r["ok"]):
+		return {"ok": false, "modelli": [], "errore": r["errore"]}
+	var parsed = JSON.parse_string(String(r["corpo"]))
 	var modelli: Array = []
 	if typeof(parsed) == TYPE_DICTIONARY:
 		for m in parsed.get("data", []):
@@ -309,21 +407,12 @@ func _elenca(percorso: String) -> Dictionary:
 ## dichiara non ha nulla di simile, e qui si risponde «non lo so» invece di indovinare.
 ## Ritorna {ok, modelli: [{nome, byte, parametri, quantizzazione}], errore}.
 func elenca_dettagli() -> Dictionary:
-	if not is_inside_tree() or tags_path == "":
+	if tags_path == "":
 		return {"ok": false, "modelli": [], "errore": "nessun elenco dettagliato per questo provider"}
-	var url := base_url.trim_suffix("/") + tags_path
-	var h := _apri()
-	var err := h.request(url, intestazioni(), HTTPClient.METHOD_GET)
-	if err != OK:
-		_chiudi(h)
-		return {"ok": false, "modelli": [], "errore": "connessione fallita: %s" % error_string(err)}
-	var r: Array = await h.request_completed
-	_chiudi(h)
-	if int(r[0]) != HTTPRequest.RESULT_SUCCESS:
-		return {"ok": false, "modelli": [], "errore": "server non raggiungibile (result=%d)" % int(r[0])}
-	if int(r[1]) < 200 or int(r[1]) >= 300:
-		return {"ok": false, "modelli": [], "errore": _perche(int(r[1]), r[3])}
-	var parsed = JSON.parse_string((r[3] as PackedByteArray).get_string_from_utf8())
+	var r := await _chiedi(tags_path, "elenco dettagliato")
+	if not bool(r["ok"]):
+		return {"ok": false, "modelli": [], "errore": r["errore"]}
+	var parsed = JSON.parse_string(String(r["corpo"]))
 	var out: Array = []
 	if typeof(parsed) == TYPE_DICTIONARY:
 		for m in parsed.get("models", []):
@@ -341,32 +430,15 @@ func elenca_dettagli() -> Dictionary:
 ## Una GET qualunque su questo indirizzo, con la risposta gia' interpretata.
 ## Serve a chiedere al Gateway il suo /stato — che non e' un endpoint da provider.
 func get_json(percorso: String) -> Dictionary:
-	if not is_inside_tree():
-		return {"ok": false, "dati": {}, "errore": "client non nell'albero della scena"}
-	var h := _apri()
-	var err := h.request(base_url.trim_suffix("/") + percorso, intestazioni(), HTTPClient.METHOD_GET)
-	if err != OK:
-		_chiudi(h)
-		return {"ok": false, "dati": {}, "errore": error_string(err)}
-	var r: Array = await h.request_completed
-	_chiudi(h)
-	if int(r[0]) != HTTPRequest.RESULT_SUCCESS or int(r[1]) < 200 or int(r[1]) >= 300:
-		return {"ok": false, "dati": {}, "errore": "non raggiungibile"}
-	var d: Variant = JSON.parse_string((r[3] as PackedByteArray).get_string_from_utf8())
+	var r := await _chiedi(percorso, "GET %s" % percorso)
+	if not bool(r["ok"]):
+		return {"ok": false, "dati": {}, "errore": r["errore"]}
+	var d: Variant = JSON.parse_string(String(r["corpo"]))
 	if typeof(d) != TYPE_DICTIONARY:
 		return {"ok": false, "dati": {}, "errore": "risposta non-JSON"}
 	return {"ok": true, "dati": d, "errore": ""}
 
 ## Ping leggero: verifica che il provider risponda e che il modello esista.
 func disponibile() -> bool:
-	if not is_inside_tree():
-		return false
-	var url := base_url.trim_suffix("/") + models_path
-	var h := _apri()
-	var err := h.request(url, intestazioni(), HTTPClient.METHOD_GET)
-	if err != OK:
-		_chiudi(h)
-		return false
-	var risultato: Array = await h.request_completed
-	_chiudi(h)
-	return risultato[0] == HTTPRequest.RESULT_SUCCESS and int(risultato[1]) == 200
+	var r := await _chiedi(models_path, "ping")
+	return bool(r["ok"]) and int(r["stato"]) == 200

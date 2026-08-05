@@ -15,7 +15,7 @@ extends Control
 ## Versione mostrata in Settings › Informazioni: bumpala a ogni cambiamento, così si vede
 ## a colpo d'occhio se la copia che sta girando è aggiornata (un'app già avviata NON
 ## ricarica i prompt: va rilanciata).
-const VERSIONE := "2.37"
+const VERSIONE := "2.38"
 
 # --- palette (dal mockup) ---
 const C_SEA_DEEP := Color("131020")
@@ -68,6 +68,7 @@ var _episodio: Label
 var _fin_log: FinestraTesto = null
 
 ## Vero se il gioco e' stato avviato con --debugllm (avvia.sh esporta DEI_DEBUG_LLM=1).
+## --tracellm esporta ANCHE questa: il dettaglio HTTP senza la finestra sarebbe una trappola.
 static func debug_llm() -> bool:
 	return OS.get_environment("DEI_DEBUG_LLM") != ""
 ## Le due conversazioni, incastrate nella colonna di destra (v2.34).

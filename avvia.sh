@@ -11,6 +11,7 @@
 #   ./avvia.sh musica     # rigenera la musica della schermata d'apertura
 #   ./avvia.sh installa-menu   # mette il gioco nel menu applicazioni col suo nome
 #   ./avvia.sh --debugllm      # apre la finestra col tracciato delle chiamate al modello
+#   ./avvia.sh --tracellm      # come sopra, PIU' il dettaglio HTTP di ogni richiesta/risposta
 #   Aggiungi "-- ollama mistral-small3.2:latest" a 'console' per i dei reali.
 #
 # Scelta del modello Ollama (senza toccare il config):
@@ -156,13 +157,21 @@ ollama_preflight() {
   echo "[ok] Ollama pronto - modello '${model}' (attiva 'Ollama (dei reali)' nel gioco)."
 }
 
-# --debugllm: apre la finestra col tracciato delle chiamate al modello. Non e' una voce di
-# menu perche' non serve a chi gioca — serve a chi indaga, e una finestra di traffico HTTP
-# davanti alla narrazione e' rumore per tutti gli altri. Il tracciato su FILE, in
-# user://log/, si scrive comunque: la finestra e' solo una vetrina su quel flusso.
+# I DUE LIVELLI DI OSSERVAZIONE. Nessuno dei due e' una voce di menu: non servono a chi
+# gioca — servono a chi indaga, e una finestra di traffico HTTP davanti alla narrazione e'
+# rumore per tutti gli altri. Il tracciato su FILE, in user://log/, si scrive SEMPRE: la
+# finestra e' solo una vetrina su quel flusso.
+#
+#   --debugllm   apre la finestra: l'esito di ogni chiamata (agente, latenza, token, errori).
+#                E' il livello con cui si scopre QUALE chiamata e' lenta.
+#   --tracellm   aggiunge il dettaglio HTTP: verbo, indirizzo, intestazioni e corpo di ogni
+#                richiesta, e lo stesso di ogni risposta. E' il livello con cui si scopre
+#                PERCHE'. Implica --debugllm: chiedere il dettaglio e non vederlo a schermo
+#                sarebbe una trappola. Le credenziali restano oscurate anche qui.
 for a in "$@"; do
   case "$a" in
     --debugllm) export DEI_DEBUG_LLM=1; shift ;;
+    --tracellm) export DEI_DEBUG_LLM=1; export DEI_TRACE_LLM=1; shift ;;
   esac
 done
 
