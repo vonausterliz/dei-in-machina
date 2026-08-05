@@ -100,6 +100,6 @@ Campi:
 2. **Solo tag dal vocabolario chiuso.** Se nulla calza: `tag: []`.
 3. **Enumerazioni rispettate** per `plausibilita` e `tipo`.
 4. **Parsimonia sui tag punitivi** (`tracotanza`, `empieta`, `violenza`): un falso positivo qui può far scattare un castigo divino. Nel dubbio, non taggare — meglio un dio che non reagisce che un giocatore punito per un'inezia. (Principio "leale".)
-5. Se `plausibilita ≠ in_mondo`, di norma `tag: []`: al resto pensa la pipeline dell'ammonizione, non i dèi.
+5. **I tag si mettono sempre**, anche quando `plausibilita ≠ in_mondo`. A svuotarli, *se e solo se il rifiuto regge*, pensa `Validazione._respingi()`. Fino a v2.43 il prompt li chiedeva vuoti, e un'etichetta sbagliata portava via con sé anche le prove: una tracotanza classificata `anacronistico` tornava senza il tag `tracotanza`, e non c'era più modo di accorgersene a valle. Una regola del genere in un prompt è una preghiera; qui è codice.
 6. `dio_invocato` valorizzato **solo** con un destinatario esplicito; altrimenti `null`.
 7. La stessa azione deve produrre gli stessi tag a ogni turno: la coerenza è una feature, non un vezzo.

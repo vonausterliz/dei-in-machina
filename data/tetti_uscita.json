@@ -1,0 +1,28 @@
+{
+  "_nota": "TETTO ALL'USCITA (max_tokens) DI OGNI AGENTE. Non servono a stringere: servono a mettere un fondo alla coda lunga, perche' senza tetto un modello che divaga genera finche' vuole. Ricavati da un tracciato di partita vera (5 agosto 2026, 17 turni, gpt-4o-mini e mistral-small): circa TRE VOLTE l'uscita massima osservata, mai sotto il pavimento. Chi non e' in tabella prende 'predefinito' — vale per gli dei, che si annunciano col proprio nome, e per l'Arbitro.",
+  "_nota_pavimento": "PERCHE' IL PAVIMENTO DI 256. I modelli che RAGIONANO spendono il budget nel ragionamento prima di scrivere: con un tetto stretto tornano content:null e finish_reason:length. Il Vaglio produce 12 token, e tre volte dodici sarebbero trentasei: un tetto matematicamente corretto e praticamente letale. Il pavimento e' il margine per pensare. In v2.38 e' successo davvero, con max_tokens:1 alla prova del modello.",
+  "_nota_spegnimento": "Se un modello nuovo torna vuoto con finish_reason:length, metti 'attivo': false e si torna al comportamento di prima (nessun tetto). E' un paracadute, non una preferenza da esporre in Impostazioni.",
+  "attivo": true,
+  "predefinito": 512,
+  "agenti": {
+    "Omero": 1600,
+    "Cronista": 800,
+    "Interprete": 512,
+    "Suggeritore": 512,
+    "Arbitro": 512,
+    "Vaglio": 256,
+    "Ricognitore": 256,
+    "compagno": 256
+  },
+  "_osservato": {
+    "_nota": "medio / massimo dei token in uscita nel tracciato di riferimento. Se rialzi un tetto, aggiorna anche questi: sono il motivo per cui quel numero e' quel numero.",
+    "Omero": "316 / 545",
+    "Cronista": "194 / 262",
+    "Interprete": "88 / 107",
+    "Suggeritore": "72 / 103",
+    "dei": "63-68 / 79",
+    "Vaglio": "11 / 12",
+    "Ricognitore": "6 / 8",
+    "compagno": "15 / 37"
+  }
+}

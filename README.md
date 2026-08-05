@@ -196,7 +196,7 @@ Il Gateway ascolta **solo sul tuo computer** (`127.0.0.1`), non ha autenticazion
 
 Detto chiaramente, perché stai per collegarci una chiave che può costare.
 
-**Cos'è verificato.** 501 test automatici su 50 script, eseguiti a ogni modifica, più sei turni di esempio registrati come riferimento e confrontati riga per riga. Coprono tutta la parte a regole fisse — risvegli, calcoli, avanzamento delle tappe, interfaccia — usando una finta AI al posto di quella vera.
+**Cos'è verificato.** 514 test automatici su 52 script, eseguiti a ogni modifica, più sei turni di esempio registrati come riferimento e confrontati riga per riga. Coprono tutta la parte a regole fisse — risvegli, calcoli, avanzamento delle tappe, interfaccia — usando una finta AI al posto di quella vera.
 
 **Cosa non è verificato.** Il gioco **non ha alle spalle un lungo collaudo da parte di persone**: non è stato giocato molte volte, da molta gente, con modelli di AI reali. I test dicono che la parte a regole fa quello che deve; non dicono che una partita di settantasei turni con un'AI vera non incappi in qualcosa di storto. I collegamenti provati sul serio, contro il servizio reale, sono **Ollama, Mistral e Google**; **Anthropic e OpenRouter no**.
 
@@ -219,7 +219,7 @@ cd dei-in-machina
 È tutto. Lo script riconosce il tuo sistema, scarica la versione giusta di Godot, ne verifica l'integrità, prepara le risorse e apre il gioco. Al primo avvio ci mette un minuto; dalla volta dopo, subito.
 
 ```
-./avvia.sh test          # esegue tutti i test: 501 controlli su 50 script
+./avvia.sh test          # esegue tutti i test: 514 controlli su 52 script
 ./avvia.sh installa-menu # (solo Linux) aggiunge il gioco al menu delle applicazioni
 ./avvia.sh --help        # tutti i modi e tutte le opzioni diagnostiche, con esempi
 ```
@@ -248,7 +248,7 @@ Il gioco è fatto di otto **agenti**. Un agente è un'AI a cui è affidato un co
 | **Compagno**          | dà voce a un membro della ciurma                                    |
 | **Ricognitore**       | capisce a *chi* stai pregando, quando preghi per allusione          |
 
-Il codice attorno agli agenti è **verificabile senza accendere nessuna AI**. Una finta AI risponde al posto di quella vera — senza rete, senza token, senza attesa — e così l'intera macchina del turno diventa ripetibile: è questo che rende possibili **501 test** per un gioco fatto di AI. Sei turni di esempio, generati con un "seme" fisso (un valore di partenza che rende il caso ripetibile), restano registrati come riferimento, e ogni modifica viene confrontata con essi riga per riga.
+Il codice attorno agli agenti è **verificabile senza accendere nessuna AI**. Una finta AI risponde al posto di quella vera — senza rete, senza token, senza attesa — e così l'intera macchina del turno diventa ripetibile: è questo che rende possibili **514 test** per un gioco fatto di AI. Sei turni di esempio, generati con un "seme" fisso (un valore di partenza che rende il caso ripetibile), restano registrati come riferimento, e ogni modifica viene confrontata con essi riga per riga.
 
 Nella cartella `tools/` ci sono gli strumenti per guardarci dentro: stampare la traccia completa di una partita, stimare il costo costruendo i messaggi veri *prima* di spenderli, controllare che i nomi dei modelli dichiarati esistano davvero nei cataloghi dei servizi, fotografare l'interfaccia.
 
@@ -292,10 +292,10 @@ Componenti di terzi (GUT, il carattere Cardo, Godot): **[TERZE_PARTI.md](https:/
 
 **How a turn works.** An AI reads your sentence and boils it down to a few labels from a fixed vocabulary — that step is a judgement, and it's the only place your freedom of phrasing enters the machine. From there, written rules take over: which facts wake which god, who is still asleep, how much a given reaction costs you, when the voyage advances. The gods then argue in their own voices, one prevails, and the numbers that follow are fixed. Homer narrates, naming no one.
 
-So it is **not** fully random — two playthroughs of the same moves won't tell the same story, but the *link between cause and effect* stays fixed, and that's the point: if an AI decided who wakes, there would be nothing to deduce. Rules make the world legible; the AI gives it a voice that never repeats. (Switch the AI off, use a fixed seed, and the whole turn becomes reproducible — that's how 501 tests exist for a game made of AI.)
+So it is **not** fully random — two playthroughs of the same moves won't tell the same story, but the *link between cause and effect* stays fixed, and that's the point: if an AI decided who wakes, there would be nothing to deduce. Rules make the world legible; the AI gives it a voice that never repeats. (Switch the AI off, use a fixed seed, and the whole turn becomes reproducible — that's how 514 tests exist for a game made of AI.)
 
 Runs on Linux and macOS. Bring your own AI: Ollama locally (nothing leaves your machine) or any of Mistral / Google / OpenAI / Anthropic / OpenRouter. Start with `./avvia.sh`.
 
-**Testing status.** Verification rests on 501 automated tests against a simulated engine, **not** on extended human playtesting. Only the **Ollama, Mistral and Google** integrations have been exercised against the real services; **Anthropic and OpenRouter have not**. The local gateway routes all of them, and never silently falls back to a different provider. The software comes with **no warranty of any kind** (AGPL-3.0, §15–16): no liability is accepted for malfunctions, lost data, or **AI provider costs**, including unexpected or excessive spend caused by a defect or a misconfiguration. Your key, your plan, your bill — watch your usage and set a spending cap. Or play with Ollama, where no bill is possible.
+**Testing status.** Verification rests on 514 automated tests against a simulated engine, **not** on extended human playtesting. Only the **Ollama, Mistral and Google** integrations have been exercised against the real services; **Anthropic and OpenRouter have not**. The local gateway routes all of them, and never silently falls back to a different provider. The software comes with **no warranty of any kind** (AGPL-3.0, §15–16): no liability is accepted for malfunctions, lost data, or **AI provider costs**, including unexpected or excessive spend caused by a defect or a misconfiguration. Your key, your plan, your bill — watch your usage and set a spending cap. Or play with Ollama, where no bill is possible.
 
 Licensed under the GNU AGPL-3.0. The game and its documentation are in Italian.

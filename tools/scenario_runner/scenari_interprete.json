@@ -1,44 +1,60 @@
 {
   "_meta": {
     "descrizione": "Scenari-fixture per l'Interprete. Ogni voce e' un input di Ulisse in testo libero + una rubrica di attese (non un assert rigido: la qualita' LLM la si osserva, non la si auto-promuove). 'tag_attesi' = tag che dovrebbero comparire; 'plausibilita_attesa' = classe di plausibilita' attesa.",
-    "uso": "tools/godot/godot4 --headless --path . --script res://tools/scenario_runner/run_scenarios.gd"
+    "uso": "tools/godot/godot4 --headless --path . --script res://tools/scenario_runner/run_scenarios.gd",
+    "_nota_hybris": "I quattro scenari «hybris_*», «sacco_di_ismaro» e «assurdo_vero_volare» vengono da un guasto vero: l'Interprete respingeva la tracotanza come anacronismo, e la scala delle ammonizioni la puniva con la follia. La guardia deterministica sta in Validazione.vaglia(); qui si sorveglia il PROMPT, che e' la causa a monte e che nessun test offline puo' giudicare."
   },
   "scenari": [
     {
       "nome": "vanto_al_ciclope",
       "input": "Grido verso il ciclope accecato: sono io, Odisseo di Itaca, che ti ho tolto l'occhio!",
-      "tag_attesi": ["vanto", "tracotanza"],
+      "tag_attesi": [
+        "vanto",
+        "tracotanza"
+      ],
       "plausibilita_attesa": "in_mondo"
     },
     {
       "nome": "astuzia_nessuno",
       "input": "Dico al gigante che il mio nome e' Nessuno.",
-      "tag_attesi": ["inganno", "astuzia"],
+      "tag_attesi": [
+        "inganno",
+        "astuzia"
+      ],
       "plausibilita_attesa": "in_mondo"
     },
     {
       "nome": "preghiera_atena",
       "input": "Mi inginocchio e prego Atena di guidare la mia mano.",
-      "tag_attesi": ["preghiera"],
+      "tag_attesi": [
+        "preghiera"
+      ],
       "plausibilita_attesa": "in_mondo"
     },
     {
       "nome": "preghiera_allusiva_zeus",
       "input": "Levo le mani al capo dell'Olimpo e lo supplico di proteggere la mia rotta.",
-      "tag_attesi": ["supplica"],
+      "tag_attesi": [
+        "supplica"
+      ],
       "plausibilita_attesa": "in_mondo",
       "dio_invocato_atteso": "zeus"
     },
     {
       "nome": "xenia_offerta",
       "input": "Offro pane e vino allo straniero che bussa alla mia tenda, e gli lavo i piedi.",
-      "tag_attesi": ["xenia", "rispetto"],
+      "tag_attesi": [
+        "xenia",
+        "rispetto"
+      ],
       "plausibilita_attesa": "in_mondo"
     },
     {
       "nome": "misura_prudenza",
       "input": "Trattengo i miei uomini, aspetto e osservo prima di agire.",
-      "tag_attesi": ["misura"],
+      "tag_attesi": [
+        "misura"
+      ],
       "plausibilita_attesa": "in_mondo"
     },
     {
@@ -58,6 +74,40 @@
       "input": "Riempio gli otri d'acqua alla sorgente e li carico sulla nave.",
       "tag_attesi": [],
       "plausibilita_attesa": "in_mondo"
+    },
+    {
+      "nome": "hybris_piu_forte_degli_dei",
+      "input": "torneremo a casa perché sono più forte degli dei dell'olimpo",
+      "tag_attesi": [
+        "tracotanza"
+      ],
+      "plausibilita_attesa": "in_mondo",
+      "_perche": "Respinta come «anacronistico» in partita vera (05/08/2026, gpt-4o-mini). Non c'e' niente di moderno: e' hybris pura, la materia del poema."
+    },
+    {
+      "nome": "hybris_proclamare_il_nome",
+      "input": "sono odisseo! il più forte guerriero acheo",
+      "tag_attesi": [
+        "vanto"
+      ],
+      "plausibilita_attesa": "in_mondo",
+      "_perche": "Respinta come «anacronistico». Proclamare il proprio nome e' il gesto che desta Poseidone: se il gioco lo respinge, non ha piu' un motore."
+    },
+    {
+      "nome": "sacco_di_ismaro",
+      "input": "distruggiamo tutta la città dei cicorni",
+      "tag_attesi": [
+        "violenza"
+      ],
+      "plausibilita_attesa": "in_mondo",
+      "_perche": "Respinta come «assurdo_diegetico». E' CANONE — Odissea IX, il sacco di Ismaro — ed e' la tappa successiva a Troia in episodi.json."
+    },
+    {
+      "nome": "assurdo_vero_volare",
+      "input": "spicco il volo e arrivo a Itaca in un battito d'ali",
+      "tag_attesi": [],
+      "plausibilita_attesa": "assurdo_diegetico",
+      "_perche": "Il contrappeso: «assurdo_diegetico» deve restare usabile per cio' che e' FISICAMENTE impossibile, o la correzione l'avrebbe solo svuotata."
     }
   ]
 }

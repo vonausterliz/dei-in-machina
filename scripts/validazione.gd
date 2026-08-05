@@ -34,22 +34,65 @@ static func e_anacronistico(input_testo: String) -> bool:
 			return true
 	return false
 
-## VAGLIO a tre livelli (dal piu' economico al piu' capace):
-##  1. l'Interprete l'ha gia' detta fuori-mondo -> niente da fare;
-##  2. marcatore moderno evidente -> fuori-mondo per regola (gratis, deterministico);
-##  3. altrimenti SECONDO PARERE dell'LLM, una domanda secca dedicata: coglie gli
-##     anacronismi che nessuna lista puo' prevedere (GPS, penicillina, ascensore...).
-## In mock il livello 3 non fa nulla: i test restano deterministici.
+## VAGLIO. Decide se la mossa appartiene al mondo, e adesso decide anche nell'ALTRO verso:
+## un rifiuto sbagliato si ribalta.
+##
+## PERCHE'. In partita vera (5 agosto 2026) l'Interprete ha respinto tre mosse cosi':
+##   «sono odisseo! il più forte guerriero acheo»  -> anacronistico, tono=vanto, tag=[]
+##   «distruggiamo tutta la città dei cicorni»     -> assurdo_diegetico, tono=tracotanza
+## Niente di moderno in nessuna delle due; la seconda e' il sacco di Ismaro, cioe' CANONE.
+## Il tono dice che il modello aveva capito: e' l'etichetta che ha sbagliato, perche'
+## «insensato» e «di un'altra epoca» gli si confondono. E il rifiuto costa un'ammonizione,
+## in una scala che finisce in follia: tre vanterie di fila chiudevano la partita. Il gioco
+## puniva come pazzia cio' per cui esiste — la tracotanza e' il motore del poema.
+##
+## Due regole, e la differenza fra le due e' il tipo di verdetto che sono:
+##
+##  1. «anacronistico» e' OGGETTIVO — nomina cose di un'altra epoca — e c'e' un
+##     riconoscitore deterministico. Senza marcatore il verdetto e' falso, e si scarta:
+##     non serve chiedere a nessuno, non costa niente.
+##  2. Le altre classi fuori-mondo sono GIUDIZI. Un giudizio che puo' chiudere la partita
+##     vuole due pareri concordi: l'Interprete propone, il Vaglio conferma. Costa una
+##     chiamata in piu' solo quando si sta per respingere — cioe' di rado, e nell'unico
+##     punto in cui sbagliare si paga caro.
+##
+## In mock il secondo parere tace (""), quindi nessuna conferma arriva e il rifiuto cade:
+## i test restano deterministici, e dalla parte giusta — «il falso positivo uccide il gioco».
 func vaglia(envelope: Dictionary, input_testo: String) -> void:
-	if envelope.get("plausibilita", "") != "in_mondo":
-		return
+	# Il marcatore deterministico vale su tutto e per primo: se c'e', non si discute.
 	if e_anacronistico(input_testo):
-		envelope["plausibilita"] = "anacronistico"
+		_respingi(envelope, "anacronistico")
 		return
-	var classe: String = await LLMManager.verifica_plausibilita(input_testo)
-	if classe != "" and classe != "in_mondo":
-		envelope["plausibilita"] = classe
-		envelope["tag"] = []  # regola 5 del contratto: fuori-mondo -> nessun tag
+	var detta: String = String(envelope.get("plausibilita", ""))
+	if detta == "in_mondo":
+		# Secondo parere: coglie gli anacronismi che nessuna lista puo' prevedere
+		# (GPS, penicillina, ascensore...).
+		var classe: String = await LLMManager.verifica_plausibilita(input_testo)
+		if classe != "" and classe != "in_mondo":
+			_respingi(envelope, classe)
+		return
+	# L'INTERPRETE HA RESPINTO, e di moderno non c'e' niente.
+	if detta == "anacronistico":
+		envelope["plausibilita"] = "in_mondo"   # oggettivamente falso: nessun marcatore
+		return
+	var conferma: String = await LLMManager.verifica_plausibilita(input_testo)
+	if conferma != "" and conferma != "in_mondo":
+		_respingi(envelope, conferma)     # due pareri concordi: il rifiuto sta in piedi
+	else:
+		envelope["plausibilita"] = "in_mondo"
+
+## Un rifiuto DEFINITIVO porta via i tag: fuori dal mondo non c'e' niente a cui reagire
+## (regola 5 del contratto). Stava nel prompt, e un prompt e' una preghiera: se il modello
+## la disattendeva, i tag di una mossa respinta restavano in giro. Ora e' codice — e vale
+## anche per il ramo deterministico, che prima li lasciava passare.
+##
+## Il contrario e' altrettanto importante: finche' il rifiuto non e' definitivo i tag NON
+## si toccano. Sono `vanto` e `tracotanza`, cioe' cio' che desta Poseidone: un verdetto
+## ribaltato che restituisse un envelope svuotato sarebbe una mossa formalmente valida che
+## non sveglia piu' nessuno — il guasto sopravvissuto alla correzione, e in silenzio.
+func _respingi(envelope: Dictionary, classe: String) -> void:
+	envelope["plausibilita"] = classe
+	envelope["tag"] = []
 
 ## Ritorna {in_mondo, delta, esito, classe}.
 ## classe: "" (nessuna) | "richiamo" | "smarrimento" | "follia".

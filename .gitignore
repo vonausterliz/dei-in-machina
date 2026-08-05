@@ -57,3 +57,10 @@ __pycache__/
 screenshot*.jpg
 screenshot*.png
 screenshot*.import
+
+# Materiale diagnostico dell'umano: tracciati di partita e note di review. Non e' del
+# progetto, e' di chi gioca — e un tracciato porta con se' come e cosa gioca, oltre a
+# intestazioni che il tracciato oscura ma che e' meglio non pubblicare comunque.
+logscenarimancanti.txt
+log*.txt
+suggerimenti.md

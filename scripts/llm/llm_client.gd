@@ -157,8 +157,14 @@ func corpo_richiesta(messaggi: Array, opzioni: Dictionary = {}) -> Dictionary:
 	# Forza output JSON quando serve (Interprete): supportato da Ollama /v1 e OpenAI.
 	if opzioni.get("json_mode", false):
 		corpo["response_format"] = {"type": "json_object"}
-	if opzioni.has("max_tokens"):
-		corpo["max_tokens"] = opzioni["max_tokens"]
+	# IL TETTO ALL'USCITA. Chi chiama puo' darlo esplicitamente (la prova del modello lo fa);
+	# altrimenti lo mette l'agente, per nome. Vedi `Tetti.per_agente()` per i valori e per il
+	# motivo per cui sono cosi' larghi.
+	var tetto: int = int(opzioni.get("max_tokens", 0))
+	if tetto <= 0:
+		tetto = Tetti.per_agente(agente)
+	if tetto > 0:
+		corpo["max_tokens"] = tetto
 	return corpo
 
 ## messaggi: Array di {role, content}. opzioni: {temperature, seed, json_mode, max_tokens}.
