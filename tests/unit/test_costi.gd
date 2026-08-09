@@ -49,8 +49,16 @@ func test_il_profilo_libero_alza_e_toglie():
 	Costi.usa("libero")
 	assert_eq(Costi.attivo(), "libero")
 	assert_true(Costi.acceso("vaglia_sempre"), "i limiti di puro costo si tolgono")
-	assert_true(Costi.acceso("spunti_separati"))
 	assert_eq(Costi.limite("cronaca_ogni"), 1)
+	# SPENTO ANCHE QUI, ed e' l'unico limite di costo che il profilo libero NON toglie.
+	# Accenderlo chiedeva gli appigli con una chiamata dedicata, perche' fossero piu'
+	# mirati. Misurato col modello vero il 9 agosto 2026 (tools/prova_spunti/, sei scene):
+	# prima era vero — 11 appigli storti su 13 dalla strada gratis contro 1 su 16 dalla
+	# dedicata; sistemata la forma nei due prompt e ripulita la punteggiatura in codice, le
+	# due strade danno lo stesso risultato. Restava una chiamata per turno, ~72 a partita,
+	# per rifare un lavoro gia' fatto: il singolo limite piu' caro del gioco.
+	assert_false(Costi.acceso("spunti_separati"),
+		"la chiamata dedicata agli appigli non migliora piu' niente: e' solo spesa")
 	# ALZATI, non tolti: la ragione di questi due non era solo il costo — oltre un certo
 	# numero la Vista Olimpo diventa un coro e la chat della ciurma illeggibile.
 	assert_between(Costi.limite("max_repliche"), 3, 5)

@@ -14,6 +14,12 @@ ESATTAMENTE 3 spunti, diversi tra loro, plausibili qui e ora, in carattere epico
 - RESTA NELLA SCENA: proponi solo azioni plausibili qui e ora, riferite a ciò e a CHI è
   presente. NON inventare personaggi assenti (niente Telemaco, Penelope o compagni con nomi
   nuovi) né luoghi che non ci sono. Se sei a un banchetto, gli spunti riguardano il banchetto.
+- FORMA, ferrea: un ORDINE rivolto a Ulisse, imperativo di seconda persona singolare,
+  massimo 12 parole.
+    sì  Offri vino al gigante per ammorbidirlo
+    no  Offrire vino al gigante                   (infinito: non è un ordine)
+    no  Offrite vino al gigante                   (plurale: parli a Ulisse, non alla ciurma)
+    no  Promette a Calipso di tornare un giorno   (terza persona: è racconto)
 - NIENTE BIVI: non proporre l'azione apertamente rischiosa (tracotanza, empietà, sfida).
   Chi vuole rischiare lo scrive da sé nel campo libero; un appiglio è un appiglio, e i tre
   che offri devono essere tutti scegliibili senza che il gioco debba avvertire di nulla;

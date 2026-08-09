@@ -39,8 +39,8 @@
     "spunti_separati": {
       "tipo": "booleano",
       "etichetta": "Chiedi i tre appigli con una chiamata dedicata",
-      "aiuto": "Spento arrivano insieme al racconto di Omero e non costano niente. +72 chiamate se acceso.",
-      "aiuto_lungo": "Sotto il riquadro del racconto ci sono tre appigli: cose che Ulisse potrebbe fare adesso. Oggi arrivano nella STESSA risposta con cui Omero narra il turno — una chiamata sola per due lavori.\n\nAccendere questo limite li fa chiedere a parte, con un prompt tutto loro. Sono più mirati, perché l'agente che li scrive non sta contemporaneamente cercando di essere un poeta; in compenso è una chiamata in più a ogni turno, circa 72 su una partita intera — il singolo limite più caro da togliere.\n\nDifferenza pratica: modesta. È il primo che rimetterei se il gioco diventasse lento."
+      "aiuto": "Misurato: non li migliora. Arrivano già buoni insieme al racconto di Omero. +72 chiamate se acceso.",
+      "aiuto_lungo": "Sotto il riquadro del racconto ci sono tre appigli: cose che Ulisse potrebbe fare adesso. Arrivano nella STESSA risposta con cui Omero narra il turno — una chiamata sola per due lavori.\n\nAccendere questo limite li fa chiedere a parte, con un prompt tutto loro. La ragione era che fossero più mirati, perché l'agente che li scrive non sta contemporaneamente cercando di essere un poeta.\n\nERA VERO, E NON LO È PIÙ. Misurato il 9 agosto 2026 con il modello vero (mistral-small3.2 in locale, sei scene, strumento `tools/prova_spunti/`): la strada gratis dava 11 appigli storti su 13 — punto e virgola della prosa in coda, infiniti, terza persona — contro 1 su 16 della strada a pagamento. Sistemate le istruzioni di forma nei due prompt, e ripulita la punteggiatura in codice, le due strade si equivalgono: 16 appigli su 18 per tutte e due, 3 storti contro 2.\n\nQuindi oggi questa chiamata paga per rifare un lavoro già fatto: circa 72 chiamate su una partita intera, il singolo limite più caro da togliere. Resta accendibile perché la misura vale per UN modello: se ne provi un altro e gli appigli di Omero peggiorano, questa è la rete."
     },
     "vaglia_sempre": {
       "tipo": "booleano",
@@ -79,7 +79,7 @@
         "ricordi_per_dio": 12,
         "max_repliche": 4,
         "compagni_per_turno": 2,
-        "spunti_separati": true,
+        "spunti_separati": false,
         "vaglia_sempre": true,
         "ricognizione_sempre": true
       }

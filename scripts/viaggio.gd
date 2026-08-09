@@ -333,7 +333,8 @@ func filtra_spunti(spunti: Array) -> Array:
 	var proibite := vietate()
 	var out: Array = []
 	for s in spunti:
-		var t := String(s.get("testo", "")).strip_edges() if typeof(s) == TYPE_DICTIONARY else String(s).strip_edges()
+		var grezzo := String(s.get("testo", "")) if typeof(s) == TYPE_DICTIONARY else String(s)
+		var t := ripulisci(grezzo)
 		if t == "" or e_impalcatura(t):
 			continue
 		if Validazione.e_anacronistico(t):
@@ -345,11 +346,64 @@ func filtra_spunti(spunti: Array) -> Array:
 				proibito = true
 				break
 		if not proibito:
-			out.append(s if typeof(s) == TYPE_DICTIONARY else {"testo": t, "rischio": false})
+			var rischio: bool = bool(s.get("rischio", false)) if typeof(s) == TYPE_DICTIONARY else false
+			out.append({"testo": t, "rischio": rischio})
 	return out
 
+## Le virgolette che il modello mette ATTORNO all'appiglio, citandolo invece di offrirlo.
+## Solo coppie vere: l'apostrofo e' escluso apposta, in italiano sta dentro le parole
+## («ospitalita'») e toglierlo dai bordi farebbe piu' danni di quanti ne ripara.
+const VIRGOLETTE := {"\"": "\"", "«": "»", "“": "”"}
+
+## LA FORMA DELL'APPIGLIO, ripulita in un posto solo — quello che attraversano tutte e due
+## le strade da cui gli appigli arrivano (Omero che narra e propone, e il Suggeritore).
+##
+## Misurato col modello vero il 9 agosto 2026 (`tools/prova_spunti/`, mistral-small3.2 in
+## locale, 6 scene): nel modo combinato **11 appigli storti su 13**, contro 1 su 16 del modo
+## dedicato. Omero sta scrivendo da poeta e contagia l'elenco: il punto e virgola della
+## prosa resta attaccato in coda, e ogni tanto l'appiglio arriva fra virgolette.
+##
+## Sono difetti OGGETTIVI, quindi si tolgono qui. Il prompt lo chiedeva gia', ma un prompt
+## e' una preghiera: questa e' la garanzia. Cio' che invece NON si corregge in codice e' la
+## persona del verbo — infinito, plurale, terza persona — che non si riconosce senza
+## giudizio: quella sta nel prompt, e si misura con lo strumento.
+static func ripulisci(testo: String) -> String:
+	var t := testo.strip_edges()
+	while t.length() >= 2 and VIRGOLETTE.has(t.substr(0, 1)) \
+			and t.ends_with(String(VIRGOLETTE[t.substr(0, 1)])):
+		t = t.substr(1, t.length() - 2).strip_edges()
+	# Il grassetto markdown attorno alla frase: `**Offri vino al gigante**`. Solo ai BORDI —
+	# un asterisco in mezzo appartiene alla frase. E solo `*` e `_`: il `!` in coda e'
+	# punteggiatura vera, e il trattino davanti l'ha gia' tolto chi ha letto l'elenco.
+	while t.length() >= 2 and t.substr(0, 1) in ["*", "_"]:
+		t = t.substr(1).strip_edges()
+	while t.length() >= 1 and t.substr(t.length() - 1, 1) in ["*", "_"]:
+		t = t.substr(0, t.length() - 1).strip_edges()
+	# Il punto FERMO resta: e' punteggiatura della frase, e ce l'hanno gli appigli scritti
+	# nei dati. Il punto e virgola e la virgola in coda vengono dall'elenco, non dalla frase.
+	while t.ends_with(";") or t.ends_with(","):
+		t = t.substr(0, t.length() - 1).strip_edges()
+	return t
+
 ## Una riga di ponteggio scappata dal prompt (---SPUNTI, ORIENTAMENTO, soli trattini).
+##
+## Gli ASTERISCHI contano quanto i trattini: il modello scrive l'intestazione in grassetto
+## markdown (`**---SPUNTI---**`), il lettore di Omero sbuccia i marcatori davanti e resta
+## «SPUNTI**» — che il 9 agosto 2026 è finito a schermo come se fosse un appiglio. L'ha
+## trovato lo strumento di misura contro il modello vero: nel mock non c'è markdown, quindi
+## nessun test poteva vederlo.
+const _PONTEGGIO := " \t-*#_="
+
 static func e_impalcatura(t: String) -> bool:
 	var re := RegEx.new()
-	re.compile("(?i)^[ \\t-]*(spunti|orientamento)[ \\t:-]*$")
-	return re.search(t) != null or t.strip_edges().lstrip("-").strip_edges() == ""
+	re.compile("(?i)^[ \\t\\-*#_]*(spunti|orientamento)[ \\t:\\-*#_]*$")
+	return re.search(t) != null or _spoglio(t) == ""
+
+## Cosa resta togliendo il ponteggio dai bordi: se non resta niente, non era una frase.
+static func _spoglio(t: String) -> String:
+	var s := t.strip_edges()
+	while s != "" and _PONTEGGIO.contains(s.substr(0, 1)):
+		s = s.substr(1)
+	while s != "" and _PONTEGGIO.contains(s.substr(s.length() - 1, 1)):
+		s = s.substr(0, s.length() - 1)
+	return s.strip_edges()

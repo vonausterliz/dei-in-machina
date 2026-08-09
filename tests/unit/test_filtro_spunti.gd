@@ -84,3 +84,79 @@ func test_anche_il_ripiego_passa_dal_filtro():
 		var riserva := GameManager.spunti_di_riserva()
 		assert_eq(GameManager.filtra_spunti(riserva).size(), riserva.size(),
 			"gli appigli di «%s» devono superare il proprio filtro" % id)
+
+## LA FORMA DELL'APPIGLIO, misurata col modello vero (9 agosto 2026,
+## `tools/prova_spunti/`, mistral-small3.2 in locale, 6 scene):
+##
+##   modo combinato (Omero narra e propone)   11 appigli storti su 13
+##   modo dedicato  (il Suggeritore, +1 chiamata)   1 su 16
+##
+## Omero, che sta scrivendo da poeta, contagia il blocco degli appigli: punto e virgola in
+## coda («Insisti con la preghiera…;»), virgolette attorno, e la coda dell'elenco che si
+## porta dietro la punteggiatura della prosa. Il prompt lo chiede — ma un prompt è una
+## preghiera, e questi tre difetti sono OGGETTIVI: si tolgono in codice, una volta, sulla
+## strada che attraversano tutti e due i modi.
+##
+## Quello che NON si corregge qui è la persona del verbo (infinito, plurale, terza
+## persona): non è riconoscibile senza giudizio, e sta nel prompt.
+
+func test_la_punteggiatura_della_prosa_non_resta_attaccata():
+	var puliti := GameManager.filtra_spunti([
+		{"testo": "Insisti con la preghiera, invocando chi veglia sugli astuti;", "rischio": false},
+		{"testo": "Offri vino al gigante,", "rischio": false},
+	])
+	assert_eq(String(puliti[0]["testo"]), "Insisti con la preghiera, invocando chi veglia sugli astuti")
+	assert_eq(String(puliti[1]["testo"]), "Offri vino al gigante")
+
+## Il punto fermo invece è punteggiatura buona: sta negli appigli scritti nei dati.
+func test_il_punto_fermo_resta():
+	var puliti := GameManager.filtra_spunti([{"testo": "Piega ai remi.", "rischio": false}])
+	assert_eq(String(puliti[0]["testo"]), "Piega ai remi.")
+
+## Le virgolette attorno: il modello a volte cita l'appiglio invece di offrirlo.
+func test_le_virgolette_attorno_si_tolgono():
+	var puliti := GameManager.filtra_spunti([
+		{"testo": "\"Manda un gruppetto sulla prua a scrutare il mare.\"", "rischio": false},
+		{"testo": "«Chiedi ai compagni se conoscano quelle coste.»", "rischio": false},
+	])
+	assert_eq(String(puliti[0]["testo"]), "Manda un gruppetto sulla prua a scrutare il mare.")
+	assert_eq(String(puliti[1]["testo"]), "Chiedi ai compagni se conoscano quelle coste.")
+
+## Ma le virgolette DENTRO restano: «Dì "Nessuno" al ciclope» è l'appiglio del poema.
+func test_le_virgolette_dentro_restano():
+	var puliti := GameManager.filtra_spunti([{"testo": "Dì \"Nessuno\" al ciclope.", "rischio": false}])
+	assert_eq(String(puliti[0]["testo"]), "Dì \"Nessuno\" al ciclope.")
+
+## Uno spunto che dopo la ripulitura non ha più niente dentro non è uno spunto.
+func test_un_guscio_vuoto_non_diventa_un_appiglio():
+	assert_eq(GameManager.filtra_spunti([{"testo": "\";\"", "rischio": false}]).size(), 0)
+
+## L'IMPALCATURA IN GRASSETTO. Trovata dallo strumento di misura il 9 agosto 2026: fra gli
+## appigli a schermo è comparso «SPUNTI**». Il modello scrive l'intestazione del blocco in
+## grassetto markdown (`**---SPUNTI---**`), il lettore di Omero sbuccia i marcatori davanti
+## e lascia gli asterischi in coda — e il riconoscitore d'impalcatura non li prevedeva.
+##
+## Vale la pena notare come si è visto: nessun test lo prendeva, perché nel mock il modello
+## non scrive in markdown. L'ha trovato una misura contro il modello vero.
+func test_l_impalcatura_in_grassetto_non_diventa_uno_spunto():
+	var puliti := GameManager.filtra_spunti([
+		{"testo": "SPUNTI**", "rischio": false},
+		{"testo": "**SPUNTI**", "rischio": false},
+		{"testo": "**ORIENTAMENTO**", "rischio": false},
+		{"testo": "***", "rischio": false},
+		{"testo": "Piega ai remi.", "rischio": false},
+	])
+	assert_eq(puliti.size(), 1, "è passata dell'impalcatura: %s" % [puliti])
+	assert_eq(String(puliti[0]["testo"]), "Piega ai remi.")
+
+## Ma un asterisco DENTRO la frase non fa di uno spunto un'impalcatura.
+func test_una_frase_con_un_asterisco_resta_uno_spunto():
+	var puliti := GameManager.filtra_spunti([{"testo": "Chiedi il nome dell'*aroma*.", "rischio": false}])
+	assert_eq(puliti.size(), 1)
+
+## E un appiglio VERO scritto in grassetto è un appiglio vero: si toglie il grassetto, non
+## la frase. (Stesso markdown, esito opposto: qui dentro c'è qualcosa.)
+func test_il_grassetto_attorno_a_un_appiglio_vero_si_toglie():
+	var puliti := GameManager.filtra_spunti([{"testo": "**Offri vino al gigante**", "rischio": false}])
+	assert_eq(puliti.size(), 1)
+	assert_eq(String(puliti[0]["testo"]), "Offri vino al gigante")
