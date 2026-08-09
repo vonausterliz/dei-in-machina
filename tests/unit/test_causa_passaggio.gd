@@ -18,8 +18,10 @@ func before_each():
 	LLMManager.mock_mode = true
 	GameManager.nuova_partita(7)
 
-func _avanza_con(tag: Array) -> Dictionary:
-	return GameManager.viaggio.avanza({"tag": tag, "plausibilita": "in_mondo"})
+## Il `tipo` non è decorazione: da R-14 una tappa che esce su `rotta` si chiude solo su un
+## movimento vero. Qui si parla di cause, quindi il congedo dev'essere autentico.
+func _avanza_con(tag: Array, tipo: String = "movimento") -> Dictionary:
+	return GameManager.viaggio.avanza({"tag": tag, "tipo": tipo, "plausibilita": "in_mondo"})
 
 ## Ogni avanzamento porta una causa, e la causa è una delle tre. Mai vuota, mai altro.
 func test_ogni_avanzamento_ha_una_causa_fra_le_tre():

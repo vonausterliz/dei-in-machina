@@ -98,8 +98,7 @@ func avanza(envelope: Dictionary) -> Dictionary:
 	if e == null:
 		return fermo
 
-	var tag: Array = envelope.get("tag", [])
-	var per_tag: bool = e.avanza_su_tag != null and tag.has(String(e.avanza_su_tag))
+	var per_tag: bool = e_un_congedo(envelope, e.avanza_su_tag)
 	var per_cap: bool = la_pressione_spinge()
 	if not (per_tag or per_cap):
 		return fermo
@@ -136,6 +135,41 @@ func avanza(envelope: Dictionary) -> Dictionary:
 ## ne' una cacciata, e' qualcosa di piu' grande che lo sposta. Non e' piu' un contatore muto —
 ## quando arriva, chi gioca ha gia' letto per tre turni che gli dei lo stanno sospingendo.
 const CAUSE := ["scelta", "cacciato", "prodigio"]
+
+## R-14 — PARLARE DI ROTTA NON È SALPARE.
+##
+## Il tag dice DI COSA si parla, il campo `tipo` dell'envelope dice SE ci si muove. Per nove
+## tappe su quindici il tag d'uscita è `rotta`, e nel tracciato del 6 agosto 2026 Troia si è
+## chiusa al turno 3 su «ai remi dobbiamo arrivare ad itaca!» — tipo `azione`, un incitamento
+## ai rematori gridato mentre la nave era ancora là. L'Interprete non aveva sbagliato: di
+## rotta si parlava davvero. Era il gioco a leggere un argomento come se fosse una partenza.
+##
+## Per `rotta` servono tutti e due. Per gli altri tag d'uscita no: da `fuga` si esce anche
+## con le parole o con un'astuzia, e resta un congedo.
+##
+## Costa una riga e nessun tag nuovo: `tipo` è già nell'envelope (contratto dell'Interprete),
+## già validato, già scritto in ogni prompt. Le altre due strade — mettere `fuga` a quelle
+## tappe, o aggiungere un tag `partenza` al vocabolario chiuso — erano l'una semanticamente
+## falsa (da Circe non si fugge), l'altra da pagare in contratto, validatore, prompt di ogni
+## agente e golden trace.
+const TIPO_RICHIESTO := {"rotta": "movimento"}
+
+## Vero se questo envelope chiude la tappa che esce su `tag_uscita`. Uno solo, perché la
+## domanda si pone in due posti — l'avanzamento e la prigionia di Ogigia — e una risposta
+## sola in due copie è metà correzione: chi è trattenuto da Calipso si libera SALPANDO.
+static func e_un_congedo(envelope: Dictionary, tag_uscita: Variant) -> bool:
+	if tag_uscita == null:
+		return false
+	var t := String(tag_uscita)
+	var tag: Array = envelope.get("tag", [])
+	if not tag.has(t):
+		return false
+	if not TIPO_RICHIESTO.has(t):
+		return true
+	# Un envelope senza `tipo` non è un movimento: nel dubbio si resta. Il campo è
+	# obbligatorio nel contratto, ma un modello può ometterlo, e l'omissione non deve
+	# regalare un cambio di scena.
+	return String(envelope.get("tipo", "")) == String(TIPO_RICHIESTO[t])
 
 static func _causa(tag_uscita: String, per_tetto: bool) -> String:
 	if tag_uscita == "fuga":
@@ -265,8 +299,7 @@ func trattiene(envelope: Dictionary, in_mondo: bool) -> String:
 	var e := _ep()
 	if e == null or e.trattiene_dopo_turni <= 0:
 		return ""
-	var tag: Array = envelope.get("tag", [])
-	if e.avanza_su_tag != null and tag.has(String(e.avanza_su_tag)):
+	if e_un_congedo(envelope, e.avanza_su_tag):
 		_stato.ammonizioni["prigionia"] = 0   # chi riparte non e' prigioniero
 		return ""
 	if int(_stato.viaggio.get("turni_in_episodio", 0)) < e.trattiene_dopo_turni:
