@@ -78,11 +78,34 @@ crea sempre **a partire da uno esistente**, così si modifica invece di compilar
 |---|---:|---:|
 | `cronaca_ogni` (C1) | 4 | 1 |
 | `ricordi_per_dio` (C9) | 5 | 12 |
-| `spunti_separati` (C3) | no | sì |
-| `vaglia_sempre` (C4) | no | sì |
+| `spunti_separati` (C3) | no | **no** (era «sì»: vedi sotto) |
+| `vaglia_sempre` (C4) | no | sì (ma **non respinge**: guarda e annota) |
 | `ricognizione_sempre` (C6) | no | sì |
 | `max_repliche` (D1) ⚖️ | 2 | **4** (alzato, non tolto) |
 | `compagni_per_turno` (D2) ⚖️ | 1 | **2** (alzato, non tolto) |
+
+### Il limite che una misura ha spento
+
+`spunti_separati` (C3) era acceso nel profilo «Senza vincoli»: chiedeva i tre appigli con una
+chiamata dedicata, ~72 su una partita intera — il **singolo limite più caro** dell'elenco. La
+ragione era di qualità: gli appigli scritti da un agente che non sta contemporaneamente
+cercando di essere un poeta sono più mirati.
+
+Era vero. Misurato il 9 agosto 2026 con `tools/prova_spunti/` contro il modello vero (Ollama
+locale, `mistral-small3.2`, sei scene, quattro giri): la strada gratis dava **11 appigli
+storti su 13** — punto e virgola della prosa in coda, infiniti, plurali, terza persona
+(«Promette a Calipso di tornare») — contro 1 su 16 della strada a pagamento.
+
+Sistemata la forma nei due prompt con esempi contrastivi, e ripulito in codice ciò che è
+oggettivo (`Viaggio.ripulisci()`: virgolette, grassetto markdown, punteggiatura d'elenco), le
+due strade si equivalgono: **16 appigli su 18 per entrambe**, 3 storti contro 2. Da lì il
+limite è spento anche nel profilo libero. Resta accendibile, perché la misura vale per **un**
+modello: se ne provi un altro e gli appigli di Omero peggiorano, quella chiamata è la rete.
+
+> **Regola che ne esce, e vale per tutti gli altri:** nessun limite di costo si toglie senza
+> averlo misurato col modello vero. La stessa misura, prima delle correzioni, diceva che
+> questo limite serviva eccome. La prossima candidata è `cronaca_ogni` nel profilo libero
+> (1 → 4: ~19 chiamate a partita), e lì si paga in coerenza della memoria, non in secondi.
 
 ### I quattro che NON sono diventati knob, e perché
 

@@ -163,7 +163,7 @@ anti-assistente** incluso, il **mondo** (`prompts/mondo.txt`) come ancoraggio, u
 | **DioAgente** | `dio_agente.gd` | Per ogni dio sveglio, e di nuovo per le repliche | Profilo del dio + favore/ira/umore + envelope + memoria + proposte altrui | `{dio, registro, intensità, dice}` | `silenzio` (registro inerte, battuta conservata) |
 | **Arbitro (Zeus)** | `arbitro.gd` | Solo in caso di **conflitto** | Le proposte in campo | `{attore, registro, intensità, dice}` | Verdetto deterministico (la più intensa) |
 | **Narratore (Omero)** | `narratore.gd` | Ogni turno in-mondo | Azione, scena, cronaca, storia, verdetto, impronta, momento | Narrazione **+ 3 spunti**, in una chiamata sola | Nessuna narrazione; spunti dalla tappa |
-| **Suggeritore** | `suggeritore.gd` | Solo all'apertura della partita | Scena corrente | 3 spunti | Spunti di riserva della tappa |
+| **Suggeritore** | `suggeritore.gd` | All'apertura di una scena, dove Omero non ha parlato (non più a ogni turno: vedi §10) | Scena corrente | 3 spunti | Spunti di riserva della tappa |
 | **Cronista** | `cronista.gd` | Ogni N turni (`memoria/cronaca_ogni`) | Riassunto precedente + fatti nuovi | Riassunto rotolante (~120 parole) | Si tiene il precedente |
 | **Compagno** | `compagno.gd` | Ogni turno, e a ogni beat | Profilo del compagno + scena + cronaca + cosa dice Ulisse | Una battuta | `""` (chi non ha niente da dire tace) |
 
@@ -268,8 +268,23 @@ l'unico modo in cui l'esito `ciurma_perduta` è raggiungibile.
 al modello di «non narrare un gesto impossibile» non funzionava: lo narrava lo stesso. Al
 giocatore va solo il richiamo, e il turno costa una chiamata in meno.
 
-**ESITO / AVANZAMENTO** — la tappa si chiude sul tag di progresso o sul tetto di turni; chi
-deve cadere secondo il poema cade lì (Antifo al Ciclope, Elpenore da Circe) e la sua voce
+**ESITO / AVANZAMENTO** — la tappa si chiude sul tag di progresso, e **ogni chiusura porta
+con sé la sua causa** (R-12): `scelta` se se n'è andato lui, `cacciato` se l'hanno cacciato
+(`fuga`), `prodigio` se l'ha spostato qualcosa di più grande. La causa arriva fino al prompt
+di Omero e diventa tre istruzioni diverse: con soli «da» e «a» si scrive una cosa sola, il
+mare che si allarga, uguale per una fuga e per un commiato.
+
+Il **tetto dei turni non esiste più** (R-13): era per costruzione un cambio *senza* causa. Al
+suo posto la tappa che si trascina **spinge**, e la spinta si legge prima che la scena cambi
+— la ciurma mormora (turno 10), gli avversari si fanno arditi (13), gli dèi lo sospingono
+(16), si parte (19). Sono **eventi**, non un meccanismo nuovo: svegliano gli dèi e arrivano a
+Omero. `turni_massimi` resta nei dati e **non è più letto da nessuno**.
+
+Il tag da solo non basta quando è `rotta` (R-14): serve anche `tipo: movimento`. Parlare di
+direzioni non è salpare — «ai remi dobbiamo arrivare ad itaca!» aveva chiuso Troia al turno 3
+mentre Ulisse incitava i rematori. `fuga` non lo chiede: si scappa anche con le parole.
+
+Chi deve cadere secondo il poema cade lì (Antifo al Ciclope, Elpenore da Circe) e la sua voce
 tace. Entrare a Itaca è vittoria.
 
 **CONGEDO** — se la partita è finita, Omero scrive l'**ultima voce**: un epitaffio di 4-6
@@ -568,17 +583,25 @@ mai il bottone rosso.
 > esisteva già nei dati e serviva solo a colorare un bottone: dargli un significato costa
 > una funzione e dà il peso della scelta senza togliere la scrittura libera.
 
-### I quattro presidi sugli spunti
+### I presidi sugli spunti
 
 Gli spunti sono una **promessa**: ciò che il gioco offre, il gioco lo accetta e lo sa
-rendere. Sul campo la promessa si è rotta in quattro modi, e ognuno ha il suo presidio:
+rendere. Sul campo la promessa si è rotta in sei modi, e ognuno ha il suo presidio:
 
 | Rottura osservata | Presidio |
 |---|---|
-| Fra le frasi è comparso `---SPUNTI` (l'impalcatura del prompt) | `_e_impalcatura()`, regex tollerante |
+| Fra le frasi è comparso `---SPUNTI` (l'impalcatura del prompt) | `e_impalcatura()`, regex tollerante |
+| …e in grassetto markdown: a schermo è arrivato «SPUNTI\*\*» | trattini, asterischi, cancelletti contano tutti come ponteggio |
 | Sono arrivati anacronismi che il gioco stesso avrebbe respinto | `Validazione.e_anacronistico()` |
 | All'isola di Eolo: «apri l'otre», e Eolo l'otre non l'ha ancora dato | `episodio.non_ancora` |
-| Cliccare uno spunto omerico dava «Quel gesto non appartiene a questo mondo» | `gia_proposto()` salta il vaglio LLM |
+| Cliccare uno spunto omerico dava «Quel gesto non appartiene a questo mondo» | `gia_proposto()` salta il vaglio LLM — **senza clausole di costo**: nessun profilo lo riaccende |
+| Righe di prosa invece di azioni: infiniti, plurali, terza persona, punteggiatura d'elenco | forma con esempi contrastivi nei prompt + `Viaggio.ripulisci()` per ciò che è oggettivo |
+
+> **La forma degli appigli si misura, non si assume.** `tools/prova_spunti/` mette le due
+> strade — Omero che li propone gratis, il Suggeritore che li chiede a pagamento — una
+> accanto all'altra sullo stesso contesto, contro il modello vero. È così che si è scoperto
+> che la strada gratis dava 11 appigli storti su 13, e che dopo le correzioni le due strade
+> si equivalgono (16 su 18 per entrambe). Vedi §10.
 
 **Gli spunti generici sono stati eliminati.** Tre frasi buone per ogni occasione non erano
 buone per nessuna: *«Piega ai remi e prosegui la rotta»* compariva mentre Ulisse era chiuso
@@ -689,6 +712,22 @@ Dove il budget è stato recuperato: gli spunti dentro la chiamata di Omero (−1
 vaglio saltato sugli spunti già offerti (−1), Omero non chiamato fuori-mondo (−1), il
 condensato della memoria calcolato in GDScript (−1 per dio ogni N turni), `MAX_REPLICHE = 2`
 (tetto sul caso peggiore), i beat (−8 per frase detta a bordo).
+
+**E un limite tolto perché una misura ha detto che non serviva più.** `spunti_separati`
+chiedeva gli appigli con una chiamata dedicata — ~72 su una partita intera, il singolo
+limite più caro — perché fossero più mirati. Era vero: misurato con
+`tools/prova_spunti/` contro il modello vero (Ollama locale, `mistral-small3.2`, sei scene),
+la strada gratis dava **11 appigli storti su 13**, quella a pagamento 1 su 16. Omero sta
+scrivendo da poeta e contagia l'elenco: punto e virgola in coda, infiniti, plurali, terza
+persona («Promette a Calipso di tornare»).
+
+Sistemata la forma nei due prompt (esempi contrastivi) e ripulito in codice ciò che è
+oggettivo (`Viaggio.ripulisci()`), le due strade si equivalgono: **16 appigli su 18 per
+entrambe**, 3 storti contro 2. Da lì `spunti_separati` è spento anche nel profilo «Senza
+vincoli». Resta accendibile: la misura vale per un modello solo.
+
+> La regola generale che ne esce: **nessun limite di costo si tocca senza misurarlo col
+> modello vero.** La stessa misura, prima delle correzioni, diceva che il limite serviva.
 
 ### Quanto costa una partita intera
 
@@ -932,7 +971,7 @@ a ogni esecuzione.
 che nessuno se ne accorga. Per questo un secondo test pretende che la traccia registrata
 eserciti ancora risveglio, narrazione, ammonizione, avanzamento di tappa, delta applicato e
 voci di ciurma. Un terzo rilegge il testo registrato e verifica lì l'invariante più
-importante: Omero non nomina mai un dio.
+importante: Omero non nomina mai un dio **nascosto**.
 
 Alla prima registrazione ha già trovato qualcosa — non nel codice, in un commento. Il copione
 diceva «vanto → Poseidone»; ma Poseidone ha `dorme_finche: maledizione_di_polifemo` e a Troia
@@ -945,7 +984,12 @@ cui era stato scritto.
 
 | Invariante | Dove il **prompt** la chiede | Dove il **codice** la garantisce | Test |
 |---|---|---|---|
-| Omero non nomina mai un dio | `prompts/omero_system.txt` | `Narratore.nomina_un_dio()` → ritenta una volta → **redige** («un dio»). Applicata anche a spunti e cronaca | `test_agenti_llm.gd` |
+| Omero non nomina mai un dio **nascosto** | `prompts/mondo.txt` (tutti e sette gli agenti) + `omero_system.txt` | `Narratore.nomina_un_dio()` sulla lista di `Pantheon.nomi_nascosti()` → ritenta una volta → **redige** («un dio»). Applicata anche a spunti e cronaca | `test_agenti_llm.gd`, `test_dei_nascosti.gd` |
+| Chi Ulisse **incontra** ha un nome, e lo si dice | `prompts/mondo.txt` | `Dio.nascosto` (default `true`: nel dubbio si nasconde); il validatore pretende il campo leggendo il JSON grezzo | `test_dei_nascosti.gd` |
+| Un cambio di scena ha sempre una **causa** leggibile | `omero_system.txt` (le tre istruzioni) | `Viaggio.avanza()` → `causa` ∈ {scelta, cacciato, prodigio} | `test_causa_passaggio.gd` |
+| `rotta` chiude la tappa **solo con `tipo: movimento`** | — | `Viaggio.e_un_congedo()`, un predicato solo per avanzamento e prigionia | `test_uscita_rotta.gd` |
+| La promessa sugli appigli **non ha clausole di costo** | — | `_vaglia_plausibilita()`: nessun profilo la spegne; col vaglio acceso il parere si annota e non decide | `test_spunti_coerenti.gd`, `test_costi.gd` |
+| L'appiglio è un **ordine rivolto a Ulisse** | `omero_system.txt`, `suggeritore_system.txt` (esempi contrastivi) | `Viaggio.ripulisci()`: virgolette, grassetto markdown, punteggiatura d'elenco | `test_filtro_spunti.gd` |
 | Guardrail anti-assistente in ogni agente | — | Ogni agente include `prompts/guardrail_anti_assistente.txt`; un test lo verifica per tutti | `test_agenti_llm.gd` |
 | Il registro proposto è ammesso per quel dio | `dio_agente_system.txt` | Vincolato ai `registri` del profilo, altrimenti `silenzio` **conservando la battuta** | `test_agenti_llm.gd` |
 | L'attore del verdetto è in campo | `arbitro_system.txt` | `Arbitro._valida()`, altrimenti verdetto deterministico | `test_agenti_llm.gd` |

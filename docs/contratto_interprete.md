@@ -41,7 +41,10 @@ Sono gli unici tag che l'Interprete può emettere nel campo `tag`. Chiuso = se n
 
 ### Scelte pratiche
 - `intrusione` — entrare dove non si dovrebbe
-- `rotta` — scelta di navigazione o direzione
+- `rotta` — scelta di navigazione o direzione. **Da solo non chiude una tappa:** per uscire
+  serve anche `tipo: movimento`. Il tag dice *di cosa si parla*, `tipo` dice *se ci si
+  muove* — «ai remi dobbiamo arrivare ad itaca!» è `rotta` ma è un incitamento, e aveva
+  chiuso Troia al turno 3. `fuga` invece non lo chiede: si scappa anche con le parole
 - `sfida` — affrontare direttamente un avversario
 - `fuga` — ritirarsi, sottrarsi
 

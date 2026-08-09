@@ -47,13 +47,13 @@ flowchart TD
     COA --> AP["APPLICA il delta - regola<br/>ulisse · registro divino · relazioni"]
     AP --> NAR["OMERO narra reticente<br/>+ 3 SPUNTI nella stessa chiamata"]
 
-    NAR --> FIL["FILTRO SPUNTI<br/>impalcatura · anacronismi · non_ancora<br/>vuoto -> spunti_di_riserva DELLA TAPPA"]
+    NAR --> FIL["FILTRO SPUNTI<br/>impalcatura (anche in grassetto) · anacronismi<br/>non_ancora · forma ripulita<br/>vuoto -> spunti_di_riserva DELLA TAPPA"]
     FIL --> CIU["LA CIURMA commenta<br/>(chi e' interpellato, o uno a rotazione)"]
     CIU --> REG["registra: storico_olimpo + diario"]
     REG --> ES{"controllo esito"}
     ES -->|itaca| WIN["VITTORIA"]
     ES -->|"morte / ciurma 0 / prigionia / follia"| LOSE["SCONFITTA"]
-    ES -->|continua| AV{"tappa conclusa?<br/>avanza_su_tag o tetto turni"}
+    ES -->|continua| AV{"tappa conclusa?<br/>avanza_su_tag (rotta vuole tipo=movimento)<br/>o pressione al grado 3<br/>causa: scelta | cacciato | prodigio"}
     AV -->|si| NEXT["chi deve cadere, cade e tace<br/>traversata + nuova tappa<br/>accende i locali"]
     AV -->|no| CRON
     NEXT --> CRON{"turni dall'ultima<br/>cronaca >= N?"}

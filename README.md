@@ -46,7 +46,7 @@ Ecco cosa succede, nell'ordine.
 
 **4 · La conseguenza torna a essere una regola.** «Castigo, intensità 2» vale sempre lo stesso: quattro punti di animo in meno, quattro di ira in più, e un compagno che non torna. L'AI sceglie *cosa* fare; quanto pesa è deciso altrove, da numeri fissi.
 
-**5 · Omero racconta.** Senza nominare nessuno. Leggi che il mare si è fatto nero e che un uomo è caduto in acqua. Chi sia stato, lo devi capire tu.
+**5 · Omero racconta.** Senza nominare chi ha agito dall'alto. Leggi che il mare si è fatto nero e che un uomo è caduto in acqua. Chi sia stato, lo devi capire tu.
 
 ---
 
@@ -89,7 +89,7 @@ Le coste sono vere (dati geografici Natural Earth, ridisegnati); la rotta è que
 
 ## Tre garanzie
 
-**Gli dèi restano nascosti.** Il racconto non nomina mai una divinità — nemmeno per allusione trasparente, nemmeno quando l'AI sarebbe tentata di farlo. Non è affidato alla buona volontà: è controllato in automatico a ogni giro di test.
+**Gli dèi restano nascosti.** Il racconto non nomina mai chi muove i fili dall'Olimpo — Atena, Poseidone, Zeus, Ermes — nemmeno per allusione trasparente, nemmeno quando l'AI sarebbe tentata di farlo. Non è affidato alla buona volontà: è controllato in automatico a ogni giro di test. Chi invece Ulisse **incontra** ha un nome, e il racconto lo usa: Polifemo nell'antro, Circe che versa il vino, Calipso sulla sua isola. Il segreto è la mano che agisce da lontano, non la persona che hai davanti.
 
 **Quello che il gioco ti propone, il gioco lo accetta.** Se il gioco ti suggerisce tre possibili appigli sotto il racconto, nessuno di quei tre potrà poi esserti rifiutato come «gesto che non appartiene a questo mondo». E il gioco non ti offrirà mai di aprire l'otre dei venti prima che Eolo te l'abbia dato.
 
@@ -196,7 +196,7 @@ Il Gateway ascolta **solo sul tuo computer** (`127.0.0.1`), non ha autenticazion
 
 Detto chiaramente, perché stai per collegarci una chiave che può costare.
 
-**Cos'è verificato.** 514 test automatici su 52 script, eseguiti a ogni modifica, più sei turni di esempio registrati come riferimento e confrontati riga per riga. Coprono tutta la parte a regole fisse — risvegli, calcoli, avanzamento delle tappe, interfaccia — usando una finta AI al posto di quella vera.
+**Cos'è verificato.** 547 test automatici su 55 script, eseguiti a ogni modifica, più sei turni di esempio registrati come riferimento e confrontati riga per riga. Coprono tutta la parte a regole fisse — risvegli, calcoli, avanzamento delle tappe, interfaccia — usando una finta AI al posto di quella vera.
 
 **Cosa non è verificato.** Il gioco **non ha alle spalle un lungo collaudo da parte di persone**: non è stato giocato molte volte, da molta gente, con modelli di AI reali. I test dicono che la parte a regole fa quello che deve; non dicono che una partita di settantasei turni con un'AI vera non incappi in qualcosa di storto. I collegamenti provati sul serio, contro il servizio reale, sono **Ollama, Mistral e Google**; **Anthropic e OpenRouter no**.
 
@@ -219,7 +219,7 @@ cd dei-in-machina
 È tutto. Lo script riconosce il tuo sistema, scarica la versione giusta di Godot, ne verifica l'integrità, prepara le risorse e apre il gioco. Al primo avvio ci mette un minuto; dalla volta dopo, subito.
 
 ```
-./avvia.sh test          # esegue tutti i test: 514 controlli su 52 script
+./avvia.sh test          # esegue tutti i test: 547 controlli su 55 script
 ./avvia.sh installa-menu # (solo Linux) aggiunge il gioco al menu delle applicazioni
 ./avvia.sh --help        # tutti i modi e tutte le opzioni diagnostiche, con esempi
 ```
@@ -242,8 +242,8 @@ Il gioco è fatto di otto **agenti**. Un agente è un'AI a cui è affidato un co
 | **Interprete**        | traduce il tuo testo libero in etichette di un elenco chiuso        |
 | **Dio-agente**        | uno per ogni dio sveglio: sceglie come reagire, e cosa dire         |
 | **Arbitro** (Zeus)    | interviene solo quando gli dèi si contraddicono                     |
-| **Narratore** (Omero) | racconta il turno, e non nomina nessuno                             |
-| **Suggeritore**       | propone i tre appigli, quando Omero non li ha già dati              |
+| **Narratore** (Omero) | racconta il turno, senza nominare chi ha agito dall'Olimpo          |
+| **Suggeritore**       | propone i tre appigli all'apertura di una scena, dove Omero non ha parlato |
 | **Cronista**          | tiene un riassunto aggiornato della vicenda, per non rileggere tutto |
 | **Compagno**          | dà voce a un membro della ciurma                                    |
 | **Ricognitore**       | capisce a *chi* stai pregando, quando preghi per allusione          |
@@ -296,6 +296,6 @@ So it is **not** fully random — two playthroughs of the same moves won't tell 
 
 Runs on Linux and macOS. Bring your own AI: Ollama locally (nothing leaves your machine) or any of Mistral / Google / OpenAI / Anthropic / OpenRouter. Start with `./avvia.sh`.
 
-**Testing status.** Verification rests on 514 automated tests against a simulated engine, **not** on extended human playtesting. Only the **Ollama, Mistral and Google** integrations have been exercised against the real services; **Anthropic and OpenRouter have not**. The local gateway routes all of them, and never silently falls back to a different provider. The software comes with **no warranty of any kind** (AGPL-3.0, §15–16): no liability is accepted for malfunctions, lost data, or **AI provider costs**, including unexpected or excessive spend caused by a defect or a misconfiguration. Your key, your plan, your bill — watch your usage and set a spending cap. Or play with Ollama, where no bill is possible.
+**Testing status.** Verification rests on 547 automated tests against a simulated engine, **not** on extended human playtesting. Only the **Ollama, Mistral and Google** integrations have been exercised against the real services; **Anthropic and OpenRouter have not**. The local gateway routes all of them, and never silently falls back to a different provider. The software comes with **no warranty of any kind** (AGPL-3.0, §15–16): no liability is accepted for malfunctions, lost data, or **AI provider costs**, including unexpected or excessive spend caused by a defect or a misconfiguration. Your key, your plan, your bill — watch your usage and set a spending cap. Or play with Ollama, where no bill is possible.
 
 Licensed under the GNU AGPL-3.0. The game and its documentation are in Italian.
