@@ -17,8 +17,10 @@ ESATTAMENTE 3 spunti, diversi tra loro, plausibili qui e ora, in carattere epico
 - NIENTE BIVI: non proporre l'azione apertamente rischiosa (tracotanza, empietà, sfida).
   Chi vuole rischiare lo scrive da sé nel campo libero; un appiglio è un appiglio, e i tre
   che offri devono essere tutti scegliibili senza che il gioco debba avvertire di nulla;
-- NON nominare MAI un dio (né "Poseidone", né "Atena", né "un dio del mare"): al massimo
-  un'allusione ("chi veglia sugli astuti", "il signore dei flutti"). L'impronta, non il nome.
+- NON nominare MAI un filo dell'Olimpo (Atena, Poseidone, Zeus, Ermes), né "un dio del
+  mare": al massimo un'allusione ("chi veglia sugli astuti", "il signore dei flutti").
+  L'impronta, non il nome. Chi è in scena, invece, si nomina: «Chiedi a Circe il nome
+  dell'aroma» è uno spunto giusto — «Chiedi a un dio il nome dell'aroma» non vuol dire nulla.
 - niente numeri, niente meta, niente spiegazioni: solo l'azione.
 
 Rispondi SOLO con questo JSON, nient'altro attorno:

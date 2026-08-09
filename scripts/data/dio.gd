@@ -13,6 +13,23 @@ var natura: String = ""
 var fascia: String = ""
 var attivo: bool = false
 var episodio: Variant = null
+## SE IL SUO NOME VA TENUTO SEGRETO.
+##
+## L'invariante «la narrazione rivolta al giocatore non nomina mai un dio» serve a non
+## svelare CHI MUOVE I FILI dall'Olimpo — Atena, Poseidone, Zeus, e Ermes quando scende a
+## intromettersi. Non serve a cancellare i personaggi che Ulisse INCONTRA: Eolo che gli
+## consegna l'otre, Circe che versa il vino, Polifemo nell'antro. Il poema li nomina tutti.
+##
+## Valeva su tutte e tredici le voci, e si vedeva: nel tracciato del 6 agosto 2026, 10
+## ritentativi di Omero su 43 chiamate, tutti e dieci per il personaggio in scena; e a
+## schermo «Chiedi a un dio il nome dell'aroma» mentre Circe era lì davanti.
+##
+## Dichiarato voce per voce, e non dedotto dalla tappa: Ermes ha `episodio: circe` perche'
+## e' li' che interviene, ma la sua e' un'intromissione olimpia, non un incontro.
+##
+## NEL DUBBIO SI NASCONDE: una voce che dimentichi il campo resta un segreto. Il default
+## sbagliato, qui, romperebbe il pilastro del gioco in silenzio.
+var nascosto: bool = true
 var fazione: String = ""
 var dominio: String = ""
 var agenda: String = ""
@@ -46,6 +63,7 @@ static func from_dict(d: Dictionary) -> Dio:
 	dio.fascia = d.get("fascia", "")
 	dio.attivo = d.get("attivo", false)
 	dio.episodio = d.get("episodio", null)
+	dio.nascosto = d.get("nascosto", true)
 	dio.fazione = d.get("fazione", "")
 	dio.dominio = d.get("dominio", "")
 	dio.agenda = d.get("agenda", "")

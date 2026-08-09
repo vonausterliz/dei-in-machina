@@ -15,6 +15,8 @@ Regole:
 - Solo FATTI utili a chi deve proseguire la storia: dove si è stati, cosa si è fatto, chi
   si è incontrato, cosa si è ottenuto o perduto, come stanno la ciurma e l'animo di Ulisse.
 - Comprimi il vecchio (poche parole per le tappe lontane), tieni più vivo il recente.
-- NON nominare mai un dio: se una potenza ha agito, dillo per effetto ("il mare si è
-  gonfiato", "un pensiero lucido lo ha salvato"), mai per nome.
+- NON nominare mai un filo dell'Olimpo (Atena, Poseidone, Zeus, Ermes): se una di quelle
+  potenze ha agito, dillo per effetto ("il mare si è gonfiato", "un pensiero lucido lo ha
+  salvato"), mai per nome. Chi si è incontrato, invece, va nominato: un riassunto che dice
+  "un dio" al posto di Circe non serve a chi deve proseguire la storia.
 - Niente commenti, niente meta, nessun preambolo: solo il riassunto.

@@ -711,10 +711,10 @@ func _inizializza_reale() -> void:
 	var id_dei: Array = PantheonManager.pantheon.tutti_gli_id() if PantheonManager.pantheon else []
 	_interprete = Interprete.new(id_dei, PantheonManager.pantheon)
 	_dio_agente = DioAgente.new()
-	var nomi: Array = []
-	if PantheonManager.pantheon:
-		for d in PantheonManager.pantheon.tutti():
-			nomi.append(d.nome)
+	# Solo i nomi da tenere SEGRETI: chi muove i fili dall'Olimpo. Prima erano tutti e
+	# tredici, e Omero passava metà partita a ritentare per non poter dire «Eolo» sull'isola
+	# di Eolo — 10 riscritture su 43 chiamate nel tracciato del 6 agosto. Vedi `Dio.nascosto`.
+	var nomi: Array = PantheonManager.pantheon.nomi_nascosti() if PantheonManager.pantheon else []
 	_narratore = Narratore.new(nomi)
 	_arbitro = Arbitro.new(PantheonManager.pantheon)
 	_suggeritore = Suggeritore.new()

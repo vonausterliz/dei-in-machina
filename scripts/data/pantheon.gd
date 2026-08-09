@@ -51,6 +51,16 @@ func dei_attivi() -> Array[Dio]:
 			out.append(dio)
 	return out
 
+## I NOMI CHE LA NARRAZIONE NON DEVE PRONUNCIARE: solo chi muove i fili dall'Olimpo
+## (`nascosto`). Chi si incontra — Eolo, Circe, Polifemo — ha un nome e lo si dice: il poema
+## li nomina tutti, e negarlo non nascondeva niente. Vedi `Dio.nascosto`.
+func nomi_nascosti() -> Array[String]:
+	var out: Array[String] = []
+	for dio in tutti():
+		if dio.nascosto:
+			out.append(dio.nome)
+	return out
+
 ## Tutti i dei locali legati a un episodio (per accenderli all'ingresso della tappa).
 func locali_di_episodio(episodio: String) -> Array[Dio]:
 	var out: Array[Dio] = []

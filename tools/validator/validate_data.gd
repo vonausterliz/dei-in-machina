@@ -38,6 +38,10 @@ func _valida_episodi(path: String, pantheon: Pantheon) -> void:
 				_err("%s: dio_locale '%s' non esiste nel pantheon" % [et, idl])
 			elif String(pantheon.get_dio(idl).episodio) != id:
 				_warn("%s: dio_locale '%s' non ha episodio '%s' nel pantheon" % [et, idl, id])
+			elif pantheon.get_dio(idl).nascosto:
+				# Il padrone di casa della tappa e' chi il giocatore ha davanti: se il suo
+				# nome e' segreto, Omero passera' la tappa a girarci intorno.
+				_warn("%s: dio_locale '%s' e' marcato 'nascosto': la tappa si racconterebbe senza poterlo nominare" % [et, idl])
 		for e in ep.eventi_attivi:
 			if not eventi_validi.is_empty() and not eventi_validi.has(e):
 				_err("%s: evento_attivo '%s' non in _meta.vocabolario_eventi" % [et, e])
@@ -71,6 +75,17 @@ func _valida_pantheon(path: String) -> Pantheon:
 	var fazioni_valide: Array = legenda.get("fazione", [])
 	var registri_validi: Array = legenda.get("registri", [])
 	var eventi_validi: Array = pantheon.meta.get("vocabolario_eventi", [])
+
+	# `nascosto` DEV'ESSERE DICHIARATO, voce per voce. Il default del codice e' «nascosto»:
+	# e' il lato sicuro, ma anche quello silenzioso — una voce nuova che si dimenticasse il
+	# campo sparirebbe dalla narrazione senza che nessuno se ne accorga, che e' esattamente
+	# cio' che e' successo a Eolo e a Circe. Si guarda il JSON GREZZO, perche' nel Dio
+	# tipizzato il default c'e' gia'.
+	var grezzo: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if grezzo is Dictionary:
+		for voce in (grezzo as Dictionary).get("dei", []):
+			if not (voce as Dictionary).has("nascosto"):
+				_err("dio '%s': manca 'nascosto' — va detto se il suo nome e' un filo dell'Olimpo da tenere segreto o un personaggio che si incontra" % (voce as Dictionary).get("id", "?"))
 
 	for dio in pantheon.tutti():
 		var etichetta := "dio '%s'" % dio.id
