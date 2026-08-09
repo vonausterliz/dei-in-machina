@@ -100,7 +100,7 @@ func avanza(envelope: Dictionary) -> Dictionary:
 
 	var tag: Array = envelope.get("tag", [])
 	var per_tag: bool = e.avanza_su_tag != null and tag.has(String(e.avanza_su_tag))
-	var per_cap: bool = e.turni_massimi > 0 and int(v["turni_in_episodio"]) >= e.turni_massimi
+	var per_cap: bool = la_pressione_spinge()
 	if not (per_tag or per_cap):
 		return fermo
 	fermo["causa"] = ""
@@ -148,7 +148,8 @@ static func _causa(tag_uscita: String, per_tetto: bool) -> String:
 
 # --- Cosa consente la tappa ---
 
-## Eventi di mondo del turno: quelli della tappa corrente + quelli passati dall'esterno.
+## Eventi di mondo del turno: quelli della tappa corrente + quelli passati dall'esterno +
+## quello della pressione, se la tappa si sta trascinando.
 func eventi_del_turno(eventi: Array) -> Array:
 	var out: Array = eventi.duplicate()
 	var e := _ep()
@@ -156,7 +157,85 @@ func eventi_del_turno(eventi: Array) -> Array:
 		for ev in e.eventi_attivi:
 			if not out.has(ev):
 				out.append(ev)
+	var spinta := evento_pressione()
+	if spinta != "" and not out.has(spinta):
+		out.append(spinta)
 	return out
+
+# --- LA PRESSIONE (R-10) ---
+#
+# IL TETTO DEI TURNI NON C'E' PIU'. Faceva cambiare scena a contatore scaduto, ed e'
+# esattamente il cambio senza causa che R-09 vieta: nel tracciato del 6 agosto, Ciconi e
+# Lotofagi si erano chiusi cosi' — «combatto coi Ciconi e al turno dopo sono dai Lotofagi».
+#
+# Al suo posto la tappa che si trascina comincia a SPINGERE, e la spinta si legge turno per
+# turno PRIMA che la scena cambi:
+#
+#   grado 1  la ciurma mormora            i compagni cominciano a mollarlo
+#   grado 2  gli avversari si fanno arditi chi gli sta contro alza la voce
+#   grado 3  gli dei lo sospingono         ed e' questa l'uscita, con causa «prodigio»
+#
+# Sono EVENTI, non un meccanismo nuovo: gli eventi svegliano gli dei (`trigger_evento`) e
+# arrivano a Omero. Cioe' la pressione si vede nel racconto, che e' tutto il punto — il
+# limite ultimo resta, ma non decide piu': innesca l'evento che decide.
+#
+# `turni_massimi` resta nei dati e non e' piu' letto qui: la tappa non lo usa piu' per
+# uscire. Lo si togliera' quando la pressione avra' fatto una partita intera.
+
+## L'evento di ogni grado. Il nome e' quello che compare nel racconto e nei trigger.
+const EVENTI_PRESSIONE := ["la_ciurma_mormora", "gli_avversari_si_fanno_arditi", "gli_dei_lo_sospingono"]
+## Il grado a cui la tappa si chiude.
+const GRADO_SPINTA := 3
+
+## Da che turno comincia la pressione, e ogni quanti turni sale di un grado.
+static func _pressione_da() -> int:
+	return Bilanciamento.intero("viaggio/pressione_da", 10)
+
+static func _pressione_passo() -> int:
+	return maxi(1, Bilanciamento.intero("viaggio/pressione_passo", 3))
+
+## 0 = nessuna pressione; 1..3 = i tre gradi. Oltre il terzo non si sale: al terzo si parte.
+func grado_pressione() -> int:
+	var turni := int(_stato.viaggio.get("turni_in_episodio", 0))
+	var oltre := turni - _pressione_da()
+	if oltre < 0:
+		return 0
+	return clampi(1 + oltre / _pressione_passo(), 1, GRADO_SPINTA)
+
+## LA SPINTA ARRIVA UN PASSO DOPO L'ULTIMO GRADO, e non nello stesso turno.
+##
+## Al primo tentativo la partenza scattava appena il grado toccava 3, e il risultato era il
+## difetto che stiamo correggendo, rifatto uguale: `avanza()` e' cio' che incrementa il
+## contatore, quindi il grado 3 nasceva e chiudeva la tappa nello stesso istante. L'evento
+## «gli dei lo sospingono» non compariva MAI in un turno giocabile: si veniva sospinti senza
+## averlo letto. L'ha trovato una misura turno per turno, non un test — il test diceva solo
+## «manca il terzo evento», ed era facile scambiarlo per un fuori-di-uno da aggiustare.
+##
+## Ora il terzo grado dura i suoi turni come gli altri, e la tappa si chiude a quelli finiti:
+## con i valori predefiniti si legge «la ciurma mormora» dal turno 10, «gli avversari si
+## fanno arditi» dal 13, «gli dei lo sospingono» dal 16 — e si parte al 19.
+func la_pressione_spinge() -> bool:
+	var turni := int(_stato.viaggio.get("turni_in_episodio", 0))
+	return turni >= _pressione_da() + _pressione_passo() * GRADO_SPINTA
+
+## L'evento del grado corrente, "" se la tappa non sta ancora spingendo.
+func evento_pressione() -> String:
+	var g := grado_pressione()
+	return EVENTI_PRESSIONE[g - 1] if g > 0 else ""
+
+## Quanto pesa la pressione su Ulisse: la ciurma che mormora costa animo, e il costo cresce
+## col grado. Deterministico, come ogni delta: l'LLM da' la voce, non il numero.
+func delta_pressione() -> Dictionary:
+	var g := grado_pressione()
+	if g <= 0:
+		return {}
+	return {"ulisse.animo": -(g * Bilanciamento.intero("viaggio/calo_animo_per_grado", 3))}
+
+## Gli avversari si fanno arditi: dal secondo grado in poi chi reagisce lo fa piu' forte.
+func rincaro_avversari() -> int:
+	var g := grado_pressione()
+	var da := Bilanciamento.intero("viaggio/rincaro_avversari_da_grado", 2)
+	return 0 if g < da else g - da + 1
 
 ## Quel che ACCADE resta accaduto. Una tappa puo' dichiarare che un certo tag dell'azione
 ## fa succedere un evento (nell'antro, il vanto di Ulisse chiama la maledizione di

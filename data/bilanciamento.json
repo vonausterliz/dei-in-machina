@@ -63,5 +63,12 @@
       "metis_per_intensita": 1,
       "sconto_hybris_per_umilta": 1
     }
+  },
+  "viaggio": {
+    "_nota": "LA PRESSIONE al posto del tetto dei turni (R-10). Il tetto faceva cambiare scena a contatore scaduto: un cambio senza causa, cioe' cio' che R-09 vieta. Qui la tappa che si trascina comincia a SPINGERE, e la spinta si legge turno per turno prima che la scena cambi: la ciurma mormora, gli avversari si fanno arditi, e infine gli dei lo sospingono altrove. Il limite ultimo resta, ma non decide piu': innesca l'evento che decide.",
+    "pressione_da": 10,
+    "pressione_passo": 3,
+    "calo_animo_per_grado": 3,
+    "rincaro_avversari_da_grado": 2
   }
 }

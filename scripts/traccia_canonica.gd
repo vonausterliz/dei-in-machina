@@ -36,7 +36,12 @@ const COPIONE := [
 	"Prendo un aereo e volo a Itaca.",                 # anacronistico      -> richiamo, non narrato
 	"Riempio gli otri d'acqua alla sorgente.",         # neutro             -> nessun dio
 	"Mi rivolgo al capo dell'olimpo e lo supplico.",   # preghiera allusiva -> Zeus, segno
-	"Ordino ai compagni di tornare alle navi.",        # dopo l'avanzamento di tappa
+	# L'AVANZAMENTO DI TAPPA, e adesso con una CAUSA (R-09). Prima non serviva chiederlo: al
+	# quarto turno scattava il tetto e la scena cambiava da sola. Tolto il tetto (R-10) la
+	# traccia canonica ha smesso di attraversare una tappa — e a dirlo e' stato il secondo
+	# test del golden trace, quello che pretende che la traccia eserciti ancora tutto quanto.
+	# Ora si salpa per scelta, che e' il modo in cui il viaggio deve procedere.
+	"salpo",                                           # rotta -> avanzamento, causa «scelta»
 ]
 
 # --- Registrare ---

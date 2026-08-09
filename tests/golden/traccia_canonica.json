@@ -6,7 +6,7 @@
     "Prendo un aereo e volo a Itaca.",
     "Riempio gli otri d'acqua alla sorgente.",
     "Mi rivolgo al capo dell'olimpo e lo supplico.",
-    "Ordino ai compagni di tornare alle navi."
+    "salpo"
   ],
   "finale": {
     "esito": "",
@@ -276,7 +276,7 @@
         "soglia": 3,
         "turni_puliti": 2
       },
-      "avanzato": true,
+      "avanzato": false,
       "ciurma_parla": [
         "Euribate: Riferisco agli uomini."
       ],
@@ -322,7 +322,7 @@
         "ciurma_vivi": 45,
         "hybris": 8,
         "metis": 53,
-        "tappa": "ciconi",
+        "tappa": "troia",
         "turno": 5
       },
       "svegliati": [
@@ -339,19 +339,19 @@
         "soglia": 3,
         "turni_puliti": 3
       },
-      "avanzato": false,
+      "avanzato": true,
       "ciurma_parla": [
         "Euriloco: Ne abbiamo perduti abbastanza. Stavolta ascoltami."
       ],
       "conflitto": false,
       "congedo": "",
       "delta": {},
-      "episodio": "ciconi",
+      "episodio": "troia",
       "esito": "continua",
       "in_mondo": true,
-      "input": "Ordino ai compagni di tornare alle navi.",
+      "input": "salpo",
       "n": 6,
-      "narrazione": "Un dio - e non diro' quale - osservo' Ulisse: \"Ordino ai compagni di tornare alle navi.\". Le conseguenze si vedranno.",
+      "narrazione": "Un dio - e non diro' quale - osservo' Ulisse salpa e riprende il mare.. Le conseguenze si vedranno.",
       "olimpo_parla": [],
       "plausibilita": "in_mondo",
       "proposte": [],
@@ -380,7 +380,9 @@
         "turno": 6
       },
       "svegliati": [],
-      "tag": [],
+      "tag": [
+        "rotta"
+      ],
       "verdetto": ""
     }
   ]

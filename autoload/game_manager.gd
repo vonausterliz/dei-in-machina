@@ -463,6 +463,10 @@ func esegui_turno(input_testo: String, eventi: Array = [], rischio: bool = false
 		"congedo": congedo,   # l'ultima voce di Omero, se la partita e' finita
 		"episodio": avanzamento["episodio"],
 		"avanzato": avanzamento["avanzato"],
+		# PERCHE' si e' cambiata scena (R-09): senza questo la causa resterebbe dentro il
+		# motore, e chi guarda il turno da fuori — la UI, i test, il golden trace — non
+		# potrebbe accorgersi di un cambio di scena rimasto senza spiegazione.
+		"causa": avanzamento.get("causa", ""),
 		"intro": avanzamento["intro"],
 		"transizione": avanzamento.get("transizione", ""),  # traversata verso la nuova tappa
 		"spunti": spunti,   # gia' pronti: nessuna seconda chiamata dopo la narrazione
