@@ -103,17 +103,48 @@ func avanza(envelope: Dictionary) -> Dictionary:
 	var per_cap: bool = e.turni_massimi > 0 and int(v["turni_in_episodio"]) >= e.turni_massimi
 	if not (per_tag or per_cap):
 		return fermo
+	fermo["causa"] = ""
+	var causa := _causa(String(e.avanza_su_tag) if per_tag else "", per_cap)
 
 	var chiusa := String(v["corrente"])
 	var da_nome := e.nome
 	v["completati"].append(chiusa)
 	var prossimo := episodi.successivo(chiusa)
 	if prossimo == "" or prossimo == "itaca":
-		return {"avanzato": true, "esito": "itaca", "episodio": "itaca",
+		return {"avanzato": true, "esito": "itaca", "episodio": "itaca", "causa": causa,
 			"intro": intro_corrente(), "da": da_nome, "a": "Itaca", "chiude": chiusa}
 	var intro := entra(prossimo)
-	return {"avanzato": true, "esito": "continua", "episodio": prossimo,
+	return {"avanzato": true, "esito": "continua", "episodio": prossimo, "causa": causa,
 		"intro": intro, "da": da_nome, "a": nome_corrente(), "chiude": chiusa}
+
+## PERCHE' SI CAMBIA SCENA. Tre cause sole, e nessun cambio senza una di queste (R-09):
+##
+##   scelta   — se n'e' andato lui
+##   cacciato — l'hanno cacciato
+##   prodigio — e' successo qualcosa di sovrannaturale
+##
+## Nasce da una partita vera: «non posso trovarmi a combattere coi Ciconi e poi al turno dopo
+## trovarmi dai Lotofagi». E infatti era cosi': Ciconi e Lotofagi si erano chiusi tutti e due
+## per TETTO DI TURNI, cioe' per un contatore scaduto — un cambio di scena senza niente da
+## raccontare. Omero riceveva solo «da» e «a», quindi non poteva nemmeno accorgersene: gli
+## restava la prosa del mare che si allarga, uguale per una fuga e per un commiato.
+##
+## `fuga` e' un buon segnale di congedo — scappare È andarsene, sotto la spinta di qualcuno —
+## e vale `cacciato`. Ogni altro tag d'uscita e' una partenza voluta.
+##
+## Il ramo `per_cap` qui è provvisorio: `prodigio` è la causa meno falsa che si possa dare a
+## un contatore, ma resta un cambio che il giocatore non ha visto arrivare. Lo sostituirà la
+## pressione narrativa (R-10), che al posto del tetto fa mormorare la ciurma, irrobustisce
+## gli avversari e infine sospinge Ulisse altrove — con un evento che si legge, turno per
+## turno, prima che la scena cambi.
+const CAUSE := ["scelta", "cacciato", "prodigio"]
+
+static func _causa(tag_uscita: String, per_tetto: bool) -> String:
+	if tag_uscita == "fuga":
+		return "cacciato"
+	if tag_uscita != "":
+		return "scelta"
+	return "prodigio" if per_tetto else "scelta"
 
 # --- Cosa consente la tappa ---
 

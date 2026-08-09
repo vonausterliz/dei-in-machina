@@ -39,7 +39,7 @@ func costruisci_messaggi(contesto: Dictionary) -> Array:
 	if not passaggio.is_empty():
 		return [
 			{"role": "system", "content": _system_prompt},
-			{"role": "user", "content": "PASSAGGIO: Ulisse lascia «%s» e per mare giunge a «%s». Rendi in 2-3 righe il distacco dalla terra che si allontana e la traversata fino alla nuova sponda: così il lettore capisce come ci è arrivato. Tono epico e asciutto. Non nominare un dio." % [passaggio.get("da", "questa terra"), passaggio.get("a", "una nuova terra")]},
+			{"role": "user", "content": "PASSAGGIO: Ulisse lascia «%s» e per mare giunge a «%s».\n%s\nRendi in 2-3 righe il distacco dalla terra che si allontana e la traversata fino alla nuova sponda: così il lettore capisce come ci è arrivato, E PERCHE'. Tono epico e asciutto. Non nominare un dio." % [passaggio.get("da", "questa terra"), passaggio.get("a", "una nuova terra"), _perche(String(passaggio.get("causa", "")))]},
 		]
 
 	# Congedo: l'ultima voce, quando la partita e' finita. Non c'e' un'azione da rendere,
@@ -301,3 +301,23 @@ func _escape(s: String) -> String:
 	for c in speciali:
 		out = out.replace(c, "\\" + c)
 	return out
+
+## LA CAUSA DEL PASSAGGIO, detta a Omero a parole (R-09).
+##
+## Prima riceveva solo «da» e «a», e con due nomi si puo' scrivere una cosa sola: il mare che
+## si allarga. La stessa prosa per una fuga e per un commiato — ed e' cosi' che si finisce a
+## «combattere coi Ciconi e al turno dopo trovarsi dai Lotofagi». Non era il narratore a
+## sbagliare: non aveva l'informazione, quindi non poteva darla.
+##
+## Le tre cause sono un elenco chiuso (`Viaggio.CAUSE`). Qui si traducono in un'istruzione,
+## non in una frase fatta: il testo lo scrive lui, ma sa cosa deve rendere.
+static func _perche(causa: String) -> String:
+	match causa:
+		"scelta":
+			return "MOTIVO: la partenza è una SUA decisione. Che si veda l'atto di chi scioglie gli ormeggi perché ha finito qui, non un allontanarsi passivo."
+		"cacciato":
+			return "MOTIVO: se ne va SOTTO SPINTA — inseguito, respinto, non piu' tollerato. Che si senta chi lo caccia, anche senza nominarlo, e che la partenza abbia il sapore di una perdita."
+		"prodigio":
+			return "MOTIVO: non e' stata una sua scelta ne' una cacciata: qualcosa di piu' grande lo ha spostato — vento, corrente, sonno, smarrimento. Che il lettore capisca di aver assistito a un prodigio, senza che nessuno lo spieghi."
+		_:
+			return ""

@@ -755,12 +755,13 @@ func _avanza_episodio(envelope: Dictionary) -> Dictionary:
 		_ultima_narrazione = String(a["intro"])
 	return {
 		"esito": a["esito"], "avanzato": true, "intro": a["intro"], "episodio": a["episodio"],
-		"transizione": await _passaggio(String(a["da"]), String(a["a"])),
+		"causa": a.get("causa", ""),
+		"transizione": await _passaggio(String(a["da"]), String(a["a"]), String(a.get("causa", ""))),
 	}
 
 ## Breve narrazione di Omero per la traversata tra due tappe (come ci si arriva).
-func _passaggio(da: String, a: String) -> String:
-	return await LLMManager.narrazione_omero({"passaggio": {"da": da, "a": a}})
+func _passaggio(da: String, a: String, causa: String = "") -> String:
+	return await LLMManager.narrazione_omero({"passaggio": {"da": da, "a": a, "causa": causa}})
 
 ## Una tappa che TRATTIENE (Ogigia) ammonisce chi indugia, e alla terza volta lo tiene per
 ## sempre. La regola sta in Viaggio: e' una proprieta' della tappa, non del turno.
