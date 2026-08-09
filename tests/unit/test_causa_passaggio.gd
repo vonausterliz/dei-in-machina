@@ -1,6 +1,6 @@
 extends GutTest
 
-## PERCHÉ SI CAMBIA SCENA — R-09.
+## PERCHÉ SI CAMBIA SCENA — R-12.
 ##
 ## «Un cambio di scena deve avere una causa, e il giocatore deve leggerla. Le cause legittime
 ## sono tre: me ne sono andato io, mi hanno cacciato, è successo qualcosa di sovrannaturale.

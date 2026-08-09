@@ -35,11 +35,13 @@ sync-mac.sh
 # DOCUMENTI DI LAVORO — restano su questa macchina e in un repository PRIVATO a parte
 # (vedi lavoro.sh). Non sono documentazione del gioco: sono il cantiere.
 #   STATO_LAVORI.md   il diario di sviluppo, sessione per sessione
+#   HANDOFF.md        lo stato del cantiere e cosa resta: nomina persone e percorsi di casa
 #   docs/requisiti.md il tracciatore dei requisiti, con gli stati
 #   CLAUDE.md         le istruzioni per l'assistente (deve stare QUI, nella radice,
 #                     o Claude Code non lo legge: per questo non e' in una sottocartella)
 #   mockup/           le bozze HTML da cui e' nata l'interfaccia
 STATO_LAVORI.md
+HANDOFF.md
 docs/requisiti.md
 CLAUDE.md
 mockup/

@@ -302,7 +302,7 @@ func _escape(s: String) -> String:
 		out = out.replace(c, "\\" + c)
 	return out
 
-## LA CAUSA DEL PASSAGGIO, detta a Omero a parole (R-09).
+## LA CAUSA DEL PASSAGGIO, detta a Omero a parole (R-12).
 ##
 ## Prima riceveva solo «da» e «a», e con due nomi si puo' scrivere una cosa sola: il mare che
 ## si allarga. La stessa prosa per una fuga e per un commiato — ed e' cosi' che si finisce a

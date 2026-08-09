@@ -43,7 +43,7 @@ func test_avanza_su_azione_di_progresso():
 	# Entrando a Eolo si accende il suo locale.
 	assert_true(PantheonManager.get_dio("eolo").attivo)
 
-## IL TETTO NON C'E' PIU': al suo posto la pressione (R-10).
+## IL TETTO NON C'E' PIU': al suo posto la pressione (R-13).
 ##
 ## Prima quattro turni distratti bastavano a chiudere Troia — un cambio di scena a contatore
 ## scaduto, cioe' senza causa e senza niente da raccontare. Adesso chi indugia non viene

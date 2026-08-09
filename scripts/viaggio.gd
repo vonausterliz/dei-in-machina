@@ -117,7 +117,7 @@ func avanza(envelope: Dictionary) -> Dictionary:
 	return {"avanzato": true, "esito": "continua", "episodio": prossimo, "causa": causa,
 		"intro": intro, "da": da_nome, "a": nome_corrente(), "chiude": chiusa}
 
-## PERCHE' SI CAMBIA SCENA. Tre cause sole, e nessun cambio senza una di queste (R-09):
+## PERCHE' SI CAMBIA SCENA. Tre cause sole, e nessun cambio senza una di queste (R-12):
 ##
 ##   scelta   — se n'e' andato lui
 ##   cacciato — l'hanno cacciato
@@ -132,11 +132,9 @@ func avanza(envelope: Dictionary) -> Dictionary:
 ## `fuga` e' un buon segnale di congedo — scappare È andarsene, sotto la spinta di qualcuno —
 ## e vale `cacciato`. Ogni altro tag d'uscita e' una partenza voluta.
 ##
-## Il ramo `per_cap` qui è provvisorio: `prodigio` è la causa meno falsa che si possa dare a
-## un contatore, ma resta un cambio che il giocatore non ha visto arrivare. Lo sostituirà la
-## pressione narrativa (R-10), che al posto del tetto fa mormorare la ciurma, irrobustisce
-## gli avversari e infine sospinge Ulisse altrove — con un evento che si legge, turno per
-## turno, prima che la scena cambi.
+## Il ramo senza tag e' la PRESSIONE (R-13), e vale `prodigio`: non e' una partenza voluta
+## ne' una cacciata, e' qualcosa di piu' grande che lo sposta. Non e' piu' un contatore muto —
+## quando arriva, chi gioca ha gia' letto per tre turni che gli dei lo stanno sospingendo.
 const CAUSE := ["scelta", "cacciato", "prodigio"]
 
 static func _causa(tag_uscita: String, per_tetto: bool) -> String:
@@ -162,10 +160,10 @@ func eventi_del_turno(eventi: Array) -> Array:
 		out.append(spinta)
 	return out
 
-# --- LA PRESSIONE (R-10) ---
+# --- LA PRESSIONE (R-13) ---
 #
 # IL TETTO DEI TURNI NON C'E' PIU'. Faceva cambiare scena a contatore scaduto, ed e'
-# esattamente il cambio senza causa che R-09 vieta: nel tracciato del 6 agosto, Ciconi e
+# esattamente il cambio senza causa che R-12 vieta: nel tracciato del 6 agosto, Ciconi e
 # Lotofagi si erano chiusi cosi' — «combatto coi Ciconi e al turno dopo sono dai Lotofagi».
 #
 # Al suo posto la tappa che si trascina comincia a SPINGERE, e la spinta si legge turno per
