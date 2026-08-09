@@ -45,8 +45,8 @@
     "vaglia_sempre": {
       "tipo": "booleano",
       "etichetta": "Controlla la plausibilità anche degli appigli offerti dal gioco",
-      "aiuto": "Su un testo scritto da Omero non c'è niente da controllare. +30 chiamate se acceso.",
-      "aiuto_lungo": "Quello che scrivi tu viene passato a un secondo agente che giudica se appartiene al mondo dell'Odissea: è il vaglio che intercetta gli anacronismi che la lista dei marcatori non prevede (e che, ripetuti, portano alla follia e alla morte).\n\nSugli appigli che il gioco stesso ti offre il vaglio oggi non parte, perché quei testi li ha scritti Omero: sono in-mondo per costruzione, e chiederne conferma è chiedere a un agente di controllare il lavoro di un altro.\n\nAccenderlo costa circa 30 chiamate a partita e in condizioni normali non cambia mai un esito. Serve se hai riscritto i prompt di Omero e vuoi una rete di sicurezza mentre li collaudi."
+      "aiuto": "Su un testo scritto da Omero non c'è niente da controllare. +30 chiamate se acceso, e nessun appiglio viene mai respinto.",
+      "aiuto_lungo": "Quello che scrivi tu viene passato a un secondo agente che giudica se appartiene al mondo dell'Odissea: è il vaglio che intercetta gli anacronismi che la lista dei marcatori non prevede (e che, ripetuti, portano alla follia e alla morte).\n\nSugli appigli che il gioco stesso ti offre il vaglio non parte, perché quei testi li ha scritti Omero: sono in-mondo per costruzione, e chiederne conferma è chiedere a un agente di controllare il lavoro di un altro.\n\nAcceso, il parere si chiede lo stesso — ma solo per GUARDARE: quello che il gioco ti ha offerto non te lo rimangia in nessun caso, perché un'impostazione di costo può decidere quanto il gioco spende, mai se il gioco si contraddice. Se il vaglio boccia un appiglio, la riga finisce nel diario dell'applicazione (app-*.log) e dice che il prompt di Omero è da rivedere.\n\nCosta circa 30 chiamate a partita e non cambia mai un esito. Serve se hai riscritto i prompt di Omero e vuoi una rete di sicurezza mentre li collaudi."
     },
     "ricognizione_sempre": {
       "tipo": "booleano",

@@ -11,9 +11,29 @@ extends GutTest
 ## testo che ha scritto Omero non c'e' niente da vagliare — e' in-mondo per costruzione.
 ## Saltarlo toglie la contraddizione E una chiamata.
 
+var _prima: Dictionary = {}
+
 func before_each():
 	LLMManager.mock_mode = true
+	LLMManager.mock_vaglio_classe = ""
+	# I test non devono sporcare le preferenze vere dell'utente: si salva e si rimette.
+	_prima = {
+		"attivo": Impostazioni.leggi(Costi.CHIAVE_ATTIVO, null),
+		"utente": Impostazioni.leggi(Costi.CHIAVE_UTENTE, null),
+	}
+	Impostazioni.dimentica(Costi.CHIAVE_ATTIVO)
+	Impostazioni.dimentica(Costi.CHIAVE_UTENTE)
+	Costi.dimentica()
 	GameManager.nuova_partita(909)
+
+func after_each():
+	LLMManager.mock_vaglio_classe = ""
+	for chiave in [[Costi.CHIAVE_ATTIVO, "attivo"], [Costi.CHIAVE_UTENTE, "utente"]]:
+		if _prima[chiave[1]] == null:
+			Impostazioni.dimentica(String(chiave[0]))
+		else:
+			Impostazioni.scrivi(String(chiave[0]), _prima[chiave[1]])
+	Costi.dimentica()
 
 func test_il_gioco_ricorda_cosa_ha_proposto():
 	var esito: Dictionary = await GameManager.esegui_turno("Sciolgo le vele.")
@@ -38,6 +58,45 @@ func test_lo_spunto_proposto_attraversa_il_turno():
 	var esito: Dictionary = await GameManager.esegui_turno("Sguaina il bronzo contro i Ciconi.")
 	assert_true(esito["in_mondo"], "il gioco non boccia la propria proposta")
 	assert_eq(String(esito["voce"]["envelope"]["plausibilita"]), "in_mondo")
+
+## LA PROMESSA NON HA CLAUSOLE.
+##
+## Fino al 9 agosto 2026 ne aveva una: `and not Costi.acceso("vaglia_sempre")`. Col profilo
+## «Senza vincoli di costo» la promessa si spegneva e il gioco bocciava i propri suggerimenti
+## — provato sul campo: tre appigli generati dal gioco stesso, cliccati, respinti come
+## anacronismi. Un'impostazione di costo puo' decidere quanto il gioco SPENDE, mai se il
+## gioco si CONTRADDICE.
+func test_la_promessa_vale_anche_col_profilo_senza_vincoli():
+	Costi.usa("libero")
+	assert_true(Costi.acceso("vaglia_sempre"), "e' il profilo che spegneva la promessa")
+	LLMManager.mock_vaglio_classe = "assurdo_diegetico"   # il secondo parere boccia
+	GameManager.stato.spunti_proposti = ["Sguaina il bronzo contro i Ciconi."]
+	var esito: Dictionary = await GameManager.esegui_turno("Sguaina il bronzo contro i Ciconi.")
+	assert_true(esito["in_mondo"], "il gioco non boccia la propria proposta, a nessun prezzo")
+	assert_eq(String(esito["voce"]["envelope"]["plausibilita"]), "in_mondo")
+
+## Col vaglio sempre acceso il parere si chiede lo stesso — ma per GUARDARE, non per
+## decidere. Se il Vaglio boccia un testo che ha scritto Omero, il difetto sta nel prompt di
+## Omero: la riga nel registro e' l'unica cosa che quella spesa deve comprare.
+func test_col_vaglio_sempre_acceso_il_disaccordo_finisce_nel_registro():
+	Costi.usa("libero")
+	LLMManager.mock_vaglio_classe = "assurdo_diegetico"
+	var righe: Array = []
+	Registro.riversa_in(func(r): righe.append(r))
+	GameManager.stato.spunti_proposti = ["Sguaina il bronzo contro i Ciconi."]
+	await GameManager.esegui_turno("Sguaina il bronzo contro i Ciconi.")
+	Registro.riversa_in(Callable())
+	var detto := righe.any(func(r): return String(r).contains("appiglio offerto"))
+	assert_true(detto, "chi tara i prompt deve poter vedere il disaccordo")
+
+## Ma un anacronismo vero resta un anacronismo, anche se qualcuno lo mette fra gli spunti:
+## la salvaguardia deterministica non si scavalca. Vale a maggior ragione col profilo che
+## prima decideva al posto suo.
+func test_un_anacronismo_vero_non_passa_nemmeno_col_profilo_senza_vincoli():
+	Costi.usa("libero")
+	GameManager.stato.spunti_proposti = ["Sparo ai Ciconi col fucile."]
+	var esito: Dictionary = await GameManager.esegui_turno("Sparo ai Ciconi col fucile.")
+	assert_false(esito["in_mondo"], "i marcatori deterministici valgono sempre")
 
 ## Ma un anacronismo vero resta un anacronismo, anche se qualcuno lo mette fra gli spunti:
 ## la salvaguardia deterministica non si scavalca.

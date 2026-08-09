@@ -647,12 +647,29 @@ static func forza_con_rischio(intensita: int, rischio: bool) -> int:
 ##
 ## La salvaguardia deterministica (i marcatori) NON si scavalca: se qualcuno mettesse un
 ## anacronismo vero fra gli spunti, quello resta fuori.
+##
+## LA PROMESSA NON HA CLAUSOLE. Fino al 9 agosto 2026 ne aveva una — `and not
+## Costi.acceso("vaglia_sempre")` — e col profilo «Senza vincoli di costo» il gioco tornava a
+## bocciare i propri suggerimenti: tre appigli generati dal gioco, cliccati, respinti come
+## anacronismi. Un'impostazione di costo puo' decidere quanto il gioco SPENDE, mai se il
+## gioco si CONTRADDICE: il vaglio degli appigli resta, ma solo per guardare.
 func _vaglia_plausibilita(envelope: Dictionary, input_testo: String) -> void:
-	if gia_proposto(input_testo) and not Costi.acceso("vaglia_sempre"):
+	if gia_proposto(input_testo):
 		if not _validazione.e_anacronistico(input_testo):
 			envelope["plausibilita"] = "in_mondo"
+			if Costi.acceso("vaglia_sempre"):
+				await _sorveglia_appiglio(input_testo)
 			return
 	await _validazione.vaglia(envelope, input_testo)
+
+## Il vaglio sugli appigli offerti, col profilo che lo chiede: PARTE, e non decide niente.
+## Se il Vaglio boccia un testo che ha scritto Omero, il difetto sta nel prompt di Omero —
+## e questa riga e' l'unica cosa che quella spesa deve comprare. Chi tara i prompt la trova
+## in `app-*.log`; il giocatore non se ne accorge, ed e' giusto cosi'.
+func _sorveglia_appiglio(input_testo: String) -> void:
+	var classe: String = await LLMManager.verifica_plausibilita(input_testo)
+	if classe != "" and classe != "in_mondo":
+		Registro.avviso("spunti", "il Vaglio boccia un appiglio offerto dal gioco (%s): «%s» — la promessa tiene, il prompt di Omero e' da rivedere" % [classe, input_testo])
 
 ## GLI SPUNTI SONO UNA PROMESSA: cio' che il gioco offre, il gioco lo accetta e lo sa
 ## rendere. Sul campo la promessa si e' rotta in tre modi, tutti qui:

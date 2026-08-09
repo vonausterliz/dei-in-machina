@@ -157,13 +157,23 @@ func test_col_frugale_ne_parla_uno_solo():
 		func(m): return String(m["autore"]) != "Ulisse" and String(m["tipo"]) == "voce")
 	assert_eq(voci.size(), 1)
 
-## Il vaglio si salta sugli appigli offerti solo se il profilo lo chiede.
-func test_il_vaglio_degli_appigli_segue_il_profilo():
+## IL PROFILO DECIDE QUANTO SI SPENDE, NON SE IL GIOCO SI CONTRADDICE.
+##
+## Questo test asseriva i due flag — `vaglia_sempre` spento col Frugale, acceso col Libero —
+## e restava verde mentre col Libero il gioco bocciava i propri appigli. Un test che
+## sorveglia lo stato interno invece dell'invariante osservabile difende la decisione
+## sbagliata: e' la trappola annotata in v2.43, ripresentata qui.
+##
+## L'invariante osservabile e' uno solo, e non dipende dal profilo: l'appiglio offerto
+## attraversa il turno. (Il resto della promessa sta in test_spunti_coerenti.gd.)
+func test_la_promessa_sugli_appigli_non_dipende_dal_profilo():
 	LLMManager.mock_mode = true
-	GameManager.nuova_partita(5)
-	GameManager.ricorda_spunti([{"testo": "Scendo a riva.", "rischio": false}])
-	assert_true(GameManager.gia_proposto("Scendo a riva."))
-	# Il comportamento osservabile e' il flag: col Frugale il vaglio non parte affatto.
-	assert_false(Costi.acceso("vaglia_sempre"))
-	Costi.usa("libero")
-	assert_true(Costi.acceso("vaglia_sempre"))
+	for profilo in ["frugale", "libero"]:
+		Costi.usa(profilo)
+		GameManager.nuova_partita(5)
+		LLMManager.mock_vaglio_classe = "assurdo_diegetico"   # il vaglio boccia
+		GameManager.ricorda_spunti([{"testo": "Scendo a riva.", "rischio": false}])
+		assert_true(GameManager.gia_proposto("Scendo a riva."))
+		var esito: Dictionary = await GameManager.esegui_turno("Scendo a riva.")
+		LLMManager.mock_vaglio_classe = ""
+		assert_true(esito["in_mondo"], "col profilo «%s» il gioco non si rimangia un appiglio" % profilo)

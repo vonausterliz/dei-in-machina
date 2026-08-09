@@ -913,11 +913,17 @@ func aggiorna_cronaca(contesto: Dictionary, seed: int = 0) -> String:
 	_reg("← Cronista: %d caratteri · %d ms" % [testo.length(), Time.get_ticks_msec() - t0])
 	return testo
 
+## Cosa risponde il Vaglio in mock. Normalmente "" — nessun parere, i test restano
+## deterministici e dalla parte giusta. Un test puo' metterci una classe per far dire NO al
+## secondo parere: e' l'unico modo di mettere sotto prova cio' che il gioco fa quando il
+## vaglio boccia, e senza di esso la promessa sugli appigli non e' verificabile a mock.
+var mock_vaglio_classe := ""
+
 ## Secondo parere dedicato sulla plausibilità (anacronismi che la lista non prevede).
-## In mock ritorna "" (i test restano deterministici). "" = nessun cambiamento.
+## In mock ritorna `mock_vaglio_classe` (di norma ""). "" = nessun cambiamento.
 func verifica_plausibilita(testo_libero: String, seed: int = 0) -> String:
 	if mock_mode:
-		return ""
+		return mock_vaglio_classe
 	_reg("→ Vaglio: questa mossa appartiene al mondo dell'Odissea?")
 	var t0 := Time.get_ticks_msec()
 	var classe := await _interprete.verifica_plausibilita(testo_libero, _per("Vaglio"), seed)
