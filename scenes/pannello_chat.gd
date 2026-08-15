@@ -38,6 +38,11 @@ var _serif: FontFile
 var _serif_bold: FontFile
 var _serif_italic: FontFile
 
+## Stato soltanto visivo: non viene restituito da contenuto(), quindi non puo' finire
+## in Agora, nella lente, nei salvataggi o in una trascrizione.
+var _contenuto_persistente := ""
+var _autore_in_attesa := ""
+
 func _init(titolo: String, interazione := false, segnaposto := "") -> void:
 	_titolo_testo = titolo
 	interattiva = interazione
@@ -126,9 +131,28 @@ func _invia(t: String) -> void:
 ## Sostituisce il contenuto. Il pannello mostra una TRASCRIZIONE, non un registro che si
 ## accoda: la conversazione si ricostruisce intera a ogni turno da Agora, che e' la fonte.
 func imposta(contenuto: String) -> void:
-	if testo == null:
-		return
-	testo.text = contenuto
+	_contenuto_persistente = contenuto
+	_ridisegna()
+
+func mostra_indicatore(autore: String) -> void:
+	_autore_in_attesa = autore.strip_edges()
+	_ridisegna()
+
+func nascondi_indicatore() -> void:
+	_autore_in_attesa = ""
+	_ridisegna()
+
+func ha_indicatore() -> bool:
+	return _autore_in_attesa != ""
 
 func contenuto() -> String:
-	return testo.text if testo else ""
+	return _contenuto_persistente
+
+func _ridisegna() -> void:
+	if testo == null:
+		return
+	testo.clear()
+	testo.append_text(_contenuto_persistente)
+	if _autore_in_attesa != "":
+		var autore := Bbcode.neutro(_autore_in_attesa)
+		testo.append_text("\n  [i][color=%s]%s sta rispondendo · · ·[/color][/i]" % [C_BONE_DIM.to_html(), autore])

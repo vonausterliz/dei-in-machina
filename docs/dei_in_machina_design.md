@@ -105,7 +105,7 @@ Idioma Godot Autoload, come da prassi. Quattro pilastri:
 
 Singleton previsti: **GameManager** (stato, FSM del turno, esiti), **PantheonManager** (risveglio, ledger, umori), **LLMManager** provider-agnostico. Agenti logici via LLM: Interprete, Dèi, Arbitro, Narratore (Omero).
 
-La FSM del turno: `RESA_DEI_CONTI → ATTESA_INPUT → INTERPRETAZIONE → (VALIDAZIONE) → RISVEGLIO → DELIBERAZIONE → ARBITRATO → (SCAVALCAMENTO) → APPLICAZIONE → NARRAZIONE → ESITO → AVANZAMENTO`. Diagramma completo in `macchina_del_turno.mermaid`.
+La FSM del turno: `RESA_DEI_CONTI → ATTESA_INPUT → INTERPRETAZIONE → (VALIDAZIONE) → RISVEGLIO → DELIBERAZIONE → ARBITRATO → (SCAVALCAMENTO) → APPLICAZIONE → ESITO → AVANZAMENTO → QUADRO_NARRATIVO → NARRAZIONE`. Esito e tappa dopo sono quindi già decisi quando Omero rende azione e passaggio in una sola voce. Diagramma completo in `macchina_del_turno.mermaid`.
 
 **Budget di chiamate LLM per turno** (conta sul tier gratuito): turno muto ~2 (Interprete + Omero); turno normale ~4; turno con deliberazione ~6–9. La deliberazione vera è la voce cara: tenerla ai soli dèi in conflitto e a 1–2 giri la rende sostenibile.
 

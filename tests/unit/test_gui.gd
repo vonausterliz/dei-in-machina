@@ -387,3 +387,31 @@ func test_col_flag_la_finestra_del_tracciato_esiste_e_si_apre():
 	OS.set_environment("DEI_DEBUG_LLM", "")   # subito: gli altri test non devono ereditarlo
 	assert_not_null(ui._fin_log, "con --debugllm la finestra si costruisce")
 	assert_true(ui._fin_log is FinestraTesto)
+
+## Lindicatore e transitorio del widget: non contamina la fonte Agora ne la lente.
+func test_indicatore_olimpo_e_transitorio_e_non_finisce_nel_contenuto():
+	var pannello := PannelloChat.new("OLIMPO")
+	add_child_autofree(pannello)
+	await wait_frames(1)
+	pannello.imposta("Archivio delle voci")
+	pannello.mostra_indicatore("Atena")
+	assert_true(pannello.ha_indicatore())
+	assert_string_contains(pannello.testo.get_parsed_text(), "Atena sta rispondendo")
+	assert_eq(pannello.contenuto(), "Archivio delle voci",
+		"la copia persistente non include lindicatore")
+	pannello.nascondi_indicatore()
+	assert_false(pannello.ha_indicatore())
+	assert_false(pannello.testo.get_parsed_text().contains("sta rispondendo"))
+
+## Il ramo di errore chiama questa chiusura: nessun puntino resta nella vista.
+func test_la_chiusura_di_errore_rimuove_lindicatore_olimpo():
+	LLMManager.mock_mode = true
+	var ui = load("res://scenes/Main.tscn").instantiate()
+	add_child_autofree(ui)
+	await wait_frames(2)
+	ui._mostra_attesa_olimpo("Atena")
+	assert_true(ui._pan_olimpo.ha_indicatore())
+	ui._chiudi_attese_olimpo()
+	assert_false(ui._pan_olimpo.ha_indicatore(),
+		"un esito vuoto o un errore non lascia attese nella Vista Olimpo")
+	assert_false(ui._pan_olimpo.testo.get_parsed_text().contains("sta rispondendo"))

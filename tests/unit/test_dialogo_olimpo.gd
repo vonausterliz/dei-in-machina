@@ -66,3 +66,26 @@ func test_la_traccia_tecnica_resta_esplicita():
 	GameManager.vai_a_tappa("ciclope")
 	var esito: Dictionary = await GameManager.esegui_turno("Sono io, Odisseo, che t'ho accecato!")
 	assert_string_contains(TraceFormatter.turno(esito["voce"]), "Verdetto:")
+
+## Il motore segnala gli stati intermedi senza mutare la chat persistente.
+func test_il_progresso_olimpo_arriva_prima_di_omero_e_non_si_salva():
+	GameManager.vai_a_tappa("ciclope")
+	var fasi: Array[String] = []
+	var fotografie: Array[String] = []
+	var ascolta := func(fase: String, dati: Dictionary):
+		fasi.append(fase)
+		fotografie.append(String(dati.get("trascrizione", "")))
+	GameManager.progresso_turno.connect(ascolta)
+	await GameManager.esegui_turno("Sono io, Odisseo, che tho accecato!")
+	GameManager.progresso_turno.disconnect(ascolta)
+	assert_ne(fasi.find("risvegli"), -1, "il risveglio deve avere un suo stato intermedio")
+	assert_ne(fasi.find("narrazione"), -1, "Omero resta lultimo passaggio visuale")
+	assert_lt(fasi.find("risvegli"), fasi.find("narrazione"),
+		"la Vista Olimpo si aggiorna prima della narrazione")
+	assert_lt(fasi.find("attesa"), fasi.find("battuta"),
+		"ogni risposta e preceduta dallautore che sta rispondendo")
+	for foto in fotografie:
+		assert_false(foto.contains("sta rispondendo"),
+			"lindicatore e della GUI, non della trascrizione persistente")
+	assert_false(JSON.stringify(GameManager.agora.to_dict()).contains("sta rispondendo"),
+		"Agora non conserva indicatori fra i dati della partita")

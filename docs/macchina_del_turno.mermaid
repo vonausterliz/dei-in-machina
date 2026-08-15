@@ -1,4 +1,4 @@
-%% La macchina del turno — aggiornato a v2.27.
+%% La macchina del turno — quadro narrativo e transizione atomica (fase 5).
 %% Blu = chiamata LLM · beige = regola deterministica (GDScript).
 %% Dettaglio completo: docs/architettura_dettaglio.md
 flowchart TD
@@ -18,19 +18,19 @@ flowchart TD
     C -->|no| D["Ammonizione +1<br/>turni_puliti = 0"]
     D --> E{"contatore >= soglia?"}
     E -->|si| F["FOLLIA - un dio colpisce"]
-    E -->|no| G["Richiamo diegetico<br/>OMERO NON viene chiamato"]
-    G --> CIU
+    E -->|no| AP
+    F --> AP
 
     C -->|si| H["turni_puliti +1<br/>decadimento ammonizioni<br/>+ delta della sola azione"]
     H --> EV["registra eventi accaduti<br/>(emette_su_tag: restano per sempre)"]
     EV --> INV["risoluzione INVOCAZIONE<br/>1 envelope · 2 nome/epiteto · 3 LLM"]
     INV --> I["RISVEGLIO - regola<br/>attivo -> dorme_finche -> fascia<br/>-> trigger_azione / trigger_evento / dio_invocato"]
     I --> J{"quanti dei<br/>si destano?"}
-    J -->|nessuno| NAR
+    J -->|nessuno| COA
     J -->|uno o piu| M["DELIBERAZIONE round 1<br/>una proposta per dio<br/>registro · intensita · battuta"]
     M --> SIL["si scartano i 'silenzio'"]
     SIL --> J2{"voci in campo?"}
-    J2 -->|0| NAR
+    J2 -->|0| COA
     J2 -->|1| DET
     J2 -->|"2 o piu"| L["REPLICHE - round 2<br/>ognuno rilegge gli altri e ribatte<br/>tetto: MAX_REPLICHE = 2"]
     L --> K{"conflitto?<br/>chi punisce E chi aiuta"}
@@ -45,18 +45,25 @@ flowchart TD
     SCB --> MEM["ogni dio ANNOTA nel taccuino<br/>cosa ha voluto e come e' finita"]
     MEM --> COA["coalizioni: decadono,<br/>raramente se ne forma una"]
     COA --> AP["APPLICA il delta - regola<br/>ulisse · registro divino · relazioni"]
-    AP --> NAR["OMERO narra reticente<br/>+ 3 SPUNTI nella stessa chiamata"]
+    AP --> ES["ESITO della tappa prima<br/>prigionia · ciurma · follia"]
+    ES --> MONDO{"turno in-mondo?"}
+    MONDO -->|no| G["Richiamo diegetico<br/>OMERO NON viene chiamato"]
+    G --> CIU
+    MONDO -->|si| CONT{"esito continua?"}
+    CONT -->|no| Q
+    CONT -->|si| AV{"Viaggio chiude la tappa?<br/>tag (rotta vuole movimento)<br/>o pressione dopo il grado 3"}
+    AV -->|si| NEXT["applica l'unica tappa successiva<br/>causa: scelta | cacciato | prodigio<br/>chi deve cadere, cade e tace"]
+    AV -->|no| Q
+    NEXT --> Q["QUADRO AUTOREVOLE<br/>stato prima · azione · conseguenze<br/>stato dopo · passaggio da/a/causa"]
+    Q --> NAR["OMERO narra azione + passaggio<br/>UNA voce + 3 spunti"]
 
     NAR --> FIL["FILTRO SPUNTI<br/>impalcatura (anche in grassetto) · anacronismi<br/>non_ancora · forma ripulita<br/>vuoto -> spunti_di_riserva DELLA TAPPA"]
     FIL --> CIU["LA CIURMA commenta<br/>(chi e' interpellato, o uno a rotazione)"]
     CIU --> REG["registra: storico_olimpo + diario"]
-    REG --> ES{"controllo esito"}
-    ES -->|itaca| WIN["VITTORIA"]
-    ES -->|"morte / ciurma 0 / prigionia / follia"| LOSE["SCONFITTA"]
-    ES -->|continua| AV{"tappa conclusa?<br/>avanza_su_tag (rotta vuole tipo=movimento)<br/>o pressione al grado 3<br/>causa: scelta | cacciato | prodigio"}
-    AV -->|si| NEXT["chi deve cadere, cade e tace<br/>traversata + nuova tappa<br/>accende i locali"]
-    AV -->|no| CRON
-    NEXT --> CRON{"turni dall'ultima<br/>cronaca >= N?"}
+    REG --> FINE{"esito del turno"}
+    FINE -->|itaca| WIN["VITTORIA"]
+    FINE -->|"morte / ciurma 0 / prigionia / follia"| LOSE["SCONFITTA"]
+    FINE -->|continua| CRON{"turni dall'ultima<br/>cronaca >= N?"}
     CRON -->|si| CR["CRONISTA: aggiorna il riassunto"]
     CRON -->|no| A2["Prossima scena"]
     CR --> A2
@@ -71,7 +78,7 @@ flowchart TD
     classDef fine fill:#e6e6ea,stroke:#8b93ad,color:#2a2a33;
 
     class B,VAG,M,L,AR,NAR,CIU,CR llm;
-    class D,H,I,AP,NEXT,A2,RC,SCB,SEG,EV,INV,SIL,DET,MOD,MEM,COA,FIL,REG logic;
+    class D,H,I,AP,ES,AV,NEXT,Q,A2,RC,SCB,SEG,EV,INV,SIL,DET,MOD,MEM,COA,FIL,REG logic;
     class WIN win;
     class F,LOSE lose;
     class G,BEAT fine;

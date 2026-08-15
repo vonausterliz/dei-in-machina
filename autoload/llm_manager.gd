@@ -52,6 +52,15 @@ const NOMI_STORICI := {
 var _mock := LLMMock.new()
 var _client: LLMClient = null
 
+## Telemetria effimera del confine Omero, utile ai test d'integrazione: non entra nello
+## stato ne' nei salvataggi. Conta sia la chiamata combinata sia quella di sola prosa.
+var numero_chiamate_omero: int = 0
+var ultimo_contesto_omero: Dictionary = {}
+
+func azzera_telemetria_omero() -> void:
+	numero_chiamate_omero = 0
+	ultimo_contesto_omero = {}
+
 ## IL TRACCIATO delle interazioni col modello. Vive quanto il gioco, non quanto una finestra:
 ## scrive sempre su file in user://log/, e in piu' alla finestra di debug SE e' stata chiesta
 ## all'avvio. Cosi' un problema visto ieri si puo' ancora leggere oggi.
@@ -996,6 +1005,8 @@ func suggerisci(contesto: Dictionary = {}, seed: int = 0) -> Array:
 ## turno. Se il modello non produce spunti usabili, si ripiega su quelli generici: in UI
 ## ce ne sono sempre tre.
 func narrazione_e_spunti(contesto: Dictionary, seed: int = 0) -> Dictionary:
+	numero_chiamate_omero += 1
+	ultimo_contesto_omero = contesto.duplicate(true)
 	if mock_mode:
 		await get_tree().process_frame
 		return {"narrazione": _mock.narrazione_omero(contesto), "spunti": []}
@@ -1012,6 +1023,8 @@ func narrazione_e_spunti(contesto: Dictionary, seed: int = 0) -> Dictionary:
 	return {"narrazione": String(r.get("narrazione", "")), "spunti": spunti}
 
 func narrazione_omero(contesto: Dictionary, seed: int = 0) -> String:
+	numero_chiamate_omero += 1
+	ultimo_contesto_omero = contesto.duplicate(true)
 	if mock_mode:
 		await get_tree().process_frame
 		# Il CONGEDO in mock ritorna "": chi chiama usa il commiato scritto nei dati, che

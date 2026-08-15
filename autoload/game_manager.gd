@@ -7,6 +7,12 @@
 
 extends Node
 
+## Avanzamento effimero del turno per la UI. Non entra nello stato, in Agora o nei
+## salvataggi: serve soltanto a far vedere la conversazione mentre il motore lavora.
+## `trascrizione` e' una fotografia del canale al momento del segnale, cosi' la GUI puo'
+## riprodurre anche il mock senza cambiare l'ordine logico del turno.
+signal progresso_turno(fase: String, dati: Dictionary)
+
 ## Autoload. Stato della partita corrente + FSM del turno (macchina_del_turno.mermaid).
 ##
 ## Fase 2: ciclo minimo fino a Omero. I dei vengono SELEZIONATI (risveglio) ma non
@@ -30,7 +36,7 @@ enum Fase {
 	RESA_DEI_CONTI,
 	INTERPRETAZIONE, VALIDAZIONE, RISVEGLIO,
 	DELIBERAZIONE, ARBITRATO, APPLICAZIONE, SCAVALCAMENTO,
-	NARRAZIONE, ESITO, AVANZAMENTO,
+	ESITO, AVANZAMENTO, NARRAZIONE,
 }
 
 ## Valori-seme: NON piu' costanti nel codice ma voci di data/bilanciamento.json, cosi' la
@@ -281,6 +287,12 @@ func esegui_turno(input_testo: String, eventi: Array = [], rischio: bool = false
 	var percorso: Array[String] = []
 	stato.turno += 1
 	var turno := stato.turno
+	# La fotografia PRECEDE ogni conseguenza del turno. E' player-facing: niente registro
+	# divino o identita' nascoste. Anche se piu' avanti Viaggio entra nella tappa nuova,
+	# questa copia resta l'origine autorevole della narrazione atomica.
+	var episodio_prima := _episodio_corrente()
+	var stato_narrativo_prima := _stato_narrativo(episodio_prima)
+	var momento_turno := momento_corrente()
 
 	# RESA DEI CONTI — Zeus verifica gli scavalcamenti pendenti: il sospetto sale, e
 	# alla soglia scopre il colpevole (cova ira, e il conto rimbalza su Ulisse).
@@ -289,7 +301,7 @@ func esegui_turno(input_testo: String, eventi: Array = [], rischio: bool = false
 
 	# Il collante fra le viste: cosa e' successo, e quando. Va segnato PRIMA che chiunque
 	# scriva in chat, o le prime battute del turno resterebbero senza intestazione.
-	agora.segna_turno(turno, input_testo, momento_corrente())
+	agora.segna_turno(turno, input_testo, momento_turno)
 
 	# INTERPRETAZIONE — testo libero -> envelope (Interprete via LLMManager).
 	percorso.append(Fase.keys()[Fase.INTERPRETAZIONE])
@@ -322,6 +334,8 @@ func esegui_turno(input_testo: String, eventi: Array = [], rischio: bool = false
 			stato.eventi_accaduti)
 		_segna_in_gioco(svegli)
 		_annuncia_risvegli(svegli)
+		if not svegli.is_empty():
+			_progresso_olimpo("risvegli")
 
 		# L'azione cambia Ulisse comunque (hybris/metis), anche se nessun dio reagisce.
 		delta = Delta.da_azione(envelope)
@@ -367,10 +381,40 @@ func esegui_turno(input_testo: String, eventi: Array = [], rischio: bool = false
 	# APPLICAZIONE del delta (reazione divina in_mondo, smarrimento/follia, resa, scavalcamento).
 	Delta.applica(stato, delta)
 
-	# NARRAZIONE — Omero reticente, senza nomi di dei (invariante).
-	# Se l'azione e' FUORI-MONDO, Omero TACE: non si chiede al modello di narrare un gesto
-	# impossibile (l'LLM tenderebbe comunque a raccontarlo). Al giocatore va solo il
-	# richiamo, che la UI mostra come avviso. Cosi' il turno e' anche piu' rapido.
+	# PRIGIONIA / ESITO appartengono ancora alla tappa PRIMA. Vanno risolti prima che
+	# Viaggio possa mutarla, altrimenti indugiare a Ogigia verrebbe giudicato dalla scena
+	# successiva. Omero ricevera' il risultato, non lo decidera'.
+	var prigionia := _trattiene(envelope, in_mondo)
+	if prigionia == "prigionia":
+		val["classe"] = "prigionia"
+	percorso.append(Fase.keys()[Fase.ESITO])
+	var esito: String = val["esito"] if val["esito"] != "continua" else _controlla_esito()
+	if esito == "continua" and prigionia == "prigionia_eterna":
+		esito = prigionia
+
+	# AVANZAMENTO PRIMA DELLA PROSA. `Viaggio` resta l'unica autorita': incrementa il
+	# contatore, decide l'unica tappa successiva e applica il cambio. Non c'e' piu' una
+	# seconda chiamata `_passaggio`; da/a/causa entreranno nello stesso quadro del turno.
+	percorso.append(Fase.keys()[Fase.AVANZAMENTO])
+	var grado_pressione := viaggio.grado_pressione()
+	var avanzamento := {"avanzato": false, "intro": "", "episodio": episodio_prima,
+		"esito": "continua", "causa": "", "da": "", "a": "", "chiude": ""}
+	if esito == "continua" and in_mondo:
+		avanzamento = _avanza_episodio(envelope)
+		esito = avanzamento["esito"]
+	if bool(avanzamento.get("avanzato", false)) and String(avanzamento.get("causa", "")) == "prodigio":
+		grado_pressione = Viaggio.GRADO_SPINTA
+
+	# Il quadro vede lo stato DOPO realmente applicato. Itaca e' un caso speciale di
+	# Viaggio: il risultato dice `itaca` senza chiamare entra(), quindi l'id viene dal
+	# risultato e non dal solo `stato.viaggio.corrente`.
+	var episodio_dopo := String(avanzamento.get("episodio", episodio_prima))
+	var stato_narrativo_dopo := _stato_narrativo(episodio_dopo)
+	var passaggio := _passaggio_narrativo(avanzamento, episodio_prima)
+	var quadro_narrativo: Dictionary = {}
+
+	# NARRAZIONE — una sola chiamata contiene azione, conseguenze e traversata eventuale.
+	# Fuori-mondo Omero continua a tacere: al giocatore va il richiamo diegetico.
 	percorso.append(Fase.keys()[Fase.NARRAZIONE])
 	var impronta := ""
 	if not verdetto.is_empty():
@@ -378,67 +422,55 @@ func esegui_turno(input_testo: String, eventi: Array = [], rischio: bool = false
 		if attore != null:
 			impronta = attore.impronta
 	var narrazione := ""
-	# Gli spunti per il prossimo passo arrivano nella STESSA chiamata di Omero: nascono
-	# dalla scena che ha appena narrato, e cosi' costano zero.
 	var spunti: Array = []
 	if in_mondo:
-		var ctx := _contesto_omero(envelope, input_testo, svegli, verdetto, delta, impronta)
-		var r: Dictionary = await LLMManager.narrazione_e_spunti(ctx)
-		narrazione = String(r.get("narrazione", ""))
-		spunti = r.get("spunti", [])
-		_ultima_narrazione = narrazione  # per la continuita' al turno successivo
-		# Profilo senza vincoli: gli appigli si chiedono a parte, con un prompt dedicato che
-		# ha la scena appena narrata. Costa una chiamata in piu' per turno.
-		if Costi.acceso("spunti_separati"):
-			ctx["narrazione"] = narrazione
-			var sp: Array = await LLMManager.suggerisci(ctx)
-			if not sp.is_empty():
-				spunti = sp
-	# Si ricorda cosa si e' offerto: al turno dopo non lo si potra' rifiutare.
+		quadro_narrativo = _quadro_del_turno(stato_narrativo_prima, stato_narrativo_dopo,
+			envelope, input_testo, delta, eventi_turno, esito, grado_pressione,
+			bool(avanzamento.get("avanzato", false)) and String(avanzamento.get("causa", "")) == "prodigio",
+			passaggio, momento_turno, impronta)
+		var controllo_quadro := QuadroNarrativo.valida(quadro_narrativo)
+		if not bool(controllo_quadro["ok"]):
+			push_error("GameManager: quadro narrativo non valido: %s" % "; ".join(controllo_quadro["errori"]))
+		else:
+			# La Vista Olimpo ha gia' ricevuto risvegli e battute prima che Omero parli.
+			_progresso_olimpo("narrazione")
+			var ctx := _contesto_omero_da_quadro(quadro_narrativo, delta, impronta)
+			var r: Dictionary = await LLMManager.narrazione_e_spunti(ctx)
+			narrazione = String(r.get("narrazione", ""))
+			spunti = r.get("spunti", []) if esito == "continua" else []
+			_ultima_narrazione = narrazione
+			# Il profilo dedicato resta compatibile: legge i campi legacy player-facing
+			# affiancati al quadro e parte comunque dallo stato dopo.
+			if esito == "continua" and Costi.acceso("spunti_separati"):
+				ctx["narrazione"] = narrazione
+				var sp: Array = await LLMManager.suggerisci(ctx)
+				if not sp.is_empty():
+					spunti = sp
+	# Gli appigli appartengono alla tappa DOPO, perche' Viaggio ha gia' applicato il cambio.
 	ricorda_spunti(spunti)
 
-	# LA CIURMA: i compagni commentano cio' che e' successo. Se Ulisse si e' rivolto a
-	# qualcuno per nome, risponde lui; altrimenti parla al piu' uno, per non affollare.
+	# LA CIURMA commenta la sola voce atomica. Le parole sospese sono state consegnate e
+	# possono essere cancellate soltanto dopo che anche Omero le ha ricevute.
 	await _fa_parlare_la_ciurma(input_testo, narrazione)
-	# Le parole dette a bordo sono state consegnate (Interprete, dei, Omero): il conto e'
-	# saldato e si riparte puliti per il prossimo tratto di conversazione.
 	stato.parole_ai_compagni.clear()
 
-	# PRIGIONIA — una tappa che TRATTIENE (Ogigia) non avanza da sola: se Ulisse indugia
-	# oltre la soglia l'isola lo ammonisce, e alla terza volta ci resta per sempre.
-	# Va deciso PRIMA di _registra, perche' l'avviso viaggia sullo stesso canale delle
-	# ammonizioni: per chi gioca e' la stessa specie di richiamo.
-	var prigionia := _trattiene(envelope, in_mondo)
-	if prigionia == "prigionia":
-		val["classe"] = "prigionia"
-
-	# Registrazioni: storico_olimpo (vista Olimpo/debug) + diario (player-facing).
+	# La voce resta attribuita all'episodio prima anche se lo stato e' gia' nella tappa
+	# nuova. Il quadro completo resta nella traccia per rendere osservabile il contratto.
 	var voce := _registra(turno, input_testo, envelope, svegli, eventi_turno, conflitto,
-		proposte, verdetto, scavalcamento, resa, delta, val, narrazione, in_mondo)
-	voce["rischio"] = rischio   # perche' dal Log si capisca perche' il turno ha pesato il doppio
-
-	# ESITO — la follia (ammonizione oltre soglia) chiude la partita; altrimenti
-	# valgono i controlli sulle stat (ciurma). Gli altri esiti con le loro fasi.
-	percorso.append(Fase.keys()[Fase.ESITO])
-	var esito: String = val["esito"] if val["esito"] != "continua" else _controlla_esito()
-	if esito == "continua" and prigionia == "prigionia_eterna":
-		esito = prigionia
-
-	# AVANZAMENTO — se la partita continua ed e' un turno in-mondo, la tappa puo' concludersi
-	# (azione di progresso o tetto turni) e si passa alla successiva; arrivare a Itaca e' vittoria.
-	percorso.append(Fase.keys()[Fase.AVANZAMENTO])
-	var avanzamento := {"avanzato": false, "intro": "", "episodio": _episodio_corrente()}
-	if esito == "continua" and in_mondo:
-		avanzamento = await _avanza_episodio(envelope)
-		esito = avanzamento["esito"]
+		proposte, verdetto, scavalcamento, resa, delta, val, narrazione, in_mondo,
+		episodio_prima, quadro_narrativo)
+	voce["rischio"] = rischio
 
 	var congedo := ""
 	if esito != "continua":
 		stato.stato = "finita"
 		stato.esito = esito
-		congedo = await _congedo(esito)
+		# L'arrivo a Itaca e' gia' dentro la singola voce atomica. Gli altri finali
+		# conservano il loro epitaffio dedicato (fuori-mondo compreso).
+		if not bool(avanzamento.get("avanzato", false)):
+			congedo = await _congedo(esito)
 	else:
-		await _aggiorna_cronaca_se_serve()  # memoria della vicenda, ogni N turni
+		await _aggiorna_cronaca_se_serve()
 
 	# COSA ESCE. Il risultato che il giocatore vede, e il segno lasciato sugli dei: e' il
 	# lato del confine che nessuna riga HTTP racconta. Poi il consuntivo — quanto e' durato
@@ -468,7 +500,8 @@ func esegui_turno(input_testo: String, eventi: Array = [], rischio: bool = false
 		# potrebbe accorgersi di un cambio di scena rimasto senza spiegazione.
 		"causa": avanzamento.get("causa", ""),
 		"intro": avanzamento["intro"],
-		"transizione": avanzamento.get("transizione", ""),  # traversata verso la nuova tappa
+		"transizione": "",  # la traversata e' gia' nella voce atomica di Omero
+		"quadro_narrativo": quadro_narrativo.duplicate(true),
 		"spunti": spunti,   # gia' pronti: nessuna seconda chiamata dopo la narrazione
 		"fsm_path": percorso,
 	}
@@ -508,11 +541,15 @@ func _delibera(svegli: Array, envelope: Dictionary) -> Dictionary:
 	if not conflitto:
 		var prep := _prepara_per_arbitrato(attive)
 		var v := _arbitra(prep)
+		var id_vincitore := String(v.get("attore", ""))
+		var vincitore: Dio = PantheonManager.get_dio(id_vincitore)
+		_progresso_olimpo("attesa", vincitore.nome if vincitore else id_vincitore)
 		_verdetto_in_chat(v, false, prep)
 		return {"proposte": prep, "conflitto": false, "verdetto": v}
 
 	# CONFLITTO: dopo il botta e risposta, Zeus chiude.
 	var prep_c := _prepara_per_arbitrato(attive)
+	_progresso_olimpo("attesa", "Zeus")
 	var verdetto: Dictionary = await LLMManager.verdetto_arbitro(prep_c)
 	_verdetto_in_chat(verdetto, true, prep_c)
 	return {"proposte": prep_c, "conflitto": true, "verdetto": verdetto}
@@ -529,7 +566,9 @@ func _prepara_per_arbitrato(proposte: Array) -> Array:
 func _raccogli_proposte(svegli: Array, envelope: Dictionary, altri: Array) -> Array:
 	var out: Array = []
 	for id in svegli:
-		var p: Dictionary = await LLMManager.proposta_dio(PantheonManager.get_dio(id), _contesto_dio(id, envelope, altri))
+		var dio: Dio = PantheonManager.get_dio(id)
+		_progresso_olimpo("attesa", dio.nome if dio else id)
+		var p: Dictionary = await LLMManager.proposta_dio(dio, _contesto_dio(id, envelope, altri))
 		out.append(p)
 		_in_chat(p)
 	return out
@@ -549,7 +588,9 @@ func _repliche(attive: Array, envelope: Dictionary) -> Array:
 			continue
 		var id: String = p.get("dio", "")
 		var altri := _altri_dei(attive, id)
-		var r: Dictionary = await LLMManager.proposta_dio(PantheonManager.get_dio(id), _contesto_dio(id, envelope, altri))
+		var dio: Dio = PantheonManager.get_dio(id)
+		_progresso_olimpo("attesa", dio.nome if dio else id)
+		var r: Dictionary = await LLMManager.proposta_dio(dio, _contesto_dio(id, envelope, altri))
 		# Se il modello non produce nulla di nuovo, resta valida la prima proposta: meglio
 		# una voce sola che una voce persa.
 		if String(r.get("dice", "")).strip_edges() == "":
@@ -749,6 +790,132 @@ func _valida(envelope: Dictionary, input_testo: String) -> Dictionary:
 func _episodio_corrente() -> String:
 	return viaggio.corrente() if viaggio else ""
 
+## Fotografia player-facing usata dal quadro. Non contiene registro divino, memorie,
+## coalizioni o altre cause nascoste: Omero vede soltanto cio' che il mondo ha gia' reso
+## vero per Ulisse. L'id esplicito serve anche a Itaca, che conclude il viaggio senza
+## dover aprire un ulteriore turno nella nuova tappa.
+func _stato_narrativo(episodio_id: String) -> Dictionary:
+	var ep: Episodio = episodi.get_episodio(episodio_id) if episodi else null
+	var turno_nella_tappa := int(stato.viaggio.get("turni_in_episodio", 0))
+	if episodio_id != _episodio_corrente():
+		turno_nella_tappa = 0
+	var caduti: Array = []
+	if ciurma:
+		caduti = ciurma.caduti.duplicate(true)
+	return {
+		"episodio": {
+			"id": episodio_id,
+			"nome": ep.nome if ep else episodio_id,
+			"scena": ep.scena if ep else "",
+		},
+		"ulisse": {
+			"stat": stato.ulisse.get("stat", {}).duplicate(true),
+			"hybris": int(stato.ulisse.get("hybris", 0)),
+			"cimeli": stato.ulisse.get("cimeli", []).duplicate(true),
+		},
+		"viaggio": {
+			"turni_in_episodio": turno_nella_tappa,
+			"completati": stato.viaggio.get("completati", []).duplicate(true),
+		},
+		"eventi_accaduti": stato.eventi_accaduti.duplicate(true),
+		"ciurma_caduti": caduti,
+	}
+
+## La rotta viene sempre dai dati degli episodi: nessuna copia del poema nel codice del
+## quadro e nessun ramo che il modello possa scegliere.
+func _politica_narrativa() -> Dictionary:
+	var ordine: Array = episodi.ordine() if episodi else []
+	var nomi := {}
+	for id in ordine:
+		var ep: Episodio = episodi.get_episodio(String(id))
+		nomi[String(id)] = ep.nome if ep else String(id)
+	return QuadroNarrativo.politica_rotta_fissa(ordine, nomi)
+
+## `Viaggio` decide il cambio; questo helper gli da' soltanto la forma del contratto.
+func _passaggio_narrativo(avanzamento: Dictionary, episodio_prima: String) -> Dictionary:
+	if not bool(avanzamento.get("avanzato", false)):
+		return {}
+	var episodio_dopo := String(avanzamento.get("episodio", ""))
+	var ep_prima: Episodio = episodi.get_episodio(episodio_prima) if episodi else null
+	var ep_dopo: Episodio = episodi.get_episodio(episodio_dopo) if episodi else null
+	return {
+		"avvenuto": true,
+		"da": {"id": episodio_prima, "nome": ep_prima.nome if ep_prima else String(avanzamento.get("da", episodio_prima))},
+		"a": {"id": episodio_dopo, "nome": ep_dopo.nome if ep_dopo else String(avanzamento.get("a", episodio_dopo))},
+		"causa": String(avanzamento.get("causa", "")),
+	}
+
+## Dal delta completo cade ogni path privato di un dio. Il cambiamento numerico di Ulisse
+## resta invece autorevole e rende impossibile alla prosa aumentare perdite o benefici.
+func _delta_visibile(delta: Dictionary) -> Dictionary:
+	var out := {}
+	for path in delta:
+		if String(path).begins_with("ulisse."):
+			out[path] = delta[path]
+	return out
+
+func _fatti_del_turno(delta: Dictionary, eventi_turno: Array, impronta: String) -> Array:
+	var fatti: Array = []
+	var segno := _segno_esito(delta)
+	if segno != "":
+		fatti.append(segno)
+	for evento in eventi_turno:
+		var leggibile := String(evento).replace("_", " ").strip_edges()
+		if leggibile != "":
+			fatti.append(leggibile)
+	if impronta.strip_edges() != "":
+		fatti.append(impronta.strip_edges())
+	return fatti
+
+func _quadro_del_turno(stato_prima: Dictionary, stato_dopo: Dictionary,
+		envelope: Dictionary, input_testo: String, delta: Dictionary, eventi_turno: Array,
+		esito: String, grado_pressione: int, pressione_spinge: bool, passaggio: Dictionary,
+		momento: String, impronta: String) -> Dictionary:
+	var fatti := _fatti_del_turno(delta, eventi_turno, impronta)
+	var conseguenze := {
+		"delta": _delta_visibile(delta),
+		"eventi": eventi_turno.duplicate(true),
+		"fatti": fatti.duplicate(true),
+		"esito": esito,
+		"pressione": {"grado": grado_pressione, "spinge": pressione_spinge},
+	}
+	var vietati: Array = [
+		{"id": "nave_perduta", "descrizione": "la perdita permanente di una nave",
+			"marcatori": ["una nave affondo'", "perdettero una nave", "una nave ando' perduta"]},
+		{"id": "nuova_perdita", "descrizione": "una perdita permanente non decisa dal motore",
+			"marcatori": ["morirono altri compagni", "un altro compagno mori'"]},
+	]
+	return QuadroNarrativo.crea(stato_prima, {
+		"testo": input_testo,
+		"sintesi": String(envelope.get("sintesi", input_testo)),
+		"tipo": String(envelope.get("tipo", "azione")),
+		"tag": envelope.get("tag", []).duplicate(true),
+	}, conseguenze, stato_dopo, momento, fatti, vietati, passaggio,
+		_politica_narrativa())
+
+## Il Narratore privilegia il quadro; i campi affiancati mantengono compatibili il mock e
+## il Suggeritore separato, ma sono anch'essi player-facing e descrivono lo stato dopo.
+func _contesto_omero_da_quadro(quadro: Dictionary, delta: Dictionary,
+		impronta: String) -> Dictionary:
+	var ctx := QuadroNarrativo.come_contesto_omero(quadro)
+	var dopo: Dictionary = quadro.get("stato_dopo", {})
+	var ep: Dictionary = dopo.get("episodio", {})
+	ctx.merge({
+		"scena": String(ep.get("scena", "")),
+		"cronaca": stato.cronaca,
+		"storia": _storia_recente(),
+		"ultima_narrazione": _ultima_narrazione,
+		"luogo": String(ep.get("nome", "")),
+		"progresso": _progresso_viaggio(),
+		"morale": _morale_recente(),
+		"delta": _delta_visibile(delta),
+		"impronta": impronta,
+		"esito_segno": _segno_esito(delta),
+		"detto_ai_compagni": _parole_in_sospeso(),
+		"momento": String(quadro.get("momento", "")),
+	}, true)
+	return ctx
+
 ## Quel che ACCADE resta accaduto. Una tappa puo' dichiarare che un certo tag dell'azione
 ## fa succedere un evento (nell'antro, il vanto di Ulisse chiama la maledizione di
 ## Polifemo): da li' in poi chi dormeva in attesa di quell'evento e' sveglio per sempre.
@@ -759,30 +926,25 @@ func _registra_eventi_accaduti(envelope: Dictionary, eventi_turno: Array) -> voi
 func _eventi_del_turno(eventi: Array) -> Array:
 	return viaggio.eventi_del_turno(eventi)
 
-## AVANZAMENTO della tappa. Ritorna {esito, avanzato, intro, episodio}.
+## AVANZAMENTO della tappa. Ritorna {esito, avanzato, intro, episodio, da, a, causa}.
 ## Si avanza se compare l'azione di progresso (avanza_su_tag) o si tocca il tetto turni.
 ## Entrare in Itaca = vittoria (esito "itaca").
 ## AVANZAMENTO. La DECISIONE (si chiude? qual e' la prossima?) sta in Viaggio, che non
-## chiama mai l'LLM; qui restano le due cose che l'orchestratore deve fare: far cadere chi
-## secondo il poema muore in quella tappa, e chiedere a Omero la traversata.
+## chiama mai l'LLM; qui resta soltanto la conseguenza deterministica sui compagni. La
+## traversata entra poi nel quadro e viene narrata insieme al resto del turno.
 func _avanza_episodio(envelope: Dictionary) -> Dictionary:
 	var a := viaggio.avanza(envelope)
 	if String(a["chiude"]) != "":
 		_fai_cadere_i_destinati(String(a["chiude"]))
 	if not a["avanzato"]:
-		return {"esito": "continua", "avanzato": false, "intro": "", "episodio": a["episodio"]}
-	# La tappa nuova apre col suo intro: e' da li' che Omero prosegue.
-	if String(a["intro"]) != "" and String(a["esito"]) == "continua":
-		_ultima_narrazione = String(a["intro"])
+		return {"esito": "continua", "avanzato": false, "intro": "",
+			"episodio": a["episodio"], "causa": "", "da": "", "a": "",
+			"chiude": "", "transizione": ""}
 	return {
 		"esito": a["esito"], "avanzato": true, "intro": a["intro"], "episodio": a["episodio"],
-		"causa": a.get("causa", ""),
-		"transizione": await _passaggio(String(a["da"]), String(a["a"]), String(a.get("causa", ""))),
+		"causa": a.get("causa", ""), "da": a.get("da", ""), "a": a.get("a", ""),
+		"chiude": a.get("chiude", ""), "transizione": "",
 	}
-
-## Breve narrazione di Omero per la traversata tra due tappe (come ci si arriva).
-func _passaggio(da: String, a: String, causa: String = "") -> String:
-	return await LLMManager.narrazione_omero({"passaggio": {"da": da, "a": a, "causa": causa}})
 
 ## Una tappa che TRATTIENE (Ogigia) ammonisce chi indugia, e alla terza volta lo tiene per
 ## sempre. La regola sta in Viaggio: e' una proprieta' della tappa, non del turno.
@@ -871,6 +1033,17 @@ func _annuncia_risvegli(svegli: Array) -> void:
 		if dio:
 			agora.scrivi(Agora.CANALE_OLIMPO, dio.nome, "si desta.", stato.turno, "azione", dio.simbolo)
 
+## Una fotografia effimera della chat per la GUI. Agora resta la fonte persistente;
+## questo segnale non scrive nello stato e permette di rendere il turno a scatti.
+func _progresso_olimpo(fase: String, autore: String = "") -> void:
+	if agora == null:
+		return
+	progresso_turno.emit(fase, {
+		"turno": stato.turno,
+		"autore": autore,
+		"trascrizione": agora.trascrizione(Agora.VISTA_OLIMPO),
+	})
+
 ## Porta una proposta divina nel canale giusto: se il dio e' in coalizione parla anche
 ## nel gruppo, come si fa in una chat quando si ha un tavolo riservato.
 func _in_chat(p: Dictionary) -> void:
@@ -884,6 +1057,7 @@ func _in_chat(p: Dictionary) -> void:
 	for c in stato.coalizioni:
 		if c.get("membri", []).has(dio.id) and c.has("canale"):
 			agora.scrivi(String(c["canale"]), dio.nome, battuta, stato.turno, "voce", dio.simbolo)
+	_progresso_olimpo("battuta")
 
 ## Come si chiude la discussione, in chat.
 ##
@@ -912,13 +1086,17 @@ func _verdetto_in_chat(verdetto: Dictionary, arbitrato: bool, proposte: Array = 
 		var zeus: Dio = PantheonManager.get_dio("zeus")
 		agora.scrivi(Agora.CANALE_OLIMPO, "Zeus", testo, stato.turno, "verdetto",
 			zeus.simbolo if zeus else "")
+		_progresso_olimpo("verdetto")
 
 	# Il gesto lo propone il dio stesso; il verdetto dell'Arbitro pero' e' un dizionario a
 	# se' e non porta quel campo, quindi si va a riprenderlo dalla sua proposta.
 	var g := Gesto.da_proposta(_proposta_di(attore, proposte, verdetto), nome)
 	if g != "":
+		# Dopo la sentenza, chi compie il gesto prende visivamente la parola.
+		_progresso_olimpo("attesa", nome)
 		agora.scrivi(Agora.CANALE_OLIMPO, nome, g, stato.turno, "azione",
 			dio.simbolo if dio else "")
+		_progresso_olimpo("azione")
 
 ## La proposta di quel dio fra quelle in campo; in mancanza, il verdetto stesso (che ha
 ## comunque registro e intensita': basta al ripiego).
@@ -933,13 +1111,14 @@ func _proposta_di(id: String, proposte: Array, verdetto: Dictionary) -> Dictiona
 func _registra(turno: int, input_testo: String, envelope: Dictionary, svegli: Array,
 		eventi_turno: Array, conflitto: bool, proposte: Array, verdetto: Dictionary,
 		scavalcamento: Dictionary, resa: Dictionary, delta: Dictionary, val: Dictionary,
-		narrazione: String, in_mondo: bool) -> Dictionary:
+		narrazione: String, in_mondo: bool, episodio_turno: String = "",
+		quadro_narrativo: Dictionary = {}) -> Dictionary:
 	var voce := {
 		"turno": turno,
 		"input": input_testo,
 		"envelope": envelope,
 		"svegli": svegli,
-		"episodio": _episodio_corrente(),
+		"episodio": episodio_turno if episodio_turno != "" else _episodio_corrente(),
 		"eventi_emessi": eventi_turno,
 		"conflitto": conflitto if in_mondo else false,
 		"deliberazione": proposte,
@@ -951,6 +1130,8 @@ func _registra(turno: int, input_testo: String, envelope: Dictionary, svegli: Ar
 		"ammonizione": val["classe"],
 		"narrazione_omero": narrazione,
 	}
+	if not quadro_narrativo.is_empty():
+		voce["quadro_narrativo"] = quadro_narrativo.duplicate(true)
 	stato.storico_olimpo.append(voce)
 	stato.diario.append({
 		"turno": turno,

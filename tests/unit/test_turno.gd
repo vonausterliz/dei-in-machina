@@ -24,7 +24,10 @@ func test_turno_in_mondo_sveglia_e_registra():
 	assert_has(esito["fsm_path"], "RISVEGLIO")
 	assert_eq(esito["fsm_path"][0], "RESA_DEI_CONTI")
 	assert_has(esito["fsm_path"], "INTERPRETAZIONE")
-	assert_eq(esito["fsm_path"][-1], "AVANZAMENTO")
+	assert_eq(esito["fsm_path"][-1], "NARRAZIONE")
+	assert_lt(esito["fsm_path"].find("ESITO"), esito["fsm_path"].find("AVANZAMENTO"))
+	assert_lt(esito["fsm_path"].find("AVANZAMENTO"), esito["fsm_path"].find("NARRAZIONE"),
+		"Omero parla soltanto dopo che lo stato dopo e l'eventuale passaggio sono decisi")
 	# Registrazioni.
 	assert_eq(GameManager.stato.turno, 1)
 	assert_eq(GameManager.stato.storico_olimpo.size(), 1)

@@ -103,4 +103,19 @@ func verdetto_arbitro(proposte: Array, _contesto: Dictionary = {}) -> Dictionary
 ## contesto atteso: {"sintesi": String, ...}. Non nomina MAI un dio (invariante di design).
 func narrazione_omero(contesto: Dictionary) -> String:
 	var sintesi: String = contesto.get("sintesi", "qualcosa accade")
-	return "Un dio - e non diro' quale - osservo' %s. Le conseguenze si vedranno." % sintesi
+	var testo := "Un dio - e non diro' quale - osservo' %s. Le conseguenze si vedranno." % sintesi
+	var quadro: Variant = contesto.get("quadro_narrativo", {})
+	if typeof(quadro) != TYPE_DICTIONARY:
+		return testo
+	var passaggio: Variant = quadro.get("passaggio", {})
+	if typeof(passaggio) != TYPE_DICTIONARY or not bool(passaggio.get("avvenuto", false)):
+		return testo
+	var da := String(passaggio.get("da", {}).get("nome", "la terra lasciata"))
+	var a := String(passaggio.get("a", {}).get("nome", "la riva assegnata"))
+	match String(passaggio.get("causa", "")):
+		"cacciato":
+			return testo + " Respinti dalla tappa «%s», tennero la rotta fino a «%s»." % [da, a]
+		"prodigio":
+			return testo + " Una forza piu' grande li strappo' alla tappa «%s» e li condusse fino a «%s»." % [da, a]
+		_:
+			return testo + " La tappa «%s» rimase alle spalle; tennero la rotta fino a «%s»." % [da, a]

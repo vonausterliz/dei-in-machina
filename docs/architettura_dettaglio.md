@@ -211,7 +211,7 @@ sequenceDiagram
     GM->>LM: VAGLIO (saltato se è uno spunto già offerto)
     GM->>GM: VALIDAZIONE (ammonizione, scala diegetica)
     alt fuori dal mondo
-        GM-->>U: solo il richiamo — Omero TACE
+        GM->>GM: prepara richiamo / smarrimento / follia
     else in mondo
         GM->>PM: RISVEGLIO (trigger · eventi · invocazione)
         GM->>AG: «X si desta»
@@ -224,12 +224,19 @@ sequenceDiagram
         end
         GM->>POL: SCAVALCAMENTO (raro)
         GM->>GM: annota nella memoria di ogni dio
-        GM->>D: APPLICAZIONE del delta
-        GM->>LM: NARRAZIONE — Omero + 3 spunti, una chiamata
+    end
+    GM->>D: APPLICAZIONE del delta
+    GM->>GM: ESITO della tappa prima (prigionia compresa)
+    alt in mondo
+        GM->>GM: AVANZAMENTO deterministico — zero o una tappa
+        GM->>GM: QUADRO — prima · azione · conseguenze · dopo · da/a/causa
+        GM->>LM: NARRAZIONE atomica — Omero + 3 spunti, una chiamata
+    else fuori dal mondo
+        GM-->>U: solo il richiamo — Omero non narra l'azione
     end
     GM->>LM: la CIURMA commenta (un compagno)
     GM->>GM: registra: storico_olimpo + diario
-    GM->>GM: ESITO · AVANZAMENTO · cronaca ogni N turni
+    GM->>GM: cronaca ogni N turni
     GM-->>U: narrazione · spunti filtrati · stat
 ```
 
@@ -264,9 +271,23 @@ proposito: qui il falso positivo uccide. Un turno pulito fa decadere il contator
 dell'intensità *costa uomini*: è l'unico modo in cui la ciurma si assottiglia, e quindi
 l'unico modo in cui l'esito `ciurma_perduta` è raggiungibile.
 
-**NARRAZIONE** — se l'azione è **fuori-mondo, Omero non viene chiamato affatto**. Chiedere
-al modello di «non narrare un gesto impossibile» non funzionava: lo narrava lo stesso. Al
-giocatore va solo il richiamo, e il turno costa una chiamata in meno.
+**ESITO / AVANZAMENTO / NARRAZIONE** — se l'azione è **fuori-mondo, Omero non viene
+chiamato affatto**. Chiedere al modello di «non narrare un gesto impossibile» non
+funzionava: lo narrava lo stesso. Al giocatore va solo il richiamo.
+
+In-mondo, il motore risolve prima conseguenze, esito e avanzamento; soltanto dopo Omero
+riceve il quadro completo e parla una volta. La prosa non decide quindi se Ulisse parte o
+dove arriva: rende leggibile una transizione già applicata da `Viaggio`.
+
+Il confine nuovo è `QuadroNarrativo` (`scripts/narrazione/quadro_narrativo.gd`): un
+contratto puro che separa stato prima, azione, conseguenze deterministiche, stato dopo,
+momento, fatti ammessi/vietati ed eventuale unico passaggio `da/a/causa`. «Autorevole» vuol
+dire che questi dati vengono dallo **stato della partita**, non che il poema prescrive al
+motore cosa deve succedere. Il Narratore reale lo serializza in un prompt unico e vi
+accoda soltanto memoria discorsiva subordinata (cronaca, ultime mosse/voce, parole ai
+compagni); il mock legge lo stesso quadro. Le traversate legacy usano temperatura 0,45,
+la voce atomica con azione e passaggio 0,55, mentre la prosa ordinaria resta a 0,9.
+Sequenza, contratto e casi limite sono in `docs/integrazione_quadro_narrativo.md`.
 
 **ESITO / AVANZAMENTO** — la tappa si chiude sul tag di progresso, e **ogni chiusura porta
 con sé la sua causa** (R-12): `scelta` se se n'è andato lui, `cacciato` se l'hanno cacciato
@@ -706,9 +727,10 @@ sono state prese quasi tutte le decisioni di questa serie.
 | Turno in-mondo, nessun dio sveglio | 3–4 |
 | Turno con un dio | 4–5 |
 | Turno con conflitto, repliche e arbitrato | 8–9 |
-| Sovrapprezzi occasionali | +1 ricognizione dio · +1 cronaca ogni N turni · +1 traversata al cambio tappa |
+| Sovrapprezzi occasionali | +1 ricognizione dio · +1 cronaca ogni N turni |
 
-Dove il budget è stato recuperato: gli spunti dentro la chiamata di Omero (−1/turno), il
+Dove il budget è stato recuperato: la traversata dentro la stessa voce atomica di Omero
+(−1/cambio tappa), gli spunti dentro la chiamata di Omero (−1/turno), il
 vaglio saltato sugli spunti già offerti (−1), Omero non chiamato fuori-mondo (−1), il
 condensato della memoria calcolato in GDScript (−1 per dio ogni N turni), `MAX_REPLICHE = 2`
 (tetto sul caso peggiore), i beat (−8 per frase detta a bordo).

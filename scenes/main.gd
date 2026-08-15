@@ -94,6 +94,10 @@ var _chk_reale: CheckButton
 var _stat_bars := {}
 var _stat_vals := {}
 var _busy := false
+## Coda strettamente grafica: nel mock conserva i passaggi per un frame ciascuno;
+## il core e i test headless non attendono mai questa animazione.
+var _coda_olimpo: Array[Dictionary] = []
+var _riproduce_olimpo := false
 var _finita := false
 ## La musica: un brano per momento del gioco, secondo data/musica.json.
 var _musica: ColonnaSonora
@@ -121,6 +125,7 @@ func _ready() -> void:
 	Impostazioni.applica_chiavi_all_ambiente()  # chiavi utente -> ambiente
 	_ripristina_preferenze()
 	LLMManager.llm_log.connect(_on_llm_log)
+	GameManager.progresso_turno.connect(_on_progresso_turno)
 	# LA PARTITA SI COSTRUISCE, MA LA SCENA NON SI APRE.
 	#
 	# `nuova_partita()` serve subito: mezza interfaccia legge `GameManager.stato`, e senza
@@ -1169,6 +1174,7 @@ func _on_agisci() -> void:
 	if testo == "":
 		return
 	_busy = true
+	_mostra_attesa_olimpo("Olimpo")
 	_input.editable = false
 	_btn_agisci.text = Testi.s("gioco/attesa")
 	_btn_agisci.disabled = true
@@ -1186,6 +1192,15 @@ func _on_agisci() -> void:
 	# Mentre il turno gira, gli spunti vecchi non valgono piu': li svuoto.
 	_pulisci_spunti()
 	var esito: Dictionary = await GameManager.esegui_turno(testo)
+	# La coda vive solo nella GUI: il mock resta senza attese nel core/headless.
+	await _svuota_progresso_olimpo()
+	if esito.is_empty():
+		_chiudi_attese_olimpo()
+		_input.editable = true
+		_btn_agisci.text = Testi.s("gioco/agisci")
+		_btn_agisci.disabled = false
+		_busy = false
+		return
 
 	_ultima_narrazione = String(esito["voce"].get("narrazione_omero", ""))
 	if _ultima_narrazione != "":
@@ -1204,15 +1219,12 @@ func _on_agisci() -> void:
 	_on_llm_log("[color=%s]%s[/color]" % [
 		C_GOLD.to_html(), TraceFormatter.turno(esito["voce"]).replace("[", "[lb]")])
 
-	# Traversata verso la nuova tappa: il beat di partenza/viaggio, così non ci si
-	# "teletrasporta" da un luogo all'altro.
-	var trans := String(esito.get("transizione", ""))
-	if esito.get("avanzato", false) and trans != "":
-		_narrazione.append_text("[i]" + Testi.s("gioco/omero") + "[/i] %s\n\n" % _fuori(trans))
+	# La traversata e l'ingresso sono gia' nella voce atomica appena mostrata. La GUI
+	# cambia soltanto intestazione e musica: non aggiunge una seconda voce di Omero e non
+	# sostituisce la continuita' col vecchio `intro` statico della tappa.
 	if esito.get("avanzato", false) and esito["esito"] == "continua":
 		_episodio.text = "· %s ·" % _nome_tappa()
-		_ultima_narrazione = String(esito.get("intro", ""))
-		_narrazione.append_text("[color=%s]— %s —[/color]\n[i]Omero:[/i] %s\n\n" % [C_GOLD.to_html(), _nome_tappa(), _fuori(_ultima_narrazione)])
+		_narrazione.append_text("[color=%s]— %s —[/color]\n\n" % [C_GOLD.to_html(), _nome_tappa()])
 		_musica_del_capitolo()   # nuovo capitolo, nuovo brano (se ne ha uno)
 	_aggiorna_mappa()
 
@@ -1232,17 +1244,14 @@ func _on_agisci() -> void:
 			_congedo(String(esito.get("congedo", "")))
 			_narrazione.append_text("\n[b][color=%s]%s[/color][/b]\n" % [C_OXBLOOD.to_html(), Testi.s("gioco/fine", [esito["esito"]])])
 	else:
-		# Gli spunti arrivano gia' insieme alla narrazione: nessuna seconda chiamata.
-		# Eccezione: se la tappa e' cambiata si riferirebbero alla scena vecchia, e allora
-		# vale la pena rigenerarli sulla nuova.
-		if esito.get("avanzato", false):
-			await _rigenera_spunti()
-		else:
-			_mostra_spunti(esito.get("spunti", []))
+		# Il quadro e' costruito dopo l'avanzamento: anche gli spunti prodotti insieme alla
+		# voce appartengono gia' alla scena nuova e non vanno rigenerati.
+		_mostra_spunti(esito.get("spunti", []))
 		_input.editable = true
 		_input.grab_focus()
 	_btn_agisci.text = Testi.s("gioco/agisci")
 	_btn_agisci.disabled = false
+	_chiudi_attese_olimpo()
 	_busy = false
 
 # --- spunti (pre-confezionati, generati dall'LLM sul contesto) ---
@@ -1362,6 +1371,42 @@ func _imposta_stat(chiave: String, valore: float, _massimo: int, testo: String) 
 		_stat_bars[chiave].value = valore
 	if _stat_vals.has(chiave):
 		_stat_vals[chiave].text = testo
+
+## Ogni segnale contiene una fotografia di Agora al suo istante: la GUI puo mostrare
+## risvegli, battute e verdetti in ordine anche quando il mock risponde nello stesso frame.
+func _on_progresso_turno(fase: String, dati: Dictionary) -> void:
+	if _pan_olimpo == null:
+		return
+	_coda_olimpo.append({"fase": fase, "dati": dati.duplicate(true)})
+	if not _riproduce_olimpo:
+		_riproduci_progresso_olimpo()
+
+func _mostra_attesa_olimpo(autore: String) -> void:
+	if _pan_olimpo:
+		_pan_olimpo.mostra_indicatore(autore)
+
+func _riproduci_progresso_olimpo() -> void:
+	_riproduce_olimpo = true
+	while not _coda_olimpo.is_empty():
+		var passo: Dictionary = _coda_olimpo.pop_front()
+		var dati: Dictionary = passo["dati"]
+		_pan_olimpo.imposta(String(dati.get("trascrizione", "")))
+		if String(passo["fase"]) == "attesa":
+			_mostra_attesa_olimpo(String(dati.get("autore", "L Olimpo")))
+		else:
+			_pan_olimpo.nascondi_indicatore()
+		# Un frame soltanto e soltanto nella GUI: niente sleep nel motore o nei test.
+		await get_tree().process_frame
+	_riproduce_olimpo = false
+
+func _svuota_progresso_olimpo() -> void:
+	while _riproduce_olimpo or not _coda_olimpo.is_empty():
+		await get_tree().process_frame
+
+func _chiudi_attese_olimpo() -> void:
+	_coda_olimpo.clear()
+	if _pan_olimpo:
+		_pan_olimpo.nascondi_indicatore()
 
 ## La Vista Olimpo e' una CHAT in sola lettura, e SOLO quello: gli dei si parlano e il
 ## giocatore assiste. La traccia tecnica del turno (envelope, risvegli, delta) non e' una
@@ -1532,4 +1577,3 @@ func _attiva_reale() -> void:
 	# fatto che gli dei rispondono, e il provider in uso sta gia' scritto in Settings.
 	if not _busy and not _finita:
 		await _rigenera_spunti()  # spunti contestuali generati dal modello
-

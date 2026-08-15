@@ -12,6 +12,15 @@ const PROMPT_SYSTEM := "res://prompts/omero_system.txt"
 const PROMPT_GUARDRAIL := "res://prompts/guardrail_anti_assistente.txt"
 const PROMPT_MONDO := "res://prompts/mondo.txt"
 
+## La prosa ordinaria resta alla temperatura su cui e' stata tarata. Le traversate hanno
+## molti piu' vincoli fattuali (una sola origine, una sola destinazione, una sola causa):
+## abbassarne soltanto la temperatura riduce gli approdi inventati senza appiattire tutti
+## gli altri turni. La transizione atomica della fase 5 contiene anche azione e conseguenze,
+## quindi conserva un poco piu' di respiro della traversata legacy.
+const TEMPERATURA_NARRAZIONE := 0.9
+const TEMPERATURA_TRANSIZIONE := 0.55
+const TEMPERATURA_TRAVERSATA := 0.45
+
 var _system_prompt: String = ""
 var _nomi_dei: Array[String] = []
 
@@ -33,6 +42,23 @@ func _leggi(path: String) -> String:
 	return FileAccess.get_file_as_string(path)
 
 func costruisci_messaggi(contesto: Dictionary) -> Array:
+	# Il quadro e' il nuovo contratto autorevole. I campi legacy che descrivevano di nuovo
+	# azione, luogo o delta non vengono mescolati. La sola continuita' discorsiva (cronaca,
+	# ultime mosse/voce e parole ai compagni) viene invece accodata come memoria subordinata:
+	# non decide fatti e, in caso di contrasto, perde sempre contro prima/dopo/passaggio.
+	var quadro: Variant = contesto.get("quadro_narrativo", null)
+	if typeof(quadro) == TYPE_DICTIONARY:
+		var testo_quadro := QuadroNarrativo.per_prompt(quadro)
+		if testo_quadro == "":
+			return []
+		var continuita := _continuita_quadro(contesto)
+		if continuita != "":
+			testo_quadro += "\n\n" + continuita
+		return [
+			{"role": "system", "content": _system_prompt},
+			{"role": "user", "content": testo_quadro},
+		]
+
 	# Passaggio tra tappe: una breve traversata da un luogo all'altro (per non far
 	# "teletrasportare" Ulisse). Ha un formato suo, ignora i campi dell'azione.
 	var passaggio: Dictionary = contesto.get("passaggio", {})
@@ -100,6 +126,32 @@ func costruisci_messaggi(contesto: Dictionary) -> Array:
 		{"role": "system", "content": _system_prompt},
 		{"role": "user", "content": "\n".join(pezzi)},
 	]
+
+## Memoria non normativa per il prompt atomico. Non include scena, azione, conseguenze o
+## momento: quelli sono gia' nel quadro e devono avere una sola fonte. Anche l'orientamento
+## resta discreto e retorico, mai una licenza per anticipare la tappa seguente.
+func _continuita_quadro(contesto: Dictionary) -> String:
+	var pezzi: Array[String] = [
+		"CONTINUITA' DEL RACCONTO (memoria subordinata: usala per ritmo e richiami; se contrasta col quadro, vale il quadro; non ricavarne nuovi fatti permanenti).",
+	]
+	var cronaca := String(contesto.get("cronaca", "")).strip_edges()
+	if cronaca != "":
+		pezzi.append("VICENDA FINORA: %s" % cronaca)
+	var storia: Variant = contesto.get("storia", [])
+	if typeof(storia) == TYPE_ARRAY and not storia.is_empty():
+		pezzi.append("ULTIME MOSSE DI ULISSE: %s" % " → ".join(storia))
+	var ultima := String(contesto.get("ultima_narrazione", "")).strip_edges()
+	if ultima != "":
+		pezzi.append("TUA ULTIMA VOCE (precedente, non stato presente; prosegui senza ripeterla): %s" % ultima)
+	var detto := String(contesto.get("detto_ai_compagni", "")).strip_edges()
+	if detto != "":
+		pezzi.append("PAROLE DETTE POCO PRIMA AI COMPAGNI (puoi lasciarne un'eco): «%s»" % detto)
+	var luogo := String(contesto.get("luogo", "")).strip_edges()
+	if luogo != "":
+		var progresso: String = {"inizio": "ritorno ancora lontano", "mezzo": "a meta' del ritorno", "vicino": "Itaca vicina"}.get(contesto.get("progresso", ""), "")
+		var morale: String = {"duro": "vicende recenti dure", "bene": "vicende recenti favorevoli", "incerto": "vicende recenti incerte"}.get(contesto.get("morale", ""), "")
+		pezzi.append("ORIENTAMENTO DISCRETO: %s; %s; %s. Fallo sentire, non recitarlo e non cambiare tappa." % [luogo, progresso, morale])
+	return "\n".join(pezzi) if pezzi.size() > 1 else ""
 
 ## Come finisce, detto a Omero in una riga. Non e' il nome tecnico dell'esito: quello e'
 ## un'etichetta buona per la traccia, non per un poema.
@@ -238,26 +290,107 @@ func _combacia(schema: String, testo: String) -> bool:
 ## Il modello potrebbe aggiungere il blocco anche quando non serve: qui lo si taglia via,
 ## cosi' non finisce mai a schermo come se fosse narrazione.
 func narra(contesto: Dictionary, chat_fn: Callable, seed: int = 0, taglia_spunti: bool = true) -> String:
-	var opzioni := {"temperature": 0.9}
-	if seed != 0:
-		opzioni["seed"] = seed
+	var quadro: Variant = contesto.get("quadro_narrativo", null)
+	if quadro != null:
+		if typeof(quadro) != TYPE_DICTIONARY:
+			push_warning("Narratore: quadro_narrativo non e' un dizionario")
+			return ""
+		var controllo := QuadroNarrativo.valida(quadro)
+		if not bool(controllo["ok"]):
+			push_warning("Narratore: quadro_narrativo non valido: %s" % "; ".join(controllo["errori"]))
+			return ""
+	var opzioni := opzioni_per(contesto, seed)
 	var messaggi := costruisci_messaggi(contesto)
+	if messaggi.is_empty():
+		return ""
 
 	var testo := await _chiedi(messaggi, chat_fn, opzioni)
-	if testo != "" and not nomina_un_dio(testo):
+	if testo != "" and _violazioni(testo, quadro).is_empty():
 		return _senza_spunti(testo) if taglia_spunti else testo
 
-	# Ritenta una volta con richiamo severo.
+	# Ritenta una volta con richiamo severo. Il richiamo nomina le violazioni concrete:
+	# puo' trattarsi di un nome divino oppure di un fatto che il quadro vieta.
 	var messaggi2 := messaggi.duplicate(true)
-	messaggi2.append({"role": "system", "content": "Hai nominato un dio: VIETATO. Riscrivi senza alcun nome divino, solo l'impronta."})
+	var problemi := _violazioni(testo, quadro)
+	messaggi2.append({"role": "system", "content": "La risposta viola il quadro autorevole (%s). Riscrivi restando nei fatti ammessi, senza aggiungere passaggi o fatti permanenti e senza alcun nome divino nascosto." % "; ".join(problemi)})
 	var testo2 := await _chiedi(messaggi2, chat_fn, opzioni)
-	if testo2 != "" and not nomina_un_dio(testo2):
+	if testo2 != "" and _violazioni(testo2, quadro).is_empty():
 		return _senza_spunti(testo2) if taglia_spunti else testo2
 
-	# Ultima difesa: redigi i nomi. La proprieta' vale comunque.
+	# Ultima difesa. I nomi si possono redigere senza cambiare i fatti; una violazione del
+	# quadro no, quindi si usa un testo costruito esclusivamente dai dati autorevoli.
 	var base := testo2 if testo2 != "" else testo
 	var pulito := redigi(base)
+	if typeof(quadro) == TYPE_DICTIONARY and not _violazioni(pulito, quadro).is_empty():
+		pulito = redigi(_ripiego_autorevole(quadro))
 	return _senza_spunti(pulito) if taglia_spunti else pulito
+
+## Opzioni distinte per modalita', pubbliche perche' il contratto col trasporto sia
+## osservabile nei test e negli strumenti di costo.
+func opzioni_per(contesto: Dictionary, seed: int = 0) -> Dictionary:
+	var temperatura := TEMPERATURA_NARRAZIONE
+	var quadro: Variant = contesto.get("quadro_narrativo", null)
+	if typeof(quadro) == TYPE_DICTIONARY:
+		var passaggio: Variant = quadro.get("passaggio", {})
+		if typeof(passaggio) == TYPE_DICTIONARY and bool(passaggio.get("avvenuto", false)):
+			temperatura = TEMPERATURA_TRANSIZIONE
+	elif contesto.has("passaggio"):
+		temperatura = TEMPERATURA_TRAVERSATA
+	var opzioni := {"temperature": temperatura}
+	if seed != 0:
+		opzioni["seed"] = seed
+	return opzioni
+
+func _violazioni(testo: String, quadro: Variant) -> Array[String]:
+	var out: Array[String] = []
+	if nomina_un_dio(testo):
+		out.append("nome divino nascosto")
+	if typeof(quadro) == TYPE_DICTIONARY:
+		out.append_array(QuadroNarrativo.violazioni_testuali(quadro, testo))
+		var per_guardia := QuadroNarrativo.per_validatore(quadro)
+		if not per_guardia.is_empty():
+			var esito := ValidatoreNarrativo.new().valida(testo, per_guardia)
+			for violazione in esito.get("violazioni", []):
+				var problema := "%s: %s" % [violazione.get("codice", "quadro"), violazione.get("dettaglio", "")]
+				if not out.has(problema):
+					out.append(problema)
+	return out
+
+## Compone il ripiego del quadro con quello specializzato della traversata. Il validatore
+## e le due fonti non si importano a vicenda: il Narratore e' il solo punto di composizione.
+func _ripiego_autorevole(quadro: Dictionary) -> String:
+	var per_guardia := QuadroNarrativo.per_validatore(quadro)
+	if per_guardia.is_empty():
+		return QuadroNarrativo.ripiego(quadro)
+	var guardia := ValidatoreNarrativo.new()
+	if not bool(per_guardia.get("passaggio_avvenuto", true)):
+		# Se l'azione stessa e' compatibile col restare, la si conserva e la si chiude
+		# dichiarando la permanenza. Cosi' il ripiego non cancella cio' che Ulisse ha fatto
+		# e non lascia ambiguo il mancato avanzamento. Una sintesi che afferma invece
+		# salpata/approdo fallisce questa stessa guardia e non viene mai ripetuta.
+		var azione_ferma := redigi(QuadroNarrativo.ripiego(quadro, false))
+		var fermo := redigi(QuadroNarrativo.ripiego_fermo(quadro))
+		var azione_e_permanenza := (azione_ferma + " " + fermo).strip_edges()
+		if azione_ferma != "" and bool(guardia.valida(
+				azione_e_permanenza, per_guardia).get("ok", false)):
+			return azione_e_permanenza
+		if bool(guardia.valida(fermo, per_guardia).get("ok", false)):
+			return fermo
+		# Non si delega mai a TraversataSicura in questo ramo: origine e destinazione
+		# uguali significano restare, non una traversata circolare.
+		return "Ulisse resto' dov'era; nessun passaggio si compi'."
+	var candidato := QuadroNarrativo.ripiego(quadro)
+	if bool(guardia.valida(candidato, per_guardia).get("ok", false)):
+		return candidato
+	var traversata: Dictionary = TraversataSicura.genera(per_guardia, guardia)
+	var azione := QuadroNarrativo.ripiego(quadro, false)
+	candidato = (azione + " " + String(traversata.get("testo", ""))).strip_edges()
+	if bool(guardia.valida(candidato, per_guardia).get("ok", false)):
+		return candidato
+	# Estrema difesa: la traversata sicura e' gia' validata internamente e conserva
+	# origine, destinazione, causa, rotta e prodigio. Meglio perdere una frase di raccordo
+	# che mostrare una seconda tappa inventata.
+	return String(traversata.get("testo", ""))
 
 func _senza_spunti(testo: String) -> String:
 	return String(_separa(testo)["narrazione"])
