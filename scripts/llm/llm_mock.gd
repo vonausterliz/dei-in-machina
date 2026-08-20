@@ -66,12 +66,44 @@ const _ENVELOPE_DEFAULT := {
 
 func interpreta(testo_libero: String) -> Dictionary:
 	var chiave := testo_libero.to_lower()
+	var esito: Dictionary = _ENVELOPE_DEFAULT.duplicate(true)
 	for frammento in _FIXTURES_INTERPRETE.keys():
 		if chiave.find(frammento) != -1:
-			return (_FIXTURES_INTERPRETE[frammento] as Dictionary).duplicate(true)
-	var esito: Dictionary = _ENVELOPE_DEFAULT.duplicate(true)
-	esito["sintesi"] = "Ulisse: \"%s\"" % testo_libero
+			esito = (_FIXTURES_INTERPRETE[frammento] as Dictionary).duplicate(true)
+			break
+	if String(esito.get("sintesi", "")) == "":
+		esito["sintesi"] = "Ulisse: \"%s\"" % testo_libero
+	var world_action := _world_action_ciconi(chiave)
+	if not world_action.is_empty():
+		esito["world_action"] = world_action
 	return esito
+
+## Fixture semantiche del mock: servono all integrazione senza rete, non sono il parser
+## runtime e non decidono mai l esito. Il core valida comunque presenza, possesso e regole.
+func _world_action_ciconi(testo: String) -> Dictionary:
+	if testo.contains("ordina ai ciconi di attaccare ulisse"):
+		return {"actor_id": "cicones_warriors", "verb": "ATTACK", "target_id": "cicones_leader"}
+	if testo.contains("negozio con i ciconi"):
+		return {"verb": "INFLUENCE", "mode": "NEGOTIATE", "target_id": "cicones_leader", "goal": "ESTABLISH_ALLIANCE"}
+	if testo.contains("offro vino ai ciconi"):
+		return {"verb": "EXCHANGE", "target_id": "cicones_leader", "offer": {"resource": "wine", "quantity": 1}, "request": {"resource": "food", "quantity": 2}}
+	if testo.contains("propongo un alleanza ai ciconi"):
+		return {"verb": "INFLUENCE", "mode": "FORM_ALLIANCE", "target_id": "cicones_leader", "goal": "ESTABLISH_ALLIANCE"}
+	if testo.contains("fingo che agamennone"):
+		return {"verb": "INFLUENCE", "mode": "DECEIVE", "target_id": "cicones_leader", "claim": {"subject": "odysseus", "predicate": "sent_by", "object": "agamemnon"}}
+	if testo.contains("restituisco i prigionieri"):
+		return {"verb": "TRANSFER", "target_id": "cicones_leader", "resource": "prisoners", "quantity": 1, "goal": "ESTABLISH_TRUCE"}
+	if testo.contains("aiutarli in cambio di viveri"):
+		return {"verb": "INFLUENCE", "mode": "NEGOTIATE", "target_id": "cicones_leader", "goal": "HELP_FOR_FOOD"}
+	if testo.contains("entro a ismaro"):
+		return {"verb": "MOVE", "destination_id": "ismaros_city"}
+	if testo.contains("torno alle navi da ismaro"):
+		return {"verb": "MOVE", "destination_id": "odysseus_ships"}
+	if testo.contains("attacco il capo dei ciconi"):
+		return {"verb": "ATTACK", "target_id": "cicones_leader"}
+	if testo.contains("aspetto a ismaro"):
+		return {"verb": "WAIT"}
+	return {}
 
 ## contesto atteso: {"favore": int, "ira": int, "umore": String}
 func proposta_dio(dio: Dio, _contesto: Dictionary) -> Dictionary:

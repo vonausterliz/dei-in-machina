@@ -1,7 +1,7 @@
 class_name StatoPartita
 extends RefCounted
 
-## Stato di partita RUNTIME (schema 0.3, vedi data/stato_partita.json).
+## Stato di partita RUNTIME (schema 0.4, vedi data/stato_partita.json).
 ## Le sotto-strutture non ancora manipolate da logica di gioco (diario,
 ## storico_olimpo, coalizioni, scavalcamenti_pendenti, relazioni) restano
 ## Dictionary/Array grezzi: tipizzarle oltre serve solo dalle fasi che le
@@ -52,6 +52,10 @@ var eventi_accaduti: Array[String] = []
 var agora: Dictionary = {}
 var ciurma_caduti: Array[String] = []
 var ultima_narrazione: String = ""
+
+## Slice Ciconi autoritativo. Contiene un record `ciconi-run/1`: snapshot committed e
+## soli EventBatch strutturati. La prosa di Omero e le chat non entrano mai qui.
+var ciconi_run: Dictionary = {}
 
 ## Il condensato di partenza: nessun ricordo antico, nessun conto aperto.
 static func memoria_vuota() -> Dictionary:
@@ -124,15 +128,17 @@ static func nuova(pantheon: Pantheon, seed_partita: int, run_id: String = "") ->
 	return s
 
 static func carica(path: String) -> StatoPartita:
-	# Nessun salvataggio ancora e' condizione normale, non un errore di sistema.
-	if not FileAccess.file_exists(path):
-		return null
-	var testo := FileAccess.get_file_as_string(path)
-	var parsed: Variant = JSON.parse_string(testo)
-	if typeof(parsed) != TYPE_DICTIONARY:
-		push_error("StatoPartita: JSON non valido: %s" % path)
-		return null
-	return StatoPartita.from_dict(parsed)
+	# Il file finale e la prima scelta; un backup valido e l ultima run committed se
+	# il processo si e interrotto durante la sostituzione.
+	for candidate in [path, path + ".bak"]:
+		if not FileAccess.file_exists(candidate):
+			continue
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(candidate))
+		if typeof(parsed) == TYPE_DICTIONARY:
+			return StatoPartita.from_dict(parsed)
+	if FileAccess.file_exists(path):
+		push_error("StatoPartita: nessun JSON valido per %s" % path)
+	return null
 
 static func from_dict(d: Dictionary) -> StatoPartita:
 	var s := StatoPartita.new()
@@ -169,13 +175,14 @@ static func from_dict(d: Dictionary) -> StatoPartita:
 	for p in d.get("ciurma_caduti", []):
 		s.ciurma_caduti.append(String(p))
 	s.ultima_narrazione = String(d.get("ultima_narrazione", ""))
+	s.ciconi_run = d.get("ciconi_run", {}).duplicate(true)
 	return s
 
 func to_dict() -> Dictionary:
 	return {
 		"_meta": {
 			"gioco": "Dei in machina",
-			"versione_schema": "0.3",
+			"versione_schema": "0.4",
 			"run_id": run_id,
 			"seed": seed_partita,
 			"creato": creato,
@@ -202,14 +209,30 @@ func to_dict() -> Dictionary:
 		"agora": agora,
 		"ciurma_caduti": ciurma_caduti,
 		"ultima_narrazione": ultima_narrazione,
+		"ciconi_run": ciconi_run,
 	}
 
 func salva(path: String) -> bool:
 	aggiornato = Time.get_datetime_string_from_system(true) + "Z"
-	var f := FileAccess.open(path, FileAccess.WRITE)
+	var absolute := ProjectSettings.globalize_path(path)
+	var temporary := absolute + ".tmp"
+	var backup := absolute + ".bak"
+	DirAccess.make_dir_recursive_absolute(absolute.get_base_dir())
+	DirAccess.remove_absolute(temporary)
+	var f := FileAccess.open(temporary, FileAccess.WRITE)
 	if f == null:
 		push_error("StatoPartita: impossibile scrivere %s" % path)
 		return false
 	f.store_string(JSON.stringify(to_dict(), "  "))
+	f.flush()
 	f.close()
+	if FileAccess.file_exists(absolute):
+		DirAccess.remove_absolute(backup)
+		if DirAccess.rename_absolute(absolute, backup) != OK:
+			DirAccess.remove_absolute(temporary)
+			return false
+	if DirAccess.rename_absolute(temporary, absolute) != OK:
+		if FileAccess.file_exists(backup) and not FileAccess.file_exists(absolute):
+			DirAccess.rename_absolute(backup, absolute)
+		return false
 	return true

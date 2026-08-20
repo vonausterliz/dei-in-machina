@@ -1022,6 +1022,21 @@ func narrazione_e_spunti(contesto: Dictionary, seed: int = 0) -> Dictionary:
 	_reg("← Omero + %d spunti · %d ms" % [spunti.size(), Time.get_ticks_msec() - t0])
 	return {"narrazione": String(r.get("narrazione", "")), "spunti": spunti}
 
+## Ciconi usa il modello narrativo corrente, ma con un contratto post-commit JSON e
+## fallback deterministico. Non modifica mai il record del mondo.
+func narrazione_ciconi(narrative_brief: Dictionary, seed: int = 0) -> Dictionary:
+	numero_chiamate_omero += 1
+	ultimo_contesto_omero = {"ciconi_narrative_brief": narrative_brief.duplicate(true)}
+	if mock_mode:
+		await get_tree().process_frame
+		var safe := CiconiNarrative.fallback(narrative_brief)
+		return {"source": "fallback", "text": safe["text"], "validation": CiconiNarrative.validate(safe, narrative_brief)}
+	_reg("→ Omero narra il commit Ciconi…")
+	var t0 := Time.get_ticks_msec()
+	var result := await _narratore.narra_ciconi(narrative_brief, _per("Omero"), seed)
+	_reg("← Omero Ciconi (%s) · %d ms" % [result.get("source", "?"), Time.get_ticks_msec() - t0])
+	return result
+
 func narrazione_omero(contesto: Dictionary, seed: int = 0) -> String:
 	numero_chiamate_omero += 1
 	ultimo_contesto_omero = contesto.duplicate(true)

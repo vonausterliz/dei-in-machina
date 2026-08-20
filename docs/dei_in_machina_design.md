@@ -1,6 +1,12 @@
 # Dei in machina — Documento di design
 
-*Versione 0.1 — congelamento pre-Godot*
+*Versione 0.2 — il congelamento pre-Godot e' superato in parte da ADR-001*
+
+> **Decisione del 20 agosto 2026.** Il canone omerico fornisce lore, geografia,
+> relazioni, condizioni iniziali, regole mitologiche ed attrattori narrativi. Gli eventi
+> del poema non sono fatti obbligatori della singola partita: diventano veri soltanto
+> quando il motore del mondo li valida e li committa. Il POC applica questa decisione
+> esclusivamente a Ciconi/Ismaro; fuori dallo slice resta attivo il comportamento legacy.
 
 ---
 
@@ -16,11 +22,11 @@ L'esperienza centrale: scrivi liberamente cosa fa e dice Ulisse; le tue parole s
 
 Sette principi che reggono tutto. Ogni scelta successiva discende da qui.
 
-**Giocatore = Ulisse, in testo libero.** Non menù, ma scrittura. Le utterance sono il trigger centrale — proprio come nel poema, dove Ulisse che grida il proprio nome a Polifemo scatena Poseidone.
+**Giocatore = Ulisse, in testo libero.** Non menu, ma scrittura. Le utterance vengono interpretate in azioni strutturate; il motore, non la prosa, decide quali effetti diventano veri. Il grido del nome a Polifemo puo informare Poseidone solo se danno, comunicazione e regola mitologica sono realmente presenti nella run.
 
 **Dèi nascosti.** Al giocatore succedono cose; la causa la può solo intuire. Nessun concilio visibile, nessuna barra divina.
 
-**Nascosto ma leale.** È il vincolo che regge il gioco: nascosto non deve mai voler dire casuale. La **coerenza vive nel trigger** (una regola stabile: Poseidone reagisce *sempre* alla tracotanza), la **varietà vive nella forma della risposta** (segno, aiuto, castigo, silenzio — decisi dal capriccio). Così la causa è deducibile senza essere mai nominata.
+**Nascosto ma leale.** La coerenza vive nello stato, nelle precondizioni e negli eventi committed; la varieta vive nella forma della risposta. Un trigger non puo aggirare conoscenza, presenza o causalita. Cosi la causa e deducibile senza essere mai nominata.
 
 **Omero narratore, reticente.** Un'unica voce epica racconta intro ed esiti. Ma è un aedo che *sa e non dice*: descrive solo ciò che Ulisse può percepire, vago sulle cause ("un dio, e non dirò quale…"). L'Omero vero nomina gli dèi di continuo: qui il vincolo diventa personaggio.
 
@@ -38,7 +44,7 @@ Sette principi che reggono tutto. Ogni scelta successiva discende da qui.
 
 Tutti gli dèi del poema, in due fasce con comportamenti diversi.
 
-**Persistenti** (sempre in ascolto, valutati ogni turno; favore/ira cumulativi — il motore della deduzione): **Atena** (pro-ritorno, premia l'astuzia), **Poseidone** (contro-ritorno, dorme finché non accechi Polifemo), **Zeus** (arbitro, custode di xenia e ordine).
+**Persistenti** (sempre in ascolto quando la loro knowledge policy lo consente; favore/ira cumulativi): **Atena** (pro-ritorno, premia l'astuzia), **Poseidone** (contro-ritorno, puo diventare ostile se apprende un torto realmente commesso contro Polifemo), **Zeus** (arbitro, custode di xenia e ordine).
 
 **Locali / episodici** (si attivano solo alla loro tappa, colpiscono forte una volta): **Polifemo** (proxy che innesca Poseidone), **Eolo**, **Circe**, **Ermes** (esecutore di Zeus), **Tiresia** (fonte di segni nell'Ade), **Sirene**, **Scilla**, **Elio** (castigo catastrofico a Trinacia), **Calipso** (anti-ritorno per amore), **Ino/Leucotea** (soccorritrice).
 
@@ -84,13 +90,9 @@ Cautela obbligatoria: i falsi positivi qui **uccidono**, quindi scala dolce all'
 
 ## 7. Rigiocabilità
 
-Via di mezzo: **trigger fissi** (la logica mitologica canonica — una maestria che ti porti tra le partite), ma **capricci e umori variabili** a ogni partita (guidati dal `seed`). La conoscenza si trasferisce, ma ogni run sorprende.
+Le regole mitologiche restano stabili fra le partite e capricci e umori variano col `seed`, ma **la causalita non coincide con l'ordine del poema**. La rotta canonica e un itinerario iniziale e un attrattore, non un'invariante del world engine. Location, connessioni, conoscenze, risorse ed eventi committed determinano quali sviluppi siano possibili.
 
-> **Deciso il 3 agosto 2026 — l'ordine degli episodi resta FISSO** (rev. della v0.1, che lo voleva variabile col `seed`).
->
-> L'ordine dell'*Odissea* non è un contenitore di tappe: è la causalità della storia. Il Ciclope **deve** venire prima, perché è lì che nasce `maledizione_di_polifemo` e senza quell'evento Poseidone dorme per tutta la partita; l'Ade contiene la profezia di Tiresia che avverte di Sirene, Scilla e vacche del Sole, e spostarla dopo la svuota; Circe avverte delle stesse cose; Ogigia → naufragio → Scheria è una catena unica (la zattera che si sfascia presuppone la zattera). Rimescolare romperebbe metà del gioco; rimescolare solo le tre tappe "neutre" (Ciconi, Lotofagi, Lestrigoni) darebbe pochissimo.
->
-> La rigiocabilità sta altrove, ed è già lì: i capricci degli dèi, gli umori, la deliberazione, e soprattutto **cosa scrivi**. Se un giorno risultasse povera, la strada è variare col seme gli umori iniziali e la suscettibilità dei singoli dèi — non l'ordine.
+> **ADR-001, 20 agosto 2026 — supera la decisione del 3 agosto sull'ordine fisso.** Il testo precedente proteggeva correttamente le dipendenze causali, ma le rappresentava attraverso una lista di episodi. Il nuovo modello conserva le dipendenze come precondizioni esplicite: la profezia richiede che Tiresia abbia parlato e sia stata appresa; un naufragio richiede una causa; l'ostilita di Poseidone richiede un torto e un canale di conoscenza. Se le precondizioni non accadono, la conseguenza canonica non viene applicata. Durante il POC questa politica vale solo a Ismaro.
 
 ---
 

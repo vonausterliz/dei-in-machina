@@ -1,0 +1,24 @@
+{
+  "schema": "ciconi-seed/1",
+  "locations": ["ismaros_beach", "ismaros_city", "odysseus_ships", "cicones_territory"],
+  "connections": {
+    "ismaros_beach": ["ismaros_city", "odysseus_ships"],
+    "ismaros_city": ["ismaros_beach", "odysseus_ships", "cicones_territory"],
+    "odysseus_ships": ["ismaros_beach", "ismaros_city"],
+    "cicones_territory": ["ismaros_city"]
+  },
+  "entities": {
+    "odysseus": {"kind": "character", "faction": "Achaeans", "alive": true, "location_id": "ismaros_beach", "parent_id": ""},
+    "crew": {"kind": "group", "faction": "Achaeans", "alive": true, "location_id": "ismaros_beach", "parent_id": ""},
+    "cicones_leader": {"kind": "character", "faction": "Cicones", "alive": true, "location_id": "ismaros_city", "parent_id": ""},
+    "cicones_warriors": {"kind": "group", "faction": "Cicones", "alive": true, "location_id": "ismaros_city", "parent_id": ""},
+    "ships": {"kind": "asset", "faction": "Achaeans", "alive": true, "location_id": "odysseus_ships", "parent_id": ""},
+    "prisoners": {"kind": "group", "faction": "Cicones", "alive": true, "location_id": "", "parent_id": "odysseus"}
+  },
+  "resources": {
+    "food": {"odysseus": 12, "cicones_leader": 20},
+    "wine": {"odysseus": 6, "cicones_leader": 12},
+    "weapons": {"odysseus": 10, "cicones_leader": 14},
+    "goods": {"odysseus": 8, "cicones_leader": 18}
+  }
+}

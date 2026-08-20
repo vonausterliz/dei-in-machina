@@ -41,6 +41,7 @@ static func envelope_fallback(sintesi: String = "") -> Dictionary:
 		"tono": "neutro",
 		"intensita": 1,
 		"sintesi": sintesi,
+		"world_action": null,  # solo attempt strutturato; non contiene mai un esito
 	}
 
 ## Valida un envelope contro il contratto. Ritorna {ok: bool, errori: Array[String]}.
@@ -60,6 +61,10 @@ static func valida_envelope(envelope: Dictionary, id_dei_validi: Array = []) -> 
 		for t in tag:
 			if not TAG_VOCABOLARIO.has(t):
 				errori.append("tag '%s' fuori dal vocabolario chiuso" % t)
+
+	var world_action = envelope.get("world_action", null)
+	if world_action != null and not (world_action is Dictionary):
+		errori.append("world_action deve essere un oggetto o null")
 
 	var intensita = envelope.get("intensita", null)
 	if typeof(intensita) not in [TYPE_INT, TYPE_FLOAT] or int(intensita) < INTENSITA_MIN or int(intensita) > INTENSITA_MAX:
@@ -92,6 +97,8 @@ static func normalizza(grezzo: Dictionary) -> Dictionary:
 	else:
 		e["dio_invocato"] = null
 	e["bersaglio"] = grezzo.get("bersaglio", null)
+	if grezzo.get("world_action", null) is Dictionary:
+		e["world_action"] = grezzo["world_action"].duplicate(true)
 	if typeof(e["intensita"]) == TYPE_FLOAT:
 		e["intensita"] = int(e["intensita"])
 	var tag_norm: Array = []
