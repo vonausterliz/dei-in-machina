@@ -13,7 +13,7 @@
     "cicones_leader": {"kind": "character", "faction": "Cicones", "alive": true, "location_id": "ismaros_city", "parent_id": ""},
     "cicones_warriors": {"kind": "group", "faction": "Cicones", "alive": true, "location_id": "ismaros_city", "parent_id": ""},
     "ships": {"kind": "asset", "faction": "Achaeans", "alive": true, "location_id": "odysseus_ships", "parent_id": ""},
-    "prisoners": {"kind": "group", "faction": "Cicones", "alive": true, "location_id": "", "parent_id": "odysseus", "members": 3}
+    "prisoners": {"kind": "group", "faction": "Cicones", "alive": true, "location_id": "", "parent_id": "odysseus"}
   },
   "resources": {
     "food": {"odysseus": 12, "cicones_leader": 20},

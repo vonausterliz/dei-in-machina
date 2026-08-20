@@ -207,6 +207,39 @@ const SPUNTO_MAX_CARATTERI := 110
 ## La prosa resta libera (niente JSON, che peggiora la scrittura): il modello chiude con
 ## una riga separatrice e tre righe secche. Se non lo fa, spunti vuoti e il chiamante
 ## ripiega su quelli generici — la narrazione non si perde mai.
+## Narrazione Ciconi: un solo consumer post-commit. Il modello dichiara le claim rese;
+## il validatore accetta al massimo un retry, poi usa il renderer deterministico.
+func narra_ciconi(narrative_brief: Dictionary, chat_fn: Callable, seed: int = 0) -> Dictionary:
+	var opzioni := {"temperature": 0.65, "json_mode": true}
+	if seed != 0:
+		opzioni["seed"] = seed
+	var candidate := await _tenta_ciconi(narrative_brief, chat_fn, opzioni, false)
+	var first := CiconiNarrative.validate(candidate, narrative_brief)
+	var selected: Dictionary
+	if bool(first["ok"]):
+		selected = {"source": "candidate", "text": String(candidate.get("text", "")), "validation": first}
+	else:
+		var retry := await _tenta_ciconi(narrative_brief, chat_fn, opzioni, true)
+		selected = CiconiNarrative.choose(candidate, retry, narrative_brief)
+	var text := String(selected.get("text", ""))
+	if nomina_un_dio(text):
+		text = redigi(text)
+	selected["text"] = text
+	return selected
+
+func messaggi_ciconi(narrative_brief: Dictionary, retry: bool = false) -> Array:
+	var istruzione := "Racconta SOLO il NarrativeBrief committed. Non aggiungere morti, attacchi, partenze, oggetti o accordi. Rispondi SOLO JSON: {\"text\":\"prosa breve\",\"claims\":[...]} e copia in claims esattamente ogni oggetto required_claims che hai reso nella prosa."
+	if retry:
+		istruzione += " Il tentativo precedente ha contraddetto o omesso fatti: aderenza letterale, nessuna aggiunta."
+	return [{"role": "system", "content": _system_prompt}, {"role": "user", "content": istruzione + "\nNARRATIVE_BRIEF:\n" + JSON.stringify(narrative_brief)}]
+
+func _tenta_ciconi(narrative_brief: Dictionary, chat_fn: Callable, opzioni: Dictionary, retry: bool) -> Dictionary:
+	var risposta = await chat_fn.call(messaggi_ciconi(narrative_brief, retry), opzioni)
+	if typeof(risposta) != TYPE_DICTIONARY or not bool(risposta.get("ok", false)):
+		return {}
+	var parsed: Variant = JSON.parse_string(String(risposta.get("content", "")))
+	return (parsed as Dictionary).duplicate(true) if parsed is Dictionary else {}
+
 func narra_e_suggerisci(contesto: Dictionary, chat_fn: Callable, seed: int = 0) -> Dictionary:
 	return _separa(await narra(contesto, chat_fn, seed, false))
 

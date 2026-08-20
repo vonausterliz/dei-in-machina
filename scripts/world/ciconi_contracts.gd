@@ -43,10 +43,24 @@ static func validate_action(action: Dictionary, state: Dictionary = {}) -> Dicti
 	return {"ok": errors.is_empty(), "errors": errors}
 
 static func normalized_action(action: Dictionary) -> Dictionary:
-	var result: Dictionary = action.duplicate(true)
+	# Canonical allowlist: interpreter output cannot smuggle outcome, events or world patches.
+	var result: Dictionary = {}
+	for field in ["schema", "action_id", "expected_world_version", "actor_id", "verb", "mode", "target_id", "source_id", "destination_id", "resource", "quantity", "goal"]:
+		if action.has(field):
+			result[field] = action[field]
+	for side in ["offer", "request"]:
+		if action.get(side, null) is Dictionary:
+			var item: Dictionary = action[side]
+			result[side] = {"resource": String(item.get("resource", "")), "quantity": int(item.get("quantity", 0))}
+	if action.get("claim", null) is Dictionary:
+		var claim: Dictionary = action["claim"]
+		result["claim"] = {"subject": String(claim.get("subject", "")), "predicate": String(claim.get("predicate", "")), "object": String(claim.get("object", ""))}
 	result["schema"] = ACTION_SCHEMA
 	result["action_id"] = String(result.get("action_id", ""))
 	result["actor_id"] = String(result.get("actor_id", ""))
+	result["expected_world_version"] = int(result.get("expected_world_version", -1))
+	if result.has("quantity"):
+		result["quantity"] = int(result["quantity"])
 	result["verb"] = String(result.get("verb", "")).to_upper()
 	if result.has("mode"):
 		result["mode"] = String(result["mode"]).to_upper()

@@ -78,6 +78,8 @@ static func validate_record(record: Dictionary) -> Dictionary:
 		if not (batch.get("action", {}) is Dictionary):
 			return _invalid("event_batch_lacks_action")
 		var action: Dictionary = batch["action"]
+		if not _same_json(action, CiconiContracts.normalized_action(action)):
+			return _invalid("event_batch_action_is_not_canonical")
 		if _has_forbidden_presentation_key(action):
 			return _invalid("presentation_data_is_not_persistable")
 		if String(batch.get("action_id", "")) == "" or String(batch["action_id"]) != String(action.get("action_id", "")):
@@ -206,7 +208,11 @@ static func _has_forbidden_presentation_key(value: Variant) -> bool:
 	return false
 
 static func _same_json(first: Variant, second: Variant) -> bool:
-	return JSON.stringify(first, "", true) == JSON.stringify(second, "", true)
+	return _transport_json(first) == _transport_json(second)
+
+static func _transport_json(value: Variant) -> String:
+	var normalized: Variant = JSON.parse_string(JSON.stringify(value))
+	return JSON.stringify(normalized, "", true)
 
 static func snapshot_hash(snapshot: Dictionary) -> String:
 	## Hash the JSON transport representation. That makes the digest reproducible after a

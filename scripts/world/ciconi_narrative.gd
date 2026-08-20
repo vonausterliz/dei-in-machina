@@ -31,6 +31,8 @@ static func brief(world_state: Dictionary, outcome: Dictionary = {},
 		var event_class := _event_class(event)
 		if not event_class.is_empty():
 			observed_classes[event_class] = true
+		if String(event.get("type", "")) == "CHARACTER_HARMED":
+			observed_classes["ATTACK_STARTED"] = true
 		for claim in _claims_for_event(event):
 			required_claims.append(claim)
 
@@ -44,17 +46,34 @@ static func brief(world_state: Dictionary, outcome: Dictionary = {},
 			if not forbidden.has(String(claim_class)):
 				forbidden.append(String(claim_class))
 
+	var safe_outcome := _copy_dictionary(outcome)
+	safe_outcome.erase("state")
 	return {
 		"schema": BRIEF_SCHEMA,
 		"world_version": int(world_state.get("world_version", _max_world_version(committed_events))),
 		"turn": int(world_state.get("turn", 0)),
 		"player_attempt": _copy_dictionary(attempt),
-		"outcome": _copy_dictionary(outcome),
+		"outcome": safe_outcome,
 		"committed_events": committed_events.duplicate(true),
 		"relevant_world_state": _relevant_world_state(world_state),
 		"required_claims": required_claims,
 		"forbidden_claim_classes": forbidden,
 	}
+
+
+## Narrows the shared committed brief to one knowledge and visibility projection before an LLM sees it.
+static func brief_for_audience(narrative_brief: Dictionary, view: Dictionary) -> Dictionary:
+	var out := narrative_brief.duplicate(true)
+	out["audience"] = String(view.get("audience", "player"))
+	out["committed_events"] = view.get("events", []).duplicate(true)
+	out["required_claims"] = view.get("required_claims", []).duplicate(true)
+	var relevant: Dictionary = out.get("relevant_world_state", {}).duplicate(true)
+	relevant["agreements"] = view.get("agreements", []).duplicate(true)
+	relevant["relationships"] = view.get("relationships", []).duplicate(true)
+	relevant["knowledge"] = view.get("knowledge", []).duplicate(true)
+	relevant["beliefs"] = view.get("beliefs", []).duplicate(true)
+	out["relevant_world_state"] = relevant
+	return out
 
 
 static func audience_view(narrative_brief: Dictionary, world_state: Dictionary,
@@ -203,6 +222,10 @@ static func _claims_for_event(event: Dictionary) -> Array:
 		"ITEM_TRANSFERRED":
 			claims.append(_fact(actor, "transferred", target, "ITEM_TRANSFERRED", source_event_id, {
 				"resource": payload.get("resource", payload.get("resource_id", "")), "quantity": payload.get("quantity", 0)}))
+		"ENTITY_TRANSFERRED":
+			claims.append(_fact(String(payload.get("entity_id", actor)), "contained_by", String(payload.get("to_id", target)), "ENTITY_TRANSFERRED", source_event_id))
+		"RESOURCE_CONSUMED":
+			claims.append(_fact(actor, "consumed", String(payload.get("resource", "")), "RESOURCE_CONSUMED", source_event_id, {"quantity": payload.get("quantity", 0)}))
 		"CLAIM_UTTERED":
 			# An utterance is a fact; its asserted content deliberately is not world truth.
 			claims.append(_fact(actor, "uttered_claim_to", target, "CLAIM_UTTERED", source_event_id))
@@ -221,6 +244,8 @@ static func _claims_for_event(event: Dictionary) -> Array:
 				"AGREEMENT_ACTIVATED", source_event_id, {"kind": kind}))
 		"AGREEMENT_BREACHED":
 			claims.append(_fact(actor, "agreement_breached_with", target, "AGREEMENT_BREACHED", source_event_id))
+		"AGREEMENT_REJECTED":
+			claims.append(_fact(target, "rejected_agreement_with", actor, "AGREEMENT_REJECTED", source_event_id))
 		"CHARACTER_HARMED":
 			claims.append(_fact(actor, "harmed", target, "CHARACTER_HARMED", source_event_id))
 		"TURN_WAITED":
@@ -383,7 +408,7 @@ static func _text_asserts_class(text: String, claim_class: String) -> bool:
 	var markers := {
 		"ATTACK_STARTED": ["attacco", "attacc", "assalto", "contrattacc"],
 		"CITY_SACKED": ["saccheggi", "citta' cadde", "città cadde"],
-		"CHARACTER_KILLED": [" uccis", " mori", " morto", " cadde morto"],
+		"CHARACTER_KILLED": [" uccis", " mori", " morì", " morto", " cadde morto", "ultimo respiro", "esalò", "esalo", "spirò", "spiro", "senza vita", "non respirava"],
 		"LOCATION_LEFT": [" salpo", " salpò", " lascio ", " lasciò ", " fugg"],
 	}
 	for marker in markers.get(claim_class, []):

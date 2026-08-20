@@ -43,6 +43,8 @@ static func resolve(state: Dictionary, action: Dictionary) -> Dictionary:
 	var action_id: String = normalized["action_id"]
 	if state.get("processed_actions", {}).has(action_id):
 		var replay: Dictionary = state["processed_actions"][action_id].duplicate(true)
+		if replay.get("attempt", {}) != normalized:
+			return _rejected(state, normalized, "idempotency_key_reused")
 		replay["state"] = state.duplicate(true)
 		replay["idempotent"] = true
 		return replay
@@ -125,6 +127,18 @@ static func validate_state(state: Dictionary) -> Array[String]:
 			errors.append("entity %s has no physical parent" % entity_id)
 		if has_parent and not state["entities"].has(entity["parent_id"]):
 			errors.append("entity %s has unknown parent" % entity_id)
+	for entity_id in state.get("entities", {}):
+		var ancestry := {}
+		var cursor := String(entity_id)
+		while state["entities"].has(cursor):
+			if ancestry.has(cursor):
+				errors.append("entity %s has a containment cycle" % entity_id)
+				break
+			ancestry[cursor] = true
+			var parent := String(state["entities"][cursor].get("parent_id", ""))
+			if parent.is_empty():
+				break
+			cursor = parent
 	for resource in state.get("resources", {}):
 		for owner_id in state["resources"][resource]:
 			if int(state["resources"][resource][owner_id]) < 0:
@@ -219,6 +233,8 @@ static func _transfer(state: Dictionary, action: Dictionary, events: Array) -> S
 		return "unknown_transfer_party"
 	if quantity <= 0:
 		return "invalid_transfer"
+	if source_id == target_id:
+		return "same_source_and_target"
 	if not _same_location(state, action["actor_id"], source_id) or not _same_location(state, source_id, target_id):
 		return "remote_target_cannot_be_interacted_with"
 	if state["entities"].has(resource):
@@ -242,6 +258,19 @@ static func _consume(state: Dictionary, action: Dictionary, events: Array, sourc
 	return ""
 
 static func _transfer_entity(state: Dictionary, action: Dictionary, events: Array, source_id: String, target_id: String, entity_id: String, quantity: int) -> String:
+	if quantity != 1:
+		return "entity_quantity_must_be_one"
+	if target_id == entity_id:
+		return "entity_cannot_contain_itself"
+	var cursor := target_id
+	var seen := {}
+	while state["entities"].has(cursor) and String(state["entities"][cursor].get("parent_id", "")) != "":
+		if cursor == entity_id or seen.has(cursor):
+			return "containment_cycle"
+		seen[cursor] = true
+		cursor = String(state["entities"][cursor].get("parent_id", ""))
+	if cursor == entity_id:
+		return "containment_cycle"
 	var entity: Dictionary = state["entities"][entity_id]
 	if entity.get("parent_id", "") != source_id:
 		return "entity_not_owned_by_source"

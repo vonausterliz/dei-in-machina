@@ -83,6 +83,11 @@ var _politica: PoliticaDivina = null
 ## Ultima narrazione di Omero: la ripassiamo al turno dopo per la continuità del discorso.
 var _ultima_narrazione: String = ""
 
+## Strangler flag del solo slice Ismaro. Nei test legacy a mock resta spento finche'
+## il test d integrazione non lo abilita esplicitamente; nel gioco reale e attivo.
+var ciconi_world_poc_enabled := false
+var _ciconi_world_poc_in_mock := false
+
 func _ready() -> void:
 	episodi = Episodi.carica(EPISODI_PATH)
 	prob_scavalcamento = _PROB_SCAVALCAMENTO_DEFAULT
@@ -114,6 +119,9 @@ func nuova_partita(seed_partita: int = 0) -> void:
 ## il primo turno della tappa prosegue dalla sua intro.
 func _entra_in_episodio(id: String) -> String:
 	var intro := viaggio.entra(id)
+	if id == "ciconi" and stato != null and stato.ciconi_run.is_empty():
+		var initial := CiconiWorld.initial_state()
+		stato.ciconi_run = CiconiWorldStore.new_record(CiconiWorldStore.seed_id_for_path(), initial)
 	_ultima_narrazione = intro
 	return intro
 
@@ -210,10 +218,30 @@ func vai_a_tappa(id: String) -> void:
 ## flag in memoria e non nel file, restavano spenti.
 ##
 ## Regola: tutto cio' che `nuova_partita` costruisce, `carica_partita` lo ricostruisce.
+func _replay_ciconi_salvato(candidate: StatoPartita) -> Dictionary:
+	if candidate.ciconi_run.is_empty():
+		return {"ok": true, "state": {}}
+	var checked := CiconiWorldStore.validate_record(candidate.ciconi_run)
+	if not bool(checked.get("ok", false)):
+		return {"ok": false, "reason": checked.get("reason", "invalid_ciconi_run")}
+	return CiconiWorldStore.replay(candidate.ciconi_run)
+
+
 func carica_partita(path: String = SALVATAGGIO_DEFAULT) -> bool:
 	var s := StatoPartita.carica(path)
 	if s == null:
 		return false
+	var replayed := _replay_ciconi_salvato(s)
+	if not bool(replayed.get("ok", false)):
+		var backup := StatoPartita.carica(path + ".bak")
+		var backup_replayed := _replay_ciconi_salvato(backup) if backup != null else {"ok": false, "reason": "backup_missing"}
+		if not bool(backup_replayed.get("ok", false)):
+			push_error("GameManager: salvataggio Ciconi non valido: %s; backup: %s" % [replayed.get("reason", "errore"), backup_replayed.get("reason", "errore")])
+			return false
+		s = backup
+		replayed = backup_replayed
+	if not s.ciconi_run.is_empty():
+		s.ciconi_run["snapshot"] = replayed["state"]
 	stato = s
 	_validazione = Validazione.new(stato)
 	viaggio = Viaggio.new(episodi, stato)
@@ -265,7 +293,113 @@ func salva_partita(path: String = SALVATAGGIO_DEFAULT) -> bool:
 ## Ritorna un dizionario di esito: {voce, svegli, in_mondo, esito, fsm_path}.
 ## 'voce' e' anche appesa a stato.storico_olimpo (schema letto dal trace dumper).
 ## `rischio`: Ulisse ha preso un BIVIO, non un suggerimento. Vedi forza_con_rischio.
+func abilita_ciconi_world_poc(attivo: bool, anche_in_mock: bool = false) -> void:
+	ciconi_world_poc_enabled = attivo
+	_ciconi_world_poc_in_mock = attivo and anche_in_mock
+
+func _usa_ciconi_world_poc() -> bool:
+	return ciconi_world_poc_enabled and stato != null and _episodio_corrente() == "ciconi" and (not LLMManager.mock_mode or _ciconi_world_poc_in_mock)
+
 func esegui_turno(input_testo: String, eventi: Array = [], rischio: bool = false) -> Dictionary:
+	if _usa_ciconi_world_poc():
+		return await _esegui_turno_ciconi(input_testo, rischio)
+	return await _esegui_turno_legacy(input_testo, eventi, rischio)
+
+## Turno verticale del POC. Il solo swap di `stato.ciconi_run` e il commit logico;
+## ogni consumer LLM parte dopo e riceve copie/proiezioni della stessa world version.
+func _esegui_turno_ciconi(input_testo: String, rischio: bool = false) -> Dictionary:
+	if stato == null or stato.stato != "in_corso":
+		return {}
+	if stato.ciconi_run.is_empty():
+		var initial := CiconiWorld.initial_state()
+		stato.ciconi_run = CiconiWorldStore.new_record(CiconiWorldStore.seed_id_for_path(), initial)
+
+	LLMManager.tracciato.apre_turno(stato.turno + 1, input_testo)
+	LLMManager.tracciato.entra("azione del giocatore", input_testo)
+	stato.turno += 1
+	var turno := stato.turno
+	agora.segna_turno(turno, input_testo, momento_corrente())
+	var percorso: Array[String] = ["INTERPRETAZIONE"]
+	var envelope: Dictionary = await LLMManager.interpreta(_testo_per_interprete(input_testo))
+	var val := _valida(envelope, input_testo)
+	percorso.append("VALIDAZIONE")
+
+	var before_state: Dictionary = stato.ciconi_run.get("snapshot", {}).duplicate(true)
+	var raw_action: Variant = envelope.get("world_action", null)
+	var action: Dictionary = raw_action.duplicate(true) if raw_action is Dictionary else {}
+	action["schema"] = CiconiContracts.ACTION_SCHEMA
+	action["action_id"] = "%s:ciconi:%d" % [stato.run_id, turno]
+	action["expected_world_version"] = int(before_state.get("world_version", 0))
+	action["actor_id"] = "odysseus"  # Player turns never delegate actor authority to the LLM.
+
+	var outcome: Dictionary
+	if not bool(val.get("in_mondo", false)):
+		outcome = {"schema": CiconiContracts.OUTCOME_SCHEMA, "status": "REJECTED", "reason": "outside_world", "attempt": action.duplicate(true), "events": [], "applied_facts": [], "event_batch": {}, "committed": false, "idempotent": false, "state": before_state.duplicate(true)}
+	else:
+		percorso.append("RULE_RESOLUTION")
+		outcome = CiconiWorld.resolve(before_state, action)
+
+	var committed_state: Dictionary = before_state
+	if bool(outcome.get("committed", false)):
+		percorso.append("INVARIANT_VALIDATION")
+		var stored := CiconiWorldStore.append_outcome(stato.ciconi_run, outcome)
+		if not bool(stored.get("ok", false)):
+			push_error("GameManager: commit Ciconi rifiutato: %s" % stored.get("reason", "errore"))
+			outcome = {"schema": CiconiContracts.OUTCOME_SCHEMA, "status": "REJECTED", "reason": "commit_failed", "attempt": action.duplicate(true), "events": [], "applied_facts": [], "event_batch": {}, "committed": false, "idempotent": false, "state": before_state.duplicate(true)}
+		else:
+			stato.ciconi_run = stored["record"]
+			committed_state = stato.ciconi_run["snapshot"]
+			percorso.append("COMMIT")
+
+	var authoritative_copy := committed_state.duplicate(true)
+	var world_hash_before_presentation := CiconiWorld.state_hash(authoritative_copy)
+	var outcome_for_brief := outcome.duplicate(true)
+	outcome_for_brief.erase("state")
+	var brief := CiconiNarrative.brief(committed_state, outcome_for_brief, outcome.get("event_batch", {}), action)
+	var views := {
+		"narrator": CiconiNarrative.audience_view(brief, committed_state, "player"),
+		"crew": CiconiNarrative.audience_view(brief, committed_state, "crew"),
+		"olympus": CiconiNarrative.audience_view(brief, committed_state, "olympus"),
+	}
+	var narrator_brief := CiconiNarrative.brief_for_audience(brief, views["narrator"])
+	percorso.append("NARRAZIONE")
+	var rendered := await LLMManager.narrazione_ciconi(narrator_brief)
+	var narrazione := String(rendered.get("text", ""))
+	if CiconiWorld.state_hash(stato.ciconi_run.get("snapshot", {})) != world_hash_before_presentation:
+		push_error("GameManager: un consumer narrativo ha mutato il Ciconi WorldState")
+		stato.ciconi_run["snapshot"] = authoritative_copy.duplicate(true)
+
+	var factual := CiconiNarrative.factual_memory(committed_state, outcome.get("event_batch", {}))
+	var crew_factual := CiconiNarrative.factual_memory(committed_state, outcome.get("event_batch", {}), "crew")
+	stato.cronaca = CiconiNarrative.factual_memory_text(committed_state)
+	stato.cronaca_turno = turno
+	_ultima_narrazione = narrazione
+	stato.parole_ai_compagni.clear()
+	var public_outcome := outcome.duplicate(true)
+	public_outcome.erase("state")
+	var quadro := {"schema": "ciconi-turn-view/1", "world_version": committed_state.get("world_version", 0), "narrative_brief": brief, "audiences": views}
+	var voce := {"turno": turno, "input": input_testo, "envelope": envelope, "svegli": [], "episodio": "ciconi", "eventi_emessi": outcome.get("events", []).duplicate(true), "conflitto": false, "deliberazione": [], "verdetto": {}, "scavalcamento": {}, "resa_dei_conti": {}, "coalizioni": stato.coalizioni.duplicate(true), "delta": {}, "ammonizione": val.get("classe", "nessuna"), "narrazione_omero": narrazione, "world_outcome": public_outcome, "world_version": committed_state.get("world_version", 0), "factual_memory": factual, "quadro_narrativo": quadro, "rischio": rischio}
+	stato.storico_olimpo.append(voce)
+	stato.diario.append({"turno": turno, "voce": envelope.get("sintesi", input_testo), "esito": String(outcome.get("status", "REJECTED")).to_lower(), "world_version": committed_state.get("world_version", 0)})
+	if not LLMManager.mock_mode and bool(outcome.get("committed", false)):
+		call_deferred("_post_commit_ciconi_crew", input_testo, views["crew"].duplicate(true), crew_factual.duplicate(true))
+
+	var spunti := _spunti_ciconi(committed_state)
+	ricorda_spunti(spunti)
+	LLMManager.tracciato.esce("ciconi world", "v%s · %s" % [committed_state.get("world_version", 0), outcome.get("status", "REJECTED")])
+	LLMManager.tracciato.chiude_turno()
+	return {"voce": voce, "svegli": [], "in_mondo": bool(val.get("in_mondo", false)), "esito": "continua", "congedo": "", "episodio": "ciconi", "avanzato": false, "causa": "", "intro": "", "transizione": "", "quadro_narrativo": quadro, "spunti": spunti, "fsm_path": percorso, "world_outcome": public_outcome, "audience_views": views}
+
+func _post_commit_ciconi_crew(_input_testo: String, crew_view: Dictionary, factual: Dictionary) -> void:
+	await _fa_parlare_la_ciurma("", "", false, -1, {"audience_view": crew_view, "factual_memory": factual})
+
+func _spunti_ciconi(world_state: Dictionary) -> Array:
+	for agreement in world_state.get("agreements", {}).values():
+		if bool(agreement.get("active", false)) and String(agreement.get("kind", "")) == "ALLIANCE":
+			return [{"testo": "Consolida i termini dell alleanza.", "rischio": false}, {"testo": "Chiedi viveri per il viaggio.", "rischio": false}, {"testo": "Torna alle navi senza rompere il patto.", "rischio": false}]
+	return [{"testo": "Chiedi di negoziare con il capo.", "rischio": false}, {"testo": "Proponi uno scambio di vino e viveri.", "rischio": false}, {"testo": "Osserva le difese prima di agire.", "rischio": false}]
+
+func _esegui_turno_legacy(input_testo: String, eventi: Array = [], rischio: bool = false) -> Dictionary:
 	if stato == null:
 		push_error("GameManager: nessuna partita attiva.")
 		return {}
@@ -1220,7 +1354,7 @@ func _nome_dio(id: String) -> String:
 ## `alla_ciurma`: Ulisse ha scritto NELLA chat dei compagni. Allora sta parlando a loro
 ## anche se non nomina nessuno — il canale e' il destinatario.
 ## `giro`: chi tocca nella rotazione (i beat avanzano anche a turno fermo).
-func _fa_parlare_la_ciurma(input_testo: String, narrazione: String, alla_ciurma: bool = false, giro: int = -1) -> void:
+func _fa_parlare_la_ciurma(input_testo: String, narrazione: String, alla_ciurma: bool = false, giro: int = -1, committed_view: Dictionary = {}) -> void:
 	if ciurma == null:
 		return
 	var vivi: Array = ciurma.vivi()
@@ -1244,6 +1378,13 @@ func _fa_parlare_la_ciurma(input_testo: String, narrazione: String, alla_ciurma:
 		"accaduto": narrazione,
 		"ulisse_dice": input_testo,
 	}
+	if not committed_view.is_empty():
+		var memory: Dictionary = committed_view.get("factual_memory", {})
+		contesto["scena"] = JSON.stringify(committed_view.get("audience_view", {}))
+		contesto["cronaca"] = "\n".join(PackedStringArray(memory.get("entries", [])))
+		contesto["accaduto"] = contesto["cronaca"]
+		contesto["ulisse_dice"] = ""  # Raw player text may describe facts this audience did not observe.
+		contesto["world_version"] = committed_view.get("audience_view", {}).get("world_version", 0)
 	# Ulisse compare in chat quando sta PARLANDO ai suoi: o perche' ha scritto nella loro
 	# chat, o perche' ne ha nominato uno. Un gesto compiuto nel campo di gioco ("sguaino
 	# la spada") non e' una frase detta a qualcuno e non gli va messo in bocca.
