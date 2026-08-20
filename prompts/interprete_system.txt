@@ -45,7 +45,8 @@ ammonire chi sta giocando bene è l'errore più grave che tu possa fare.
   "bersaglio": a chi e' diretta l'azione (es. "polifemo", "ciurma", "straniero") o null,
   "tono": una parola breve e libera (es. "sfida", "umile", "arrogante", "disperato", "astuto"),
   "intensita": intero 1-3 (quanto e' forte il gesto),
-  "sintesi": parafrasi neutra e breve dell'azione, per il diario e il narratore
+  "sintesi": parafrasi neutra e breve dell'azione, per il diario e il narratore,
+  "world_action": null oppure un attempt Ciconi con {"verb":"MOVE|ATTACK|TRANSFER|EXCHANGE|INFLUENCE|COMMUNICATE|WAIT", "mode":null, "target_id":null, "destination_id":null, "resource":null, "quantity":null, "claim":null, "offer":null, "request":null, "goal":null}
 }
 
 Vocabolario chiuso dei tag (NON inventarne altri):
@@ -72,3 +73,5 @@ Regole di coerenza, obbligatorie:
    tag «tracotanza», e non c'era piu' modo di accorgersene.)
 6. dio_invocato valorizzato SOLO con un destinatario esplicito; altrimenti null.
 7. La stessa azione deve produrre gli stessi tag ogni volta: la coerenza e' una feature.
+8. `world_action` descrive SOLO il tentativo, mai successo, eventi o cambi di stato. Per Ismaro usa soltanto questi ID: odysseus, crew, cicones_leader, cicones_warriors, prisoners; destinazioni ismaros_beach, ismaros_city, odysseus_ships, cicones_territory; risorse food, wine, weapons, goods. Fuori da Ismaro o se il mapping non e' sicuro usa null.
+9. Azioni sociali usano INFLUENCE con mode NEGOTIATE, PERSUADE, DECEIVE, THREATEN o FORM_ALLIANCE. Commercio bilaterale usa EXCHANGE; restituire prigionieri usa TRANSFER resource prisoners; una menzogna resta nel campo claim e non e' un fatto.

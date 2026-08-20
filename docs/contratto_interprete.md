@@ -106,3 +106,16 @@ Campi:
 5. **I tag si mettono sempre**, anche quando `plausibilita ≠ in_mondo`. A svuotarli, *se e solo se il rifiuto regge*, pensa `Validazione._respingi()`. Fino a v2.43 il prompt li chiedeva vuoti, e un'etichetta sbagliata portava via con sé anche le prove: una tracotanza classificata `anacronistico` tornava senza il tag `tracotanza`, e non c'era più modo di accorgersene a valle. Una regola del genere in un prompt è una preghiera; qui è codice.
 6. `dio_invocato` valorizzato **solo** con un destinatario esplicito; altrimenti `null`.
 7. La stessa azione deve produrre gli stessi tag a ogni turno: la coerenza è una feature, non un vezzo.
+
+
+## 5. Estensione Ciconi `world_action` (POC)
+
+Durante Ismaro l envelope puo includere `world_action`: una `StructuredAction action/1` che
+descrive soltanto il tentativo. Il bridge impone `actor_id = odysseus`, `action_id` e
+`expected_world_version`; l output LLM non puo scegliere l attore, l esito, gli eventi o
+una patch di stato. I soli campi ammessi sono `verb`, `mode`, `target_id`, `source_id`,
+`destination_id`, `resource`, `quantity`, `claim`, `offer`, `request` e `goal`. Campi
+ignoti vengono eliminati dalla normalizzazione canonica.
+
+Il Rule Engine decide `REJECTED|FAILURE|PARTIAL_SUCCESS|SUCCESS`. Fuori dal POC il campo
+resta `null` e il contratto legacy continua invariato.
