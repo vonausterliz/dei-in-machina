@@ -169,4 +169,3 @@ func test_leave_thirty_turns_and_return_recovers_alliance_debt_belief_and_causal
 	assert_true(state.get("events", []).size() >= 38)
 	for event in state.get("events", []):
 		assert_ne(String(event.get("caused_by", "")), "")
-

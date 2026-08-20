@@ -207,4 +207,3 @@ func test_flag_off_keeps_legacy_turn_path():
 	var result: Dictionary = await GameManager.esegui_turno("Entro a Ismaro")
 	assert_false(result.get("fsm_path", []).has("RULE_RESOLUTION"))
 	assert_eq(int(_state().get("world_version", -1)), before_version)
-
