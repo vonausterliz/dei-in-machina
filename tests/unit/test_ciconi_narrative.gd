@@ -3,6 +3,18 @@ extends GutTest
 ## Presentation-only guardrails: these tests intentionally use Dictionary fixtures so
 ## CiconiNarrative remains portable across the core's JSON-shaped contracts.
 
+class FakeCiconiChat:
+	var responses: Array = []
+	var calls := 0
+	var messages: Array = []
+	var options: Array = []
+	func chat(input_messages: Array, input_options: Dictionary) -> Dictionary:
+		messages.append(input_messages.duplicate(true))
+		options.append(input_options.duplicate(true))
+		var index := mini(calls, responses.size() - 1)
+		calls += 1
+		return responses[index] if index >= 0 else {"ok": false, "content": ""}
+
 func _event(event_id: String, event_type: String, actor: String, target: String,
 		observers: Array, payload: Dictionary = {}) -> Dictionary:
 	return {
@@ -54,6 +66,22 @@ func test_audience_views_share_version_but_filter_events_and_knowledge_by_source
 	assert_eq(crew["knowledge"].size(), 0, "crew must not learn the leader's secret")
 
 
+func test_brief_for_audience_excludes_invisible_events_and_private_records():
+	var events := [
+		_event("e-public", "TURN_WAITED", "odysseus", "", ["odysseus"]),
+		_event("e-secret", "BELIEF_CHANGED", "cicones_leader", "odysseus", ["cicones_leader"]),
+	]
+	var state := _world(events)
+	var brief := CiconiNarrative.brief(state, {"status": "SUCCESS", "state": {"must_not": "leak"}})
+	var view := CiconiNarrative.audience_view(brief, state, "player")
+	var filtered := CiconiNarrative.brief_for_audience(brief, view)
+	assert_eq(filtered.get("committed_events", []).size(), 1)
+	assert_eq(String(filtered["committed_events"][0].get("event_id", "")), "e-public")
+	assert_eq(filtered.get("relevant_world_state", {}).get("knowledge", []).size(), 0)
+	assert_eq(filtered.get("relevant_world_state", {}).get("beliefs", []).size(), 0)
+	assert_false(filtered.get("outcome", {}).has("state"), "authoritative state never enters a narrative projection")
+
+
 func test_brief_accepts_the_core_event_batch_dictionary():
 	var event := _event("e-batch", "TURN_WAITED", "odysseus", "", ["odysseus"])
 	var state := _world([])
@@ -79,6 +107,8 @@ func test_validate_requires_committed_facts_and_rejects_forbidden_invented_death
 	var invented := CiconiNarrative.validate({"text": "Un Cicone fu ucciso.", "claims": [
 		{"class": "CHARACTER_KILLED", "subject": "odysseus", "predicate": "killed", "object": "cicones_leader"}]}, b)
 	assert_false(invented["ok"])
+	var euphemistic_death := CiconiNarrative.validate({"text": "Il capo esalò l ultimo respiro.", "claims": b["required_claims"]}, b)
+	assert_false(euphemistic_death["ok"], "declared claims cannot hide an invented death in prose")
 
 
 func test_failed_narrator_retry_uses_deterministic_fallback_with_required_facts():
@@ -104,3 +134,71 @@ func test_all_presentation_projections_leave_world_state_unchanged():
 	CiconiNarrative.choose({"text": "", "claims": []}, {"text": "", "claims": []}, b)
 	assert_eq(state, before, "narrator, crew and olympus projections cannot mutate truth")
 	assert_eq(JSON.stringify(state, "", true), before_hash, "presentation cannot change the committed state hash")
+
+
+func _ok_json(candidate: Dictionary) -> Dictionary:
+	return {"ok": true, "content": JSON.stringify(candidate), "error": ""}
+
+
+func _wait_brief() -> Dictionary:
+	var state := _world([_event("e-narrate", "TURN_WAITED", "odysseus", "", ["odysseus", "crew", "olympus"])])
+	return CiconiNarrative.brief(state)
+
+
+func test_narratore_ciconi_accepts_valid_declared_facts_in_one_call():
+	var brief := _wait_brief()
+	var fake := FakeCiconiChat.new()
+	fake.responses = [_ok_json({"text": "Ulisse attese sulla riva.", "claims": brief["required_claims"]})]
+	var result := await Narratore.new([]).narra_ciconi(brief, fake.chat)
+	assert_eq(result["source"], "candidate")
+	assert_eq(fake.calls, 1)
+	assert_eq(result["text"], "Ulisse attese sulla riva.")
+
+
+func test_narratore_ciconi_retries_once_after_missing_or_contradictory_claims():
+	var brief := _wait_brief()
+	var fake := FakeCiconiChat.new()
+	fake.responses = [
+		_ok_json({"text": "Un Cicone fu ucciso.", "claims": [{"class": "CHARACTER_KILLED"}]}),
+		_ok_json({"text": "Ulisse attese sulla riva.", "claims": brief["required_claims"]}),
+	]
+	var result := await Narratore.new([]).narra_ciconi(brief, fake.chat)
+	assert_eq(result["source"], "retry")
+	assert_eq(fake.calls, 2)
+	assert_true(String(fake.messages[1][1]["content"]).contains("tentativo precedente"))
+
+
+func test_narratore_ciconi_two_invalid_answers_use_deterministic_fallback():
+	var brief := _wait_brief()
+	var fake := FakeCiconiChat.new()
+	fake.responses = [
+		_ok_json({"text": "Ulisse lascia la riva.", "claims": []}),
+		_ok_json({"text": "Un uomo cade.", "claims": []}),
+	]
+	var narrator := Narratore.new([])
+	var result := await narrator.narra_ciconi(brief, fake.chat)
+	assert_eq(result["source"], "fallback")
+	assert_eq(fake.calls, 2)
+	assert_eq(result["text"], CiconiNarrative.fallback(brief)["text"])
+
+
+func test_ciconi_prompt_includes_brief_and_forbids_new_facts():
+	var brief := _wait_brief()
+	var messages := Narratore.new([]).messaggi_ciconi(brief)
+	var prompt := String(messages[1]["content"])
+	assert_string_contains(prompt, "NARRATIVE_BRIEF")
+	assert_string_contains(prompt, JSON.stringify(brief))
+	assert_string_contains(prompt, "Non aggiungere morti, attacchi, partenze, oggetti o accordi")
+
+
+func test_narratore_ciconi_redacts_divine_name_without_mutating_world():
+	var brief := _wait_brief()
+	var before_hash := JSON.stringify(brief, "", true)
+	var fake := FakeCiconiChat.new()
+	fake.responses = [_ok_json({"text": "Atena veglia mentre Ulisse attende.", "claims": brief["required_claims"]})]
+	var narrator := Narratore.new(["Atena"])
+	var result := await narrator.narra_ciconi(brief, fake.chat)
+	assert_eq(fake.calls, 1)
+	assert_false(narrator.nomina_un_dio(result["text"]))
+	assert_string_contains(result["text"].to_lower(), "un dio")
+	assert_eq(JSON.stringify(brief, "", true), before_hash, "narration cannot mutate the brief/world projection")

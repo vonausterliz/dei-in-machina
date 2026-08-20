@@ -78,6 +78,13 @@ func test_round_trip_persists_only_authoritative_run_record() -> void:
 	assert_eq(loaded["record"]["schema"], "ciconi-run/1")
 	assert_eq(loaded["record"]["snapshot_hash"], run["record"]["snapshot_hash"])
 	assert_eq(loaded["record"]["event_batches"].size(), 36)
+	var replayed := Store.replay(loaded["record"])
+	assert_true(bool(replayed.get("ok", false)), String(replayed.get("reason", "")))
+	var noncanonical: Dictionary = loaded["record"].duplicate(true)
+	noncanonical["event_batches"][0]["action"]["events"] = [{"type": "CHARACTER_KILLED"}]
+	var canonical_check := Store.validate_record(noncanonical)
+	assert_false(bool(canonical_check.get("ok", false)))
+	assert_eq(String(canonical_check.get("reason", "")), "event_batch_action_is_not_canonical")
 
 
 func test_replay_after_thirty_plus_turns_matches_committed_snapshot_hash() -> void:
@@ -156,17 +163,15 @@ func test_loaded_snapshot_hash_rejects_tampered_world_state() -> void:
 	assert_ne(String(loaded.get("reason", "")).find("snapshot_hash_mismatch"), -1)
 
 
-func test_nested_presentation_fields_are_rejected_but_domain_audience_ids_are_allowed() -> void:
+func test_noncanonical_action_fields_are_rejected_even_without_presentation_words() -> void:
 	var world = World.new()
 	var state := world.initial_state()
 	var record := Store.new_record(Store.seed_id_for_path(), state)
-	var accepted := world.resolve(state, _action(state, "nested-presentation", "WAIT"))
+	var accepted := world.resolve(state, _action(state, "noncanonical-action", "WAIT"))
 	var stored := Store.append_outcome(record, accepted)
 	assert_true(stored["ok"])
 	record = stored["record"]
 	record["event_batches"][0]["action"]["parameters"] = {"crew": {"visible": true}, "olympus": {"visible": false}}
-	assert_true(Store.validate_record(record)["ok"])
-	record["event_batches"][0]["action"]["parameters"]["payload"] = {"narrative": "Falso fatto presentazionale."}
 	var checked := Store.validate_record(record)
 	assert_false(checked["ok"])
-	assert_eq(checked["reason"], "presentation_data_is_not_persistable")
+	assert_eq(checked["reason"], "event_batch_action_is_not_canonical")

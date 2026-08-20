@@ -11,6 +11,21 @@ func _action(state: Dictionary, id: String, actor: String, verb: String, extra: 
 func _resolve(world, state: Dictionary, id: String, actor: String, verb: String, extra: Dictionary = {}) -> Dictionary:
 	return world.resolve(state, _action(state, id, actor, verb, extra))
 
+func test_action_normalization_is_an_allowlist_not_a_world_patch_channel():
+	var normalized := CiconiContracts.normalized_action({"schema": "action/1", "action_id": "smuggle", "expected_world_version": 0, "actor_id": "odysseus", "verb": "WAIT", "events": [{"type": "CHARACTER_KILLED"}], "world_truth": {"fake": true}, "parameters": {"narrative": "invented"}})
+	assert_false(normalized.has("events"))
+	assert_false(normalized.has("world_truth"))
+	assert_false(normalized.has("parameters"))
+
+
+func test_json_round_trip_action_keeps_integer_contract_and_replays():
+	var state := CiconiWorld.initial_state()
+	var transported: Variant = JSON.parse_string(JSON.stringify(_action(state, "json-action", "odysseus", "WAIT")))
+	assert_true(transported is Dictionary)
+	var outcome := CiconiWorld.resolve(state, transported)
+	assert_true(bool(outcome.get("committed", false)), String(outcome.get("reason", "")))
+	assert_eq(String(outcome.get("status", "")), "SUCCESS")
+
 func test_rejects_dead_actor_and_stale_version_without_mutating_input():
 	var world = World.new()
 	var state := world.initial_state()
@@ -40,6 +55,13 @@ func test_remote_target_and_multiple_physical_parent_are_rejected():
 	assert_eq(remote["reason"], "remote_target_cannot_be_interacted_with")
 	state["entities"]["odysseus"]["parent_id"] = "ships"
 	assert_false(world.validate_state(state).is_empty())
+	state = world.initial_state()
+	var self_containment := _resolve(world, state, "self-containment", "odysseus", "TRANSFER", {"target_id": "prisoners", "resource": "prisoners", "quantity": 1})
+	assert_eq(self_containment["status"], "REJECTED")
+	assert_eq(self_containment["reason"], "entity_cannot_contain_itself")
+	state["entities"]["odysseus"]["location_id"] = ""
+	state["entities"]["odysseus"]["parent_id"] = "prisoners"
+	assert_true(world.validate_state(state).any(func(error): return String(error).contains("containment cycle")))
 
 func test_false_claim_is_belief_and_knowledge_not_world_truth():
 	var world = World.new()
@@ -66,6 +88,9 @@ func test_duplicate_action_is_idempotent_and_betrayal_breaks_alliance():
 	var duplicate := world.resolve(state, alliance_action)
 	assert_true(duplicate["idempotent"])
 	assert_eq(duplicate["state"]["world_version"], state["world_version"])
+	var collision := world.resolve(state, _action(state, "alliance", "odysseus", "WAIT"))
+	assert_eq(collision["status"], "REJECTED")
+	assert_eq(collision["reason"], "idempotency_key_reused")
 	var betrayal := _resolve(world, state, "betray", "odysseus", "ATTACK", {"target_id": "cicones_leader"})
 	var breached := false
 	for event in betrayal["events"]:
@@ -85,6 +110,12 @@ func test_prisoners_are_one_contained_entity_and_transfer_as_entity_not_resource
 	for event in returned["events"]:
 		transferred = transferred or event["type"] == "ENTITY_TRANSFERRED"
 	assert_true(transferred)
+	var untouched := world.initial_state()
+	untouched = _resolve(world, untouched, "arrive-prisoners-quantity", "odysseus", "MOVE", {"destination_id": "ismaros_city"})["state"]
+	var invalid_group_quantity := _resolve(world, untouched, "return-two-groups", "odysseus", "TRANSFER", {"target_id": "cicones_leader", "resource": "prisoners", "quantity": 2})
+	assert_eq(invalid_group_quantity["status"], "REJECTED")
+	assert_eq(invalid_group_quantity["reason"], "entity_quantity_must_be_one")
+	assert_eq(invalid_group_quantity["state"]["entities"]["prisoners"]["parent_id"], "odysseus")
 
 func test_move_requires_seeded_adjacency():
 	var world = World.new()
