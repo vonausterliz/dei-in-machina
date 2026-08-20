@@ -78,3 +78,16 @@ Relationship direzionale: trust, fear, respect, hostility, debt in [-100, 100].
   semplice consente il recupero dell'ultimo record valido.
 - `action_id` e `expected_world_version` restano i soli meccanismi di idempotenza/CAS del
   POC single-writer. Niente outbox, hash chain o snapshot rotation in questa milestone.
+
+
+## Stato verificato del POC (20 agosto 2026)
+
+- Semantic Gate: canonical, diplomatic, emergent e leave/return 30+ turni verdi.
+- Hardening: EventBatch persistenti, replay deterministico, idempotenza con collision check,
+  snapshot hash, save atomico logico e recovery da backup.
+- Boundary LLM: action allowlist, attore player imposto dal bridge, brief senza WorldState,
+  audience view filtrate e factual memory derivata esclusivamente dagli eventi.
+- Rollback: `ciconi_world_poc_enabled` e disattivato per default; i test verticali lo
+  abilitano esplicitamente. Nessun dual-write verso il legacy.
+- Limiti aperti: benchmark con LLM reale e validazione semantica generale delle parafrasi
+  narrative restano fuori dal POC; il fallback deterministico e sempre disponibile.

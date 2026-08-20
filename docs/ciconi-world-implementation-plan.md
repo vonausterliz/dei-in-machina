@@ -80,3 +80,13 @@ no golden update. Remove/bypass the isolated branch without touching legacy stat
 Decision tree mascherato da rules; optional fields incoerenti; prose contamination rimasta;
 test nuovi non raccolti da GUT; fixture troppo aderenti alle frasi; accidental canonical
 progression; concurrent edits a GameManager; framework creep.
+
+
+## Risultato delle wave
+
+Wave 0-5 completate. Il core Ciconi, le projection narrative, gli scenari, lo Store e il
+bridge GameManager sono implementati dietro feature flag. Le review hanno corretto actor
+injection, leakage Ciurma, snapshot nel prompt, collisioni idempotenti, action smuggling,
+containment ciclico e recovery semantico dal backup. Il gate finale richiede full GUT verde
+e `git diff --check`; i benchmark live-LLM restano una milestone separata prima di estendere
+il modello ad altri episodi.
