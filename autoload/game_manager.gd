@@ -85,7 +85,7 @@ var _ultima_narrazione: String = ""
 
 ## Strangler flag del solo slice Ismaro. Nei test legacy a mock resta spento finche'
 ## il test d integrazione non lo abilita esplicitamente; nel gioco reale e attivo.
-var ciconi_world_poc_enabled := false
+var ciconi_world_poc_enabled := true
 var _ciconi_world_poc_in_mock := false
 
 func _ready() -> void:

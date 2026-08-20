@@ -87,7 +87,7 @@ Relationship direzionale: trust, fear, respect, hostility, debt in [-100, 100].
   snapshot hash, save atomico logico e recovery da backup.
 - Boundary LLM: action allowlist, attore player imposto dal bridge, brief senza WorldState,
   audience view filtrate e factual memory derivata esclusivamente dagli eventi.
-- Rollback: `ciconi_world_poc_enabled` e disattivato per default; i test verticali lo
-  abilitano esplicitamente. Nessun dual-write verso il legacy.
+- Attivazione: `ciconi_world_poc_enabled` e attivo per default dal 21 agosto 2026; resta
+  disattivabile immediatamente tramite feature flag. Nessun dual-write verso il legacy.
 - Limiti aperti: benchmark con LLM reale e validazione semantica generale delle parafrasi
   narrative restano fuori dal POC; il fallback deterministico e sempre disponibile.
