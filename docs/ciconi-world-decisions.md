@@ -65,3 +65,16 @@ Relationship direzionale: trust, fear, respect, hostility, debt in [-100, 100].
 - Mapping live-LLM delle StructuredAction va benchmarkato; il Semantic Gate usa fixture/mock.
 - Safe streaming è differito; il testo viene validato prima del rilascio.
 - Estensione globale e porting Python richiedono decisione post-POC.
+
+## Hardening stabilizzato dopo il Semantic Gate
+
+- Il record persistente minimo e' `ciconi-run/1`: seed id, snapshot committed ed elenco
+  ordinato di `EventBatch`; non e' un framework di event sourcing.
+- Ogni `EventBatch` persiste la `StructuredAction` completa, cosi' il replay non richiama
+  LLM e non dipende dalla prosa.
+- Il replay riparte dal seed, risolve le azioni in ordine e verifica versione, status,
+  eventi e hash finale. Nessuna proiezione narrativa entra nel record.
+- Il salvataggio usa file temporaneo, flush e rename nella stessa directory; un backup
+  semplice consente il recupero dell'ultimo record valido.
+- `action_id` e `expected_world_version` restano i soli meccanismi di idempotenza/CAS del
+  POC single-writer. Niente outbox, hash chain o snapshot rotation in questa milestone.
